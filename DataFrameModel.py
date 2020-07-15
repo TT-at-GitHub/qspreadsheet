@@ -178,3 +178,5 @@ if __name__ == "__main__":
     main.show()
     main.resize(800, 600)
     sys.exit(app.exec_())
+
+    

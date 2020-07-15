@@ -52,14 +52,14 @@ class myWindow(QtWidgets.QMainWindow):
         self.comboBox.setCurrentIndex(self.logicalIndex)
         self.comboBox.blockSignals(True)
 
-        valuesUnique = [    self.model.item(row, self.logicalIndex).text()
+        valuesUnique = list(set([self.model.item(row, self.logicalIndex).text()
                             for row in range(self.model.rowCount())
-                            ]
+                            ]))
         actionAll = QtWidgets.QAction("All", self)
         actionAll.triggered.connect(self.on_actionAll_triggered)
         self.menuValues.addAction(actionAll)
         self.menuValues.addSeparator()
-        for actionNumber, actionName in enumerate(sorted(list(set(valuesUnique)))):
+        for actionNumber, actionName in enumerate(sorted(valuesUnique)):
             action = QtWidgets.QAction(actionName, self)
             self.signalMapper.setMapping(action, actionNumber)
             action.triggered.connect(self.signalMapper.map)

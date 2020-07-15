@@ -6,24 +6,48 @@ from PyQt5.QtWidgets import QHeaderView, QWidget
 COL_1, COL_2 = range(2)
 VERTICAL_MARGIN = 2
 
+
+class ColumnHeaderWidget(QWidget):
+
+    def __init__(self, labelText="", parent=None):
+        super(ColumnHeaderWidget, self).__init__(parent)
+        self.label = QtWidgets.QLabel(labelText)
+        self.button = QtWidgets.QPushButton('..')
+        self.label.setBuddy(self.button)
+        
+        # size policy
+        sp_left = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        sp_left.setHorizontalStretch(4)
+        sp_right = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sp_right.setHorizontalStretch(1)
+        self.label.setSizePolicy(sp_left)
+        self.button.setSizePolicy(sp_right)
+        
+        self.button.setMinimumWidth(25)
+        self.button.setMaximumWidth(30)
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(self.label)
+        layout.addWidget(self.button)
+        
+        self.setLayout(layout)
+
+
 class MyHeaderView(QtWidgets.QHeaderView):
     
     def __init__(self, parent=None) -> None:
         super().__init__(QtCore.Qt.Horizontal, parent)
-        self.column1 = QtWidgets.QLineEdit(self)
-        self.column2 = QtWidgets.QComboBox(self)
-
+        self.column1 = ColumnHeaderWidget('test1')
+        self.column2 = ColumnHeaderWidget('test2')
+        
         # compute once and for all the height of our filter row
         self._filter_height = max(
             self.column1.sizeHint().height(),
             self.column2.sizeHint().height())
 
-        self.sectionResized.connect(self._onSectionResized)
+        self.sectionResized.connect(self.on_sectionResized)
 
-        self.column1.setText('test1')
-        self.column2.addItem('All')
-        self.column2.addItem('1')
-        self.column2.addItem('2')
+        self.column1.setText('filter text')
+
 
     def filter_widget(self, logicalIndex) -> QWidget:
         if logicalIndex == COL_1:
@@ -72,7 +96,8 @@ class MyHeaderView(QtWidgets.QHeaderView):
             
         self._repositionFilterRow(start, end)        
 
-    def _onSectionResized(self, logicalIndex, oldSize, newSize):
+    
+    def on_sectionResized(self, logicalIndex, oldSize, newSize):
         vg = self.viewport().geometry()
         start = self.visualIndex(logicalIndex)
         end = self.visualIndexAt(vg.right())
@@ -99,7 +124,7 @@ class MyModel(QtCore.QAbstractTableModel):
         QtCore.QAbstractTableModel.__init__(self, parent=parent)
 
     def rowCount(self, parent: QtCore.QModelIndex) -> int:
-        return 3
+        return 30
 
     def columnCount(self, parent: QtCore.QModelIndex) -> int:
         return 2
