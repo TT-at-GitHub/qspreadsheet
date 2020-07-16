@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import (QApplication, QDialog
     , QTableWidgetItem, QLabel, QPushButton, QHBoxLayout
     , QVBoxLayout
     , QGridLayout, QBoxLayout, QSizePolicy)
-from PyQt5.QtCore import Qt, QModelIndex, QSize
-from PyQt5.QtGui import QShowEvent, QColor
+from PyQt5.QtCore import Qt, QModelIndex, QSize, QRect
+from PyQt5.QtGui import (QShowEvent, QColor, QPixmap
+    , QIcon, QFont, QTransform, QPalette)
 
 
 class ColumnHeaderWidget(QWidget):
@@ -17,7 +18,20 @@ class ColumnHeaderWidget(QWidget):
 
         self.button = QPushButton('..')
         self.label.setBuddy(self.button)
-        
+
+        font = QFont()
+        font.setFamily("Consolas")
+        font.setPointSize(10)
+        self.label.setFont(font)
+        self.button.setFont(font)
+
+        pixmap = QPixmap("./images/next.png")
+        transform = QTransform()
+        transform.rotate(-90)
+        pixmap = pixmap.transformed(transform)
+        icon = QIcon(pixmap)
+        self.button.setIcon(icon)
+         
         # # size policy
         # sp_left = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         # sp_left.setHorizontalStretch(4)
@@ -25,7 +39,7 @@ class ColumnHeaderWidget(QWidget):
         # sp_right.setHorizontalStretch(1)
         # self.label.setSizePolicy(sp_left)
         # self.button.setSizePolicy(sp_right)
-        
+        self.backgroundRole(QPa)
         self.label.setFixedHeight(20)
         self.button.setFixedSize(QSize(25, 20))
 
@@ -36,15 +50,15 @@ class ColumnHeaderWidget(QWidget):
         self.setLayout(layout)
         self.setMinimumHeight(25)
 
-# app  = QApplication(sys.argv)
-# dlg = QDialog()
-# lay = QVBoxLayout()
-# col = ColumnHeaderWidget('header1')
-# lay.addWidget(col)
-# dlg.setLayout(lay)
+app  = QApplication(sys.argv)
+dlg = QDialog()
+lay = QVBoxLayout()
+col = ColumnHeaderWidget('header1')
+lay.addWidget(col)
+dlg.setLayout(lay)
 
-# dlg.show()
-# sys.exit(app.exec_())
+dlg.show()
+sys.exit(app.exec_())
 
 class Margins():
 
@@ -120,11 +134,11 @@ class CustomTableHeader(QHeaderView):
     def fix_combo_positions(self):
         for i in range(self.count()):
             header = self.headers[i]
-            header.w.setGeometry(
-                self.sectionViewportPosition(i) + header.margins.left,
+            rect = QRect(self.sectionViewportPosition(i) + header.margins.left,
                 header.margins.top,
                 self.sectionSize(i) - header.margins.left - header.margins.right -1,
                 self.height() - header.margins.top - header.margins.bottom - 1)
+            header.w.setGeometry(rect)
 
     def set_item_widget(self, index: int, widget: QWidget):
         widget.setParent(self)
