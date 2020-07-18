@@ -48,7 +48,6 @@ class MyHeaderView(QtWidgets.QHeaderView):
 
         self.column1.setText('filter text')
 
-
     def filter_widget(self, logicalIndex) -> QWidget:
         if logicalIndex == COL_1:
             return self.column1
@@ -95,7 +94,6 @@ class MyHeaderView(QtWidgets.QHeaderView):
             end = self.count() -1
             
         self._repositionFilterRow(start, end)        
-
     
     def on_sectionResized(self, logicalIndex, oldSize, newSize):
         vg = self.viewport().geometry()
@@ -136,20 +134,7 @@ class MyModel(QtCore.QAbstractTableModel):
         return QtCore.QVariant()
 
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int) -> typing.Any:
-        # if orientation == QtCore.Qt.Horizontal:
-        #     orientation << "(HORIZONTAL)"
-        # else:
-        #     orientation << "(N/A)"
-
-        # orientation << ",\nrole" << role
-
-        # if role == QtCore.Qt.DisplayRole:
-        #     orientation << "(DisplayRole)"
-        # else:
-        #     orientation << "(N/A)"
-        
-        # orientation << "\n"
-        
+            
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole and section >= 0:
             names = ['test1', 'test2']
             return names[section]
