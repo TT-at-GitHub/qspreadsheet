@@ -1,63 +1,63 @@
-import sys
-import os
+import sys, os
+import typing
+
+import numpy as np 
+import pandas as pd 
+
 import PySide2
 
-dirname = os.path.dirname(PySide2.__file__)
-plugin_path = os.path.join(dirname, 'plugins', 'platforms')
+plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
-from PySide2.QtWidgets import (QTableWidget, QApplication,
-                               QMainWindow, QTableWidgetItem)
+from PySide2.QtWidgets import *
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+
+from header import HeaderItem, ColumnHeaderWidget, CustomHeaderView
+
+class MyTableModel(QAbstractTableModel):
+
+    def __init__(self, df: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
+        QAbstractTableModel.__init__(self, parent=parent)
+        self.df = df
+        self.header_model = header_model
 
 
-class Table(QTableWidget):
-
-    def __init__(self, rows, columns, data=None, headers=None, parent=None):
-        super().__init__(rows, columns, parent)
-        self.data = data
-        self.headers = None
-        self.update_headers(headers)
-        self.setup_ui()
-        self.setup_signals()
-
-    def setup_ui(self):
-        self.setMinimumWidth(720)
-        self.setMinimumHeight(480)
-        
-    def setup_signals(self):
-        self.cellChanged.connect(self.on_cellChanged)
-
-    def update_headers(self, headers):
-        self.headers = headers
-        if self.headers is None:
-            return
-        
-        self.setHorizontalHeaderLabels(self.headers)
-
-    def on_cellChanged(self):
-        row = self.currentRow()
-        col = self.currentColumn()
-        val = self.item(row, col).text()
-        
-        print(f'cellChanged: Cell({row}, {col}).value = {val}')
-        
-    def set_data(self, data):
-        self.data = data
-
-    def set_headers(self, headers):
-        self.update_headers(headers)
+    def rowCount(self, parent: QModelIndex) -> int:
+        return self.df.index.size
 
 
-class Sheet(QMainWindow):
+    def columnCount(self, parent: QModelIndex) -> int:
+        return self.df.columns.size
 
-    def __init__(self, table: QTableWidget, parent=None):
-        super().__init__(parent)
-        self.table = table
-        self.setCentralWidget(table)
+
+    def data(self, index: QModelIndex, role: int) -> typing.Any:
+        if role == Qt.DisplayRole:
+            return index.row() * self.columnCount(QModelIndex()) + index.column()
+        return None
+
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> typing.Any:
+
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole and section >= 0:
+            if len(self.header_model.headers) -1 < section:
+                self.header_model.create_header_item(self.df.columns[section])
+            return self.header_model.headers[section]
+        return None
 
 
 if __name__ == "__main__":
+    rng = np.random.RandomState(42)
+    df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['A', 'B', 'C', 'D'])
+
     app = QApplication(sys.argv)
-    sheet = Sheet(table=Table(rows=10, columns=5, headers=['A', 'B', 'C', 'D', 'E']))
-    sheet.show()
+    table = QTableView()
+    header_model = CustomHeaderView()
+
+    model = MyTableModel(df=df, header_model=header_model)
+    table.setModel(model)
+    table.setHorizontalHeader(header_model)
+
+    table.setMinimumSize(600, 450)
+    table.show()
     sys.exit(app.exec_())
