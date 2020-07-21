@@ -35,15 +35,21 @@ class DataFrameTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int) -> typing.Any:
         if role == Qt.DisplayRole:
-            return int(self._data.iloc[index.row(), index.column()])
+            return float(self._data.iloc[index.row(), index.column()])
 
         return None
+
+
+    def flags(self, index):
+        if not index.isValid():
+            return Qt.ItemIsEnabled
+        return Qt.ItemFlags(QAbstractTableModel.flags(self, index)|
+                            Qt.ItemIsEditable)
 
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
         if index.isValid() and 0 <= index.row() < self._data.shape[0]:
 
-            column = index.column()
             self._data.iloc[index.row(), index.column()] = float(value)
             self.dirty = True
 
@@ -75,7 +81,7 @@ class MainWindow(QMainWindow):
         self.table = table
         self.setCentralWidget(self.table)
         self.setMinimumSize(QSize(600, 400))
-
+        
 
 if __name__ == "__main__":
     rng = np.random.RandomState(42)
