@@ -1,3 +1,4 @@
+from custom_headers_abc_model import mock_df
 import sys, os
 import typing
 
@@ -15,35 +16,65 @@ from PySide2.QtGui import *
 
 from header import HeaderItem, ColumnHeaderWidget, CustomHeaderView
 
-class MyTableModel(QAbstractTableModel):
 
-    def __init__(self, df: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
+class DataFrameTableModel(QAbstractTableModel):
+
+    def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
-        self.df = df
+        self._data = data.copy()
         self.header_model = header_model
 
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self.df.index.size
+        return self._data.index.size
 
 
     def columnCount(self, parent: QModelIndex) -> int:
-        return self.df.columns.size
+        return self._data.columns.size
 
 
     def data(self, index: QModelIndex, role: int) -> typing.Any:
         if role == Qt.DisplayRole:
-            return index.row() * self.columnCount(QModelIndex()) + index.column()
+            return int(self._data.iloc[index.row(), index.column()])
+
         return None
+
+
+    def setData(self, index: QModelIndex, value, role=Qt.EditRole):
+        if index.isValid() and 0 <= index.row() < self._data.shape[0]:
+
+            column = index.column()
+            self._data.iloc[index.row(), index.column()] = float(value)
+            self.dirty = True
+
+            self.dataChanged.emit(index, index)
+            return True
+        return False
 
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> typing.Any:
+        if section < 0:
+            print('section: {}'.format(section))
 
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole and section >= 0:
-            if len(self.header_model.headers) -1 < section:
-                self.header_model.create_header_item(self.df.columns[section])
-            return self.header_model.headers[section]
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                if len(self.header_model.headers) -1 < section:
+                    self.header_model.create_header_item(self._data.columns[section])
+                return self.header_model.headers[section]
+            if orientation == Qt.Vertical:
+                return str(self._data.index[section])
+            
         return None
+
+
+class MainWindow(QMainWindow):
+
+    def __init__(self, table):
+        super().__init__()
+
+        self.table = table
+        self.setCentralWidget(self.table)
+        self.setMinimumSize(QSize(600, 400))
 
 
 if __name__ == "__main__":
@@ -52,12 +83,13 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     table = QTableView()
+    
     header_model = CustomHeaderView()
-
-    model = MyTableModel(df=df, header_model=header_model)
-    table.setModel(model)
+    model = DataFrameTableModel(data=df, header_model=header_model)
     table.setHorizontalHeader(header_model)
+    table.setModel(model)
 
-    table.setMinimumSize(600, 450)
-    table.show()
+    window = MainWindow(table)
+    # table.setMinimumSize(600, 450)
+    window.show()
     sys.exit(app.exec_())

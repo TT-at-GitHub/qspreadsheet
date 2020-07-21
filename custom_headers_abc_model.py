@@ -32,6 +32,7 @@ class MyTableModel(QAbstractTableModel):
             
             val = df.iat[index.row(), index.column()]
             print((index.row(), index.column()), ':', val, type(val))
+
             return int(val)
 
         return None
