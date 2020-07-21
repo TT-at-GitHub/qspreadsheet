@@ -23,6 +23,18 @@ class DataFrameTableModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self._data = data.copy()
         self.header_model = header_model
+        for i, name in enumerate(self._data.columns):
+            self.setHeaderData(i, Qt.Orientation.Horizontal, name, Qt.DisplayRole)
+
+
+    def setHeaderData(self, section: int, orientation: Qt.Orientation, value: typing.Any, role: int) -> bool:
+        
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            self.header_model.create_header_item(value)
+        elif orientation == Qt.Vertical:
+            super().setHeaderData(section, orientation, value, role)
+
+        return True
 
 
     def rowCount(self, parent: QModelIndex) -> int:
@@ -64,8 +76,8 @@ class DataFrameTableModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                if len(self.header_model.headers) -1 < section:
-                    self.header_model.create_header_item(self._data.columns[section])
+                # if len(self.header_model.headers) -1 < section:
+                #     self.header_model.create_header_item(self._data.columns[section])
                 return self.header_model.headers[section]
             if orientation == Qt.Vertical:
                 return str(self._data.index[section])
