@@ -13,27 +13,28 @@ class ColumnHeaderWidget(QWidget):
         self.button = QPushButton('', parent)
         self.button.setIconSize(QSize(12, 12))
         self.label.setBuddy(self.button)
+        self.label.setWordWrap(True)
+        self.label.setStyleSheet('''
+            color: white;
+            font: bold 14px 'Consolas';
+        ''')
 
-        font = QFont()
-        font.setFamily("Consolas")
-        font.setPointSize(10)
-        self.label.setFont(font)
-        self.button.setFont(font)
         self.button.setFixedSize(QSize(25, 20))
         icon = QIcon((QPixmap("./images/next.svg")
                     .transformed(QTransform().rotate(90))))
         self.button.setIcon(icon)
 
-        layout = QHBoxLayout()
-        layout.addWidget(self.label, 4, Qt.AlignJustify)
-        layout.addWidget(self.button, 1, Qt.AlignRight)
+        layout = QGridLayout()
+        layout.addWidget(self.label, 0, 0, 1, 2, Qt.AlignJustify)
+        layout.addWidget(self.button, 0, 1, 1, 1, Qt.AlignRight)
         self.setLayout(layout)
-        self.setMinimumHeight(20)
+        self.setMinimumHeight(30)
+
 
 
 class HeaderItem():
 
-    def __init__(self, widget=None, margins=None):
+    def __init__(self, widget: QWidget=None, margins: QMargins=None):
         self.widget = widget
         self.margins = margins
 
@@ -48,6 +49,23 @@ class CustomHeaderView(QHeaderView):
         self.headers = []
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
+        self.setStyleSheet('''
+            QHeaderView::section {
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 #5dade2, stop: 0.5 #3498db,
+                                            stop: 0.6 #3498db, stop:1 #21618c);
+                color: white;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                padding-left: 4px;
+                padding-right: 4px;
+                border: 1px solid #21618c;
+                
+            /* 
+                margin-left: 2px;
+                margin-right: 2px;
+            */
+            }''')
 
 
     def showEvent(self, e: QShowEvent):
@@ -62,7 +80,6 @@ class CustomHeaderView(QHeaderView):
     def sizeHint(self) -> QSize:
         # insert space for our filter row
         super_sz_h = super().sizeHint()
-
         return QSize(super_sz_h.width(),
             super_sz_h.height() + 5)
 
@@ -70,16 +87,16 @@ class CustomHeaderView(QHeaderView):
     def on_section_resized(self, i):
         for ndx in range(i, len(self.headers)):
             logical = self.logicalIndex(ndx)
-            
+
             header = self.headers[logical]
             self._set_item_geometry(header, logical)
 
 
     def _set_item_geometry(self, item: HeaderItem, logical:int):
         item.widget.setGeometry(
-            self.sectionViewportPosition(logical), 0,
-            self.sectionSize(logical) - 5, self.height())
-
+            self.sectionViewportPosition(logical), -2,
+            self.sectionSize(logical) - item.margins.left() - item.margins.right(),
+            self.height() + item.margins.top() + item.margins.bottom() + 5)
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):

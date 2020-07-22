@@ -14,7 +14,7 @@ from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 
-from header import HeaderItem, ColumnHeaderWidget, CustomHeaderView
+from header import CustomHeaderView
 
 
 
@@ -34,6 +34,9 @@ class DataFrameItemDelegate(QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
+        editor.setStyleSheet("""
+            background-color:#fffd99
+        """)
         editor.returnPressed.connect(self.commitAndCloseEditor)
         return editor
         # else:
@@ -137,14 +140,18 @@ class MainWindow(QMainWindow):
     def __init__(self, table):
         super().__init__()
 
-        self.table = table
-        self.setCentralWidget(self.table)
+        w = QWidget()
+        self.setCentralWidget(w)
+        layout = QVBoxLayout(w)
+        layout.addWidget(table)
+        
         self.setMinimumSize(QSize(600, 400))
+        self.setWindowTitle("Table View")
         
 
 if __name__ == "__main__":
     rng = np.random.RandomState(42)
-    df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['A', 'B', 'C', 'D'])
+    df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
 
     app = QApplication(sys.argv)
     table = QTableView()
@@ -152,12 +159,16 @@ if __name__ == "__main__":
     header_model = CustomHeaderView()
     model = DataFrameTableModel(data=df, header_model=header_model)
     table.setHorizontalHeader(header_model)
+    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setMinimumSectionSize(100)
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+    table.horizontalHeader().resizeSections(QHeaderView.Stretch)
     table.setModel(model)
 
     item_delegete = DataFrameItemDelegate()
     table.setItemDelegate(item_delegete)
 
     window = MainWindow(table)
-    # table.setMinimumSize(600, 450)
+    table.setMinimumSize(600, 450)
     window.show()
     sys.exit(app.exec_())
