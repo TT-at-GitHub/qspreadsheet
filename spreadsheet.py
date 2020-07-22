@@ -21,7 +21,7 @@ from header import HeaderItem, ColumnHeaderWidget, CustomHeaderView
 class DataFrameItemDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent)
+        super(DataFrameItemDelegate, self).__init__(parent)
 
 
     def paint(self, painter, option, index):

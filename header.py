@@ -9,8 +9,8 @@ class ColumnHeaderWidget(QWidget):
 
     def __init__(self, labelText="", parent=None):
         super(ColumnHeaderWidget, self).__init__(parent)
-        self.label = QLabel(labelText)
-        self.button = QPushButton('')
+        self.label = QLabel(labelText, parent)
+        self.button = QPushButton('', parent)
         self.button.setIconSize(QSize(12, 12))
         self.label.setBuddy(self.button)
 
@@ -53,7 +53,7 @@ class CustomHeaderView(QHeaderView):
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
             header.widget.setParent(self)
-            self._set_item_geometry(self.headers[i], i)
+            self._set_item_geometry(header, i)
             header.widget.show()
 
         super().showEvent(e)
@@ -68,16 +68,17 @@ class CustomHeaderView(QHeaderView):
 
 
     def on_section_resized(self, i):
-        headers = self.headers[i:]
-        for ndx, header in enumerate(headers):
+        for ndx in range(i, len(self.headers)):
             logical = self.logicalIndex(ndx)
-            self._set_item_geometry(self.headers[logical], logical)
+            
+            header = self.headers[logical]
+            self._set_item_geometry(header, logical)
 
 
-    def _set_item_geometry(self, item: HeaderItem, ndx: int):
+    def _set_item_geometry(self, item: HeaderItem, logical:int):
         item.widget.setGeometry(
-            self.sectionViewportPosition(ndx), 0,
-            self.sectionSize(ndx) - 5, self.height())
+            self.sectionViewportPosition(logical), 0,
+            self.sectionSize(logical) - 5, self.height())
 
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
