@@ -64,22 +64,11 @@ class DataFrameItemDelegate(QStyledItemDelegate):
 
 class DataFrameTableModel(QAbstractTableModel):
 
-    def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
+    def __init__(self, data: pd.DataFrame, headers: list, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self._data = data.copy()
-        self.header_model = header_model
-        for i, name in enumerate(self._data.columns):
-            self.setHeaderData(i, Qt.Orientation.Horizontal, name, Qt.DisplayRole)
-
-
-    def setHeaderData(self, section: int, orientation: Qt.Orientation, value: typing.Any, role: int) -> bool:
-        
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            self.header_model.create_header_item(value)
-        elif orientation == Qt.Vertical:
-            super().setHeaderData(section, orientation, value, role)
-
-        return True
+        self._headers = headers
+        self.dirty = False
 
 
     def rowCount(self, parent: QModelIndex) -> int:
@@ -129,9 +118,10 @@ class DataFrameTableModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return self.header_model.headers[section]
+                return self._headers[section]
             if orientation == Qt.Vertical:
                 return str(self._data.index[section])
+
         return None
 
 
@@ -150,14 +140,16 @@ class MainWindow(QMainWindow):
         
 
 if __name__ == "__main__":
+
+    app = QApplication(sys.argv)
+    
     rng = np.random.RandomState(42)
     df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
 
-    app = QApplication(sys.argv)
+    header_model = CustomHeaderView(columns=df.columns.tolist())
+    model = DataFrameTableModel(data=df, headers=header_model.headers)
+
     table = QTableView()
-    
-    header_model = CustomHeaderView()
-    model = DataFrameTableModel(data=df, header_model=header_model)
     table.setHorizontalHeader(header_model)
     table.horizontalHeader().setStretchLastSection(True)
     table.horizontalHeader().setMinimumSectionSize(100)

@@ -44,9 +44,13 @@ class HeaderItem():
 
 class CustomHeaderView(QHeaderView):
 
-    def __init__(self, parent=None):
+    def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
+        
         self.headers = []
+        for name in columns:
+            self.headers.append(HeaderItem(widget=ColumnHeaderWidget(labelText=name)))
+            
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
         self.setStyleSheet('''
@@ -125,11 +129,6 @@ class CustomHeaderView(QHeaderView):
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
-
-
-    def create_header_item(self, name):
-        header = HeaderItem(widget=ColumnHeaderWidget(labelText=name))
-        self.headers.append(header)
 
 
 if __name__ == "__main__":
