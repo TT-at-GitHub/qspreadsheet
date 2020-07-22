@@ -31,7 +31,6 @@ class ColumnHeaderWidget(QWidget):
         self.setMinimumHeight(30)
 
 
-
 class HeaderItem():
 
     def __init__(self, widget: QWidget=None, margins: QMargins=None):
@@ -84,7 +83,7 @@ class CustomHeaderView(QHeaderView):
     def sizeHint(self) -> QSize:
         # insert space for our filter row
         super_sz_h = super().sizeHint()
-        return QSize(super_sz_h.width(),
+        return QSize(super_sz_h.width() + 5,
             super_sz_h.height() + 5)
 
 
@@ -98,7 +97,7 @@ class CustomHeaderView(QHeaderView):
 
     def _set_item_geometry(self, item: HeaderItem, logical:int):
         item.widget.setGeometry(
-            self.sectionViewportPosition(logical), -2,
+            self.sectionViewportPosition(logical), -4,
             self.sectionSize(logical) - item.margins.left() - item.margins.right(),
             self.height() + item.margins.top() + item.margins.bottom() + 5)
 
