@@ -17,6 +17,48 @@ from PySide2.QtGui import *
 from header import HeaderItem, ColumnHeaderWidget, CustomHeaderView
 
 
+
+class DataFrameItemDelegate(QStyledItemDelegate):
+
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent)
+
+
+    def paint(self, painter, option, index):
+        QStyledItemDelegate.paint(self, painter, option, index)
+
+
+    def sizeHint(self, option, index):
+        return QStyledItemDelegate.sizeHint(self, option, index)
+
+
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        editor.returnPressed.connect(self.commitAndCloseEditor)
+        return editor
+        # else:
+        #     return QStyledItemDelegate.createEditor(self, parent, option, index)
+
+
+    def commitAndCloseEditor(self):
+        editor = self.sender()
+        # if isinstance(editor, (QTextEdit, QLineEdit)):
+        self.commitData.emit(editor)
+        self.closeEditor.emit(editor)
+
+
+    def setEditorData(self, editor, index):
+        text = index.model().data(index, Qt.DisplayRole)
+        editor.setText(text)
+        # else:
+            # QStyledItemDelegate.setEditorData(self, editor, index)
+
+
+    def setModelData(self, editor, model, index):
+        QStyledItemDelegate.setModelData(self, editor, model, index)
+
+
+
 class DataFrameTableModel(QAbstractTableModel):
 
     def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
@@ -47,7 +89,7 @@ class DataFrameTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int) -> typing.Any:
         if role == Qt.DisplayRole:
-            return float(self._data.iloc[index.row(), index.column()])
+            return str(self._data.iloc[index.row(), index.column()])
 
         return None
 
@@ -61,8 +103,16 @@ class DataFrameTableModel(QAbstractTableModel):
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
         if index.isValid() and 0 <= index.row() < self._data.shape[0]:
+            if not value:
+                self._data.iloc[index.row(), index.column()] = np.nan
+            else:
+                try:
+                    number = pd.to_numeric(value)
+                except :
+                    self._data.iloc[index.row(), index.column()] = str(value)
+                else:
+                    self._data.iloc[index.row(), index.column()] = number
 
-            self._data.iloc[index.row(), index.column()] = float(value)
             self.dirty = True
 
             self.dataChanged.emit(index, index)
@@ -76,12 +126,9 @@ class DataFrameTableModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                # if len(self.header_model.headers) -1 < section:
-                #     self.header_model.create_header_item(self._data.columns[section])
                 return self.header_model.headers[section]
             if orientation == Qt.Vertical:
                 return str(self._data.index[section])
-            
         return None
 
 
@@ -106,6 +153,9 @@ if __name__ == "__main__":
     model = DataFrameTableModel(data=df, header_model=header_model)
     table.setHorizontalHeader(header_model)
     table.setModel(model)
+
+    item_delegete = DataFrameItemDelegate()
+    table.setItemDelegate(item_delegete)
 
     window = MainWindow(table)
     # table.setMinimumSize(600, 450)
