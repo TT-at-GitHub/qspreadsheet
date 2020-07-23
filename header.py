@@ -43,13 +43,21 @@ class HeaderItem():
 
 class CustomHeaderView(QHeaderView):
 
+    class Signals(QObject):
+        filter_clicked = Signal(str)
+
     def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
         
         self.headers = []
+        self.signals = CustomHeaderView.Signals()
+        
         for name in columns:
-            self.headers.append(HeaderItem(widget=ColumnHeaderWidget(labelText=name)))
-            
+            header_widget = ColumnHeaderWidget(labelText=name, parent=self)
+            header = HeaderItem(widget=header_widget)
+            header_widget.button.clicked.connect(self.filter_button_clicked)
+            self.headers.append(header)
+
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
         self.setStyleSheet('''
@@ -69,6 +77,11 @@ class CustomHeaderView(QHeaderView):
                 margin-right: 2px;
             */
             }''')
+
+
+    def filter_button_clicked(self):
+        name = self.sender().parent().label.text()
+        self.signals.filter_clicked.emit(name)
 
 
     def showEvent(self, e: QShowEvent):

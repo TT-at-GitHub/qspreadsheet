@@ -7,7 +7,7 @@ import pandas as pd
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from PySide2.QtGui import *
-
+from header import CustomHeaderView
 
 class DataFrameItemDelegate(QStyledItemDelegate):
 
@@ -54,10 +54,11 @@ class DataFrameItemDelegate(QStyledItemDelegate):
 
 class DataFrameTableModel(QAbstractTableModel):
 
-    def __init__(self, data: pd.DataFrame, headers: list, parent=None) -> None:
+    def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self._data = data.copy()
-        self._headers = headers
+        self._headers = header_model.headers
+        header_model.signals.filter_clicked.connect(self.filter_clicked)
         self.dirty = False
 
 
@@ -113,3 +114,7 @@ class DataFrameTableModel(QAbstractTableModel):
                 return str(self._data.index[section])
 
         return None
+
+
+    def filter_clicked(self, name):
+        print(name)

@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         
         self.setMinimumSize(QSize(600, 400))
         self.setWindowTitle("Table View")
-        
+
 
 if __name__ == "__main__":
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
 
     header_model = CustomHeaderView(columns=df.columns.tolist())
-    model = DataFrameTableModel(data=df, headers=header_model.headers)
+    model = DataFrameTableModel(data=df, header_model=header_model)
 
     table = QTableView()
     table.setHorizontalHeader(header_model)
