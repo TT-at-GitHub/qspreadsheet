@@ -57,10 +57,10 @@ class DataFrameTableModel(QAbstractTableModel):
     def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self._data = data.copy()
-        self._headers = header_model.headers
+        self._header_model = header_model
         header_model.signals.filter_clicked.connect(self.filter_clicked)
         self.dirty = False
-
+        
 
     def rowCount(self, parent: QModelIndex) -> int:
         return self._data.index.size
@@ -109,12 +109,22 @@ class DataFrameTableModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
-                return self._headers[section]
+                return self._header_model.headers[section]
             if orientation == Qt.Vertical:
                 return str(self._data.index[section])
 
         return None
 
+    
+    def on_horizontal_scroll(self, dx: int):
+        self._header_model.fix_item_positions()
 
+
+    def on_vertical_scroll(self, dy: int):
+        pass
+
+        
     def filter_clicked(self, name):
         print(name)
+        # self.dataChanged.emit(index, index)
+        

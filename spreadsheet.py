@@ -19,9 +19,27 @@ from table import DataFrameTableModel, DataFrameItemDelegate
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, table):
+    def __init__(self, df: pd.DataFrame):
         super().__init__()
 
+
+        table = QTableView()
+        header_model = CustomHeaderView(columns=df.columns.tolist())
+        model = DataFrameTableModel(data=df, header_model=header_model, parent=table)
+
+        table.setHorizontalHeader(header_model)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setMinimumSectionSize(100)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        table.horizontalHeader().resizeSections(QHeaderView.Stretch)
+        table.horizontalScrollBar().valueChanged.connect(model.on_horizontal_scroll)
+        table.horizontalScrollBar().valueChanged.connect(model.on_vertical_scroll)
+        table.setModel(model)
+        # table.scrollContentsBy.connect(model.scrollContentsBy)
+        # table.scroll.connect(model.scrollContentsBy)
+        item_delegete = DataFrameItemDelegate()
+        table.setItemDelegate(item_delegete)
+        
         w = QWidget()
         self.setCentralWidget(w)
         layout = QVBoxLayout(w)
@@ -33,26 +51,10 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
 
-    app = QApplication(sys.argv)
-    
     rng = np.random.RandomState(42)
     df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
 
-    header_model = CustomHeaderView(columns=df.columns.tolist())
-    model = DataFrameTableModel(data=df, header_model=header_model)
-
-    table = QTableView()
-    table.setHorizontalHeader(header_model)
-    table.horizontalHeader().setStretchLastSection(True)
-    table.horizontalHeader().setMinimumSectionSize(100)
-    table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-    table.horizontalHeader().resizeSections(QHeaderView.Stretch)
-    table.setModel(model)
-
-    item_delegete = DataFrameItemDelegate()
-    table.setItemDelegate(item_delegete)
-
-    window = MainWindow(table)
-    table.setMinimumSize(600, 450)
+    app = QApplication(sys.argv)
+    window = MainWindow(df)
     window.show()
     sys.exit(app.exec_())
