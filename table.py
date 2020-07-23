@@ -58,9 +58,11 @@ class DataFrameTableModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self._data = data.copy()
         self._header_model = header_model
-        header_model.signals.filter_clicked.connect(self.filter_clicked)
+        self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
+        self.filter_values_mapper = QSignalMapper(self)        
+        self.logical = None
         self.dirty = False
-        
+
 
     def rowCount(self, parent: QModelIndex) -> int:
         return self._data.index.size
@@ -115,7 +117,7 @@ class DataFrameTableModel(QAbstractTableModel):
 
         return None
 
-    
+
     def on_horizontal_scroll(self, dx: int):
         self._header_model.fix_item_positions()
 
@@ -123,8 +125,6 @@ class DataFrameTableModel(QAbstractTableModel):
     def on_vertical_scroll(self, dy: int):
         pass
 
-        
-    def filter_clicked(self, name):
-        print(name)
-        # self.dataChanged.emit(index, index)
-        
+
+    def on_action_all_triggered(self, dx: int):
+        self.logical

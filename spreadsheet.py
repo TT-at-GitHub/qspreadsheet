@@ -22,7 +22,6 @@ class MainWindow(QMainWindow):
     def __init__(self, df: pd.DataFrame):
         super().__init__()
 
-
         table = QTableView()
         header_model = CustomHeaderView(columns=df.columns.tolist())
         model = DataFrameTableModel(data=df, header_model=header_model, parent=table)
@@ -35,8 +34,7 @@ class MainWindow(QMainWindow):
         table.horizontalScrollBar().valueChanged.connect(model.on_horizontal_scroll)
         table.horizontalScrollBar().valueChanged.connect(model.on_vertical_scroll)
         table.setModel(model)
-        # table.scrollContentsBy.connect(model.scrollContentsBy)
-        # table.scroll.connect(model.scrollContentsBy)
+
         item_delegete = DataFrameItemDelegate()
         table.setItemDelegate(item_delegete)
         
@@ -44,9 +42,34 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(w)
         layout = QVBoxLayout(w)
         layout.addWidget(table)
-        
+       
+        self.table = table
+        self.header_model = header_model
+        self.model = model        
+
         self.setMinimumSize(QSize(600, 400))
         self.setWindowTitle("Table View")
+
+
+    def filter_clicked(self, name):
+        print(self.__class__.__name__, ': ', name)
+        ndx = self._data.columns.get_loc(name)
+        self.logical = self.logicalIndex(ndx)
+
+        self.filter_menu = QMenu(self)
+        self.filter_values_mapper
+        unique_values = self._data[name].unique()
+
+        action_all = QAction('All', self)
+        action_all.triggered.connect(self.on_action_all_triggered)
+        self.filter_menu.addAction(action_all)
+        self.filter_menu.addSeparator()
+
+        for i, name in enumerate(sorted(unique_values)):
+            action = QAction(name, self)
+            self.filter_values_mapper.setMapping(action, i)
+            action.triggered.connect(self.filter_values_mapper.map)
+            self.filter_menu.addAction(action)
 
 
 if __name__ == "__main__":

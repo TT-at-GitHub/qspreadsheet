@@ -50,14 +50,17 @@ class CustomHeaderView(QHeaderView):
         super().__init__(Qt.Horizontal, parent)
         
         self.headers = []
-        self.signals = CustomHeaderView.Signals()
+        # self.signals = CustomHeaderView.Signals()
+        self.filter_btn_mapper = QSignalMapper(self)
         
-        for name in columns:
+        for i, name in enumerate(columns):
             header_widget = ColumnHeaderWidget(labelText=name, parent=self)
             header = HeaderItem(widget=header_widget)
-            header_widget.button.clicked.connect(self.filter_button_clicked)
+            self.filter_btn_mapper.setMapping(header_widget.button, name)
+            header_widget.button.clicked.connect(self.filter_btn_mapper.map)
             self.headers.append(header)
 
+        self.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
         self.setStyleSheet('''
@@ -78,12 +81,10 @@ class CustomHeaderView(QHeaderView):
             */
             }''')
 
-
-    def filter_button_clicked(self):
-        name = self.sender().parent().label.text()
-        self.signals.filter_clicked.emit(name)
-
-
+    def filter_clicked(self, s: str):
+        btn = self.filter_btn_mapper.mapping(s)
+        print('Change the icon here!')
+        
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
             header.widget.setParent(self)
