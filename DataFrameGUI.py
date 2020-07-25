@@ -33,6 +33,7 @@ from PyQt5.QtGui import *
 import sys
 
 from functools import partial
+from fx import fx
 
 
 class WidgetedCell(object):
