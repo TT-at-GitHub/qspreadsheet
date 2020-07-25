@@ -5,10 +5,10 @@ https://learning-python.com/rangetest.html
 https://www.pythoncentral.io/validate-python-function-parameters-and-return-types-with-decorators/
 
 """
-import sys
+import sys, os
 import functools
-import fx
-from fxerror import ArgumentValidationError, InvalidReturnTypeError
+from fx import fx
+from fx.fxerror import ArgumentValidationError, InvalidReturnTypeError
 
 trace = __debug__
 
