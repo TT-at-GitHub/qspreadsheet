@@ -80,7 +80,7 @@ class DataFrameModel(QAbstractTableModel):
     def df(self):
         return self._df
 
-        
+
     @df.setter
     def df(self, dataFrame):
         """Setter should only be used internal to DataFrameModel.  Others should use setDataFrame()"""
@@ -822,6 +822,7 @@ class DataFrameWidget(QTableView):
     @property
     def df(self):
         return self._data_model.df
+
     @df.setter
     def df(self, dataFrame):
         # Use the "hard setting" of the dataframe because anyone who's interacting with the
@@ -872,12 +873,12 @@ class DataFrameWidget(QTableView):
             raise Exception("Unknown icon %s" % icon_name)
         return self.style().standardIcon(icon)
 
-    
+
     def _on_click(self, index):
         if index.isValid():
             self.cellClicked.emit(index.row(), index.column())
 
-    
+
     def _enable_widgeted_cells(self):
         # Update all cells with WidgetedCell to have persistent editors
         model = self.model()
@@ -917,14 +918,14 @@ class DataFrameApp(QMainWindow):
         df = self.table.df
         title = self.title_base + ' [%dx%d]' % (len(df.index), len(df.columns))
         self.setWindowTitle(title)
-        
+
 
 class ExampleWidgetForWidgetedCell(QComboBox):
     """To implement a persistent state for the widgetd cell, you must provide
         a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
         the WidgetedCell framework can create and destory your widget as needed.
     """
-    
+
     def __init__(self, parent):
         super(ExampleWidgetForWidgetedCell, self).__init__(parent)
         self.addItem("Option A")
