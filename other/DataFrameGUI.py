@@ -1,30 +1,28 @@
 """
-DataFrameTable
-==============
+    DataFrameTable
+    ==============
 
-Quick and Dirty Qt app to view pandas DataFrames.  Includes sorting and
-filterting.
+    Quick and Dirty Qt app to view pandas DataFrames.  Includes sorting and
+    filterting.
 
-Based on qtpandas in pandas sandbox module, by Jev Kuznetsov
+    Based on qtpandas in pandas sandbox module, by Jev Kuznetsov
 
-Usage:
- - To quickly display a dataframe, just use DataFrameApp(df)
- >>> import sys, pandas
- >>> from DataFrameGUI import DataFrameApp
- >>> df = pandas.DataFrame([1,2,3])
- >>> root = QApplication(sys.argv)
- >>> app = DataFrameApp(df)
- >>> app.show()
- >>> root.exec_()
+    Usage:
+    - To quickly display a dataframe, just use DataFrameApp(df)
+    >>> import sys, pandas
+    >>> from DataFrameGUI import DataFrameApp
+    >>> df = pandas.DataFrame([1,2,3])
+    >>> root = QApplication(sys.argv)
+    >>> app = DataFrameApp(df)
+    >>> app.show()
+    >>> root.exec_()
 
- - To build your own widget, subclass DataFrameWidget
-
+    - To build your own widget, subclass DataFrameWidget
 """
 
 # import sip
 # sip.setapi('QString', 2)
 # sip.setapi('QVariant', 2)
-
 
 import pandas
 import operator
@@ -36,30 +34,31 @@ import sys
 
 from functools import partial
 
+
 class WidgetedCell(object):
     """Set as the value of an element in a pandas DataFrame to create a widget
-    NOTE: You may also want your widget to implement the getWidgetedCellState and setWidgetedCellState
-    methods so that interactions with the controlls persist.
+        NOTE: You may also want your widget to implement the getWidgetedCellState and setWidgetedCellState
+        methods so that interactions with the controlls persist.
     """
     def __init__(self, widget):
         """Create a widget in the DataFrameWidget's cell
-        Args:
-            widget (subclass of QWidget)
-                Widget to display in cell.  The constructor of `widget` must
-                accept only one argument, the parent widget to
-                build `widget` inside of
-        """
+            Args:
+                widget (subclass of QWidget)
+                    Widget to display in cell.  The constructor of `widget` must
+                    accept only one argument, the parent widget to
+                    build `widget` inside of
+            """
         self.widget = widget
 
     def __repr__(self):
         return repr(self.widget)
+
 
 class DataFrameModel(QAbstractTableModel):
     """ data model for a DataFrame class """
 
     RawDataRole = 64    # Custom Role, http://qt-project.org/doc/qt-4.8/qt.html#ItemDataRole-enum
     RawIndexRole = 65
-
 
     def __init__(self):
         super(DataFrameModel, self).__init__()
@@ -75,15 +74,19 @@ class DataFrameModel(QAbstractTableModel):
         self._orig_df = dataFrame.copy()
         self._pre_dyn_filter_df = None # Clear dynamic filter
 
+
     @property
     def df(self):
         return self._df
+
+        
     @df.setter
     def df(self, dataFrame):
         """Setter should only be used internal to DataFrameModel.  Others should use setDataFrame()"""
         self.modelAboutToBeReset.emit()
         self._df = dataFrame
         self.modelReset.emit()
+
 
     @pyqtSlot()
     def beginDynamicFilter(self):
@@ -96,11 +99,13 @@ class DataFrameModel(QAbstractTableModel):
             print( "SAME DYNAMIC FILTER MODEL")
             pass
 
+
     @pyqtSlot()
     def endDynamicFilter(self):
         """Makes permanent the effects of the dynamic filter"""
         print( " * * * RESETING DYNAMIC")
         self._pre_dyn_filter_df = None
+
 
     @pyqtSlot()
     def cancelDynamicFilter(self):
@@ -125,6 +130,7 @@ class DataFrameModel(QAbstractTableModel):
             except (IndexError, ):
                 return QVariant()
 
+
     def data(self, index, role=Qt.DisplayRole):
         #if role == Qt.BackgroundRole:
         #    return QColor(255,255,204)
@@ -148,12 +154,14 @@ class DataFrameModel(QAbstractTableModel):
         else:
             return None
 
+
     def flags(self, index):
         defaults = super(DataFrameModel, self).flags(index)
         data = self.data(index, DataFrameModel.RawDataRole)
         if isinstance(data, WidgetedCell):
             return defaults | Qt.ItemIsEditable
         return defaults
+
 
     def __setData(self, index, value, role):
         row = self.df.index[index.row()]
@@ -170,11 +178,14 @@ class DataFrameModel(QAbstractTableModel):
         self.dataChanged.emit()
         return True
 
+
     def rowCount(self, index=QModelIndex()):
         return self.df.shape[0]
 
+
     def columnCount(self, index=QModelIndex()):
         return self.df.shape[1]
+
 
     def sort(self, col_ix, order = Qt.AscendingOrder):
         if col_ix >= self.df.shape[1]:
@@ -190,17 +201,18 @@ class DataFrameModel(QAbstractTableModel):
         # Set sorter to current sort (for future filtering)
         self._resort = partial(self.sort, col_ix, order)
 
+
     def filter(self, col_ix, needle):
         """Filter DataFrame view.  Case Insenstive.
-        Fitlers the DataFrame view to include only rows who's value in col
-        contains the needle. EX: a needle of "Ab" will show rows with
-        "absolute" and "REABSOLVE".
+            Fitlers the DataFrame view to include only rows who's value in col
+            contains the needle. EX: a needle of "Ab" will show rows with
+            "absolute" and "REABSOLVE".
 
-        Args:
-            col_ix (int)
-                Column index in df to filter
-            needle (str)
-                String to search df_view for
+            Args:
+                col_ix (int)
+                    Column index in df to filter
+                needle (str)
+                    String to search df_view for
         """
 
         if self._pre_dyn_filter_df is not None:
@@ -220,6 +232,7 @@ class DataFrameModel(QAbstractTableModel):
         # Resort
         self._resort()
 
+
     def filterIsIn(self, col_ix, include):
         df = self._orig_df
         col = self.df.columns[col_ix]
@@ -233,6 +246,7 @@ class DataFrameModel(QAbstractTableModel):
         # Resort
         self._resort()
 
+
     def filterFunction(self, col_ix, function):
         df = self.df
         col = self.df.columns[col_ix]
@@ -242,6 +256,7 @@ class DataFrameModel(QAbstractTableModel):
         # Resort
         self._resort()
 
+
     def reset(self):
         self.df = self._orig_df.copy()
         self._resort = lambda: None
@@ -249,6 +264,7 @@ class DataFrameModel(QAbstractTableModel):
 
 
 class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
+
     def __init__(self):
         super(DataFrameSortFilterProxyModel, self).__init__()
 
@@ -256,15 +272,18 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         self._source_df = None
         self._refilter = lambda: None
 
+
     def setSourceModel(self, source_model):
         super(DataFrameSortFilterProxyModel, self).setSourceModel(source_model)
 
         source_model.modelReset.connect(self._source_model_changed)
         self._source_model_changed()
 
+
     def sort(self, *args):
         # Delegate sorting to the underyling model
         self.sourceModel().sort(*args)
+
 
     def _source_model_changed(self):
         self._source_df = self.sourceModel().df
@@ -274,6 +293,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         if len(self._accepted_rows) > 0:
             self.setFilterString('')    # Reset the filter
         self._refilter()
+
 
     def setFilterString(self, needle):
         """Filter DataFrame using df[col].str.contains(needle).  Case insensitive."""
@@ -290,6 +310,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         self._filter_using_mask(mask)
         self._refilter = partial(self.setFilterString, needle)
 
+
     def setFilterList(self, filter_list):
         """Filter DataFrame using df[col].isin(filter_list)."""
         df = self._source_df
@@ -298,6 +319,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         mask = df[col].isin(filter_list)
         self._filter_using_mask(mask)
 
+
     def setFilterFunction(self, func):
         """Filter DataFrame using df[col].apply(func).  Func should return True or False"""
         df = self._source_df
@@ -305,6 +327,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
 
         mask = df[col].apply(func)
         self._filter_using_mask(mask)
+
 
     def _filter_using_mask(self, mask):
         # Actually filter (need *locations* of filtered values)
@@ -322,22 +345,29 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
     @property
     def df(self):
         return self._source_df.iloc[self._accepted_rows]
+
+
     @df.setter
     def df(self, val):
         raise AttributeError("Tried to set the dataframe of DataFrameSortFilterProxyModel")
 
+
     def filterAcceptsRow(self, row, idx):
         return row in self._accepted_rows
+
 
     def filterAcceptsColumn(self, col, idx):
         # Columns are hidden manually.  No need for this
         return True
 
+
     def setFilterRegExp(self, *args):
         raise NotImplementedError("Use setFilterString, setFilterList, or setFilterFunc instead")
 
+
     def setFilterWildcard(self, *args):
         raise NotImplementedError("Use setFilterString, setFilterList, or setFilterFunc instead")
+
 
     def setFilterFixedString(self, *args):
         raise NotImplementedError("Use setFilterString, setFilterList, or setFilterFunc instead")
@@ -345,6 +375,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
 
 class DynamicFilterLineEdit(QLineEdit):
     """Filter textbox for a DataFrameTable"""
+
     def __init__(self, *args, **kwargs):
         self._always_dynamic = kwargs.pop('always_dynamic', False)
 
@@ -353,6 +384,7 @@ class DynamicFilterLineEdit(QLineEdit):
         self.col_to_filter = None
         self._orig_df = None
         self._host = None
+
 
     def bind_dataframewidget(self, host, col_ix):
         """Bind tihs DynamicFilterLineEdit to a DataFrameTable's column
@@ -366,6 +398,7 @@ class DynamicFilterLineEdit(QLineEdit):
         self.col_to_filter = col_ix
         self.textChanged.connect(self._update_filter)
 
+
     @property
     def host(self):
         if self._host is None:
@@ -373,6 +406,8 @@ class DynamicFilterLineEdit(QLineEdit):
             "before use.")
         else:
             return self._host
+
+
     @host.setter
     def host(self, value):
         if not isinstance(value, DataFrameWidget):
@@ -383,8 +418,10 @@ class DynamicFilterLineEdit(QLineEdit):
         if not self._always_dynamic:
             self.editingFinished.connect(self._host._data_model.endDynamicFilter)
 
+
     def focusInEvent(self, QFocusEvent):
         self._host._data_model.beginDynamicFilter()
+
 
     def _update_filter(self, text):
         """Called everytime we type in the filter box"""
@@ -395,15 +432,16 @@ class DynamicFilterLineEdit(QLineEdit):
 
 class DynamicFilterMenuAction(QWidgetAction):
     """Filter textbox in column-header right-click menu"""
+
     def __init__(self, parent, menu, col_ix):
         """Filter textbox in column right-click menu
-        Args:
-            parent (DataFrameWidget)
-                Parent who owns the DataFrame to filter
-            menu (QMenu)
-                Menu object I am located on
-            col_ix (int)
-                Index of column used in pandas DataFrame we are to filter
+            Args:
+                parent (DataFrameWidget)
+                    Parent who owns the DataFrame to filter
+                menu (QMenu)
+                    Menu object I am located on
+                col_ix (int)
+                    Index of column used in pandas DataFrame we are to filter
         """
         super(DynamicFilterMenuAction, self).__init__(parent)
 
@@ -424,6 +462,7 @@ class DynamicFilterMenuAction(QWidgetAction):
 
         self.setDefaultWidget(widget)
 
+
     def _close_menu(self):
         """Gracefully handle menu"""
         self.parent_menu.close()
@@ -431,6 +470,7 @@ class DynamicFilterMenuAction(QWidgetAction):
 
 class FilterListMenuWidget(QWidgetAction):
     """Filter textbox in column-right click menu"""
+
     def __init__(self, parent, menu, col_ix):
         """Filter textbox in column right-click menu
         Args:
@@ -466,13 +506,14 @@ class FilterListMenuWidget(QWidgetAction):
 
         self._populate_list(inital=True)
 
+
     def _populate_list(self, inital=False):
         self.list.clear()
 
         df = self.parent()._data_model._orig_df
         col = df.columns[self.col_ix]
-        full_col = set(df[col])  # All Entries possible in this column
-        disp_col = set(self.parent().df[col]) # Entries currently displayed
+        full_col = set(df[col].astype(str))  # All Entries possible in this column
+        disp_col = set(self.parent().df[col].astype(str)) # Entries currently displayed
 
         def _build_item(item, state=None):
             i = QListWidgetItem('%s' % item)
@@ -504,6 +545,7 @@ class FilterListMenuWidget(QWidgetAction):
 
         # Add a (Blanks)
         # TODO
+
 
     def on_list_itemChanged(self, item):
         ###
@@ -612,12 +654,12 @@ class DataFrameWidget(QTableView):
 
     def __init__(self, parent=None, df=None):
         """DataFrameTable
-        Create a widget to display a pandas DataFrame.
-        Args:
-            parent (QObject)
-                Parent object (likely window or canvas)
-            df (pandas DataFrame, optional)
-                DataFrame to display
+            Create a widget to display a pandas DataFrame.
+            Args:
+                parent (QObject)
+                    Parent object (likely window or canvas)
+                df (pandas DataFrame, optional)
+                    DataFrame to display
         """
         super(DataFrameWidget, self).__init__(parent)
 
@@ -656,6 +698,7 @@ class DataFrameWidget(QTableView):
 
         self._enable_widgeted_cells()
 
+
     def make_cell_context_menu(self, menu, row_ix, col_ix):
         """Create the mneu displayed when right-clicking on a cell.
         Overrite this method to add custom right-click options
@@ -672,11 +715,13 @@ class DataFrameWidget(QTableView):
         """
         cell_val = self.df.iat[row_ix, col_ix]
 
+
         # Quick Filter
         def _quick_filter(s_col):
             return s_col == cell_val
         menu.addAction(self._icon('CommandLink'),
             "Quick Filter", partial(self._data_model.filterFunction, col_ix=col_ix, function=_quick_filter))
+
 
         # GreaterThan/LessThan filter
         def _cmp_filter(s_col, op):
@@ -692,6 +737,7 @@ class DataFrameWidget(QTableView):
                         self._data_model.reset)
         menu.addSeparator()
 
+
         # Save to Excel
         def _to_excel():
             from subprocess import Popen
@@ -706,8 +752,8 @@ class DataFrameWidget(QTableView):
     def contextMenuEvent(self, event):
         """Implements right-clicking on cell.
 
-        NOTE: You probably want to overrite make_cell_context_menu, not this
-        function, when subclassing.
+            NOTE: You probably want to overrite make_cell_context_menu, not this
+            function, when subclassing.
         """
         row_ix = self.rowAt(event.y())
         col_ix = self.columnAt(event.x())
@@ -718,6 +764,7 @@ class DataFrameWidget(QTableView):
         menu = QMenu(self)
         menu = self.make_cell_context_menu(menu, row_ix, col_ix)
         menu.exec_(self.mapToGlobal(event.pos()))
+
 
     def _header_menu(self, pos):
         """Create popup menu used for header"""
@@ -760,8 +807,10 @@ class DataFrameWidget(QTableView):
         self._data_model.setDataFrame(df)
         self.resizeColumnsToContents()
 
+
     def filter(self, col_ix, needle):
         return self._data_model.filter(col_ix, needle)
+
 
     def filterIsIn(self, col_ix, include):
         return self._data_model.filterIsIn(col_ix, include)
@@ -775,6 +824,7 @@ class DataFrameWidget(QTableView):
         #  DataFrameWidget (ie, end user) would be setting this
         self._data_model.setDataFrame(dataFrame)
 
+
     def keyPressEvent(self, event):
         """Implements keyboard shortcuts"""
         if event.matches(QKeySequence.Copy):
@@ -782,6 +832,7 @@ class DataFrameWidget(QTableView):
         else:
             # Pass up
             super(DataFrameWidget, self).keyPressEvent(event)
+
 
     def copy(self):
         """Copy selected cells into copy-buffer"""
@@ -817,10 +868,12 @@ class DataFrameWidget(QTableView):
             raise Exception("Unknown icon %s" % icon_name)
         return self.style().standardIcon(icon)
 
+    
     def _on_click(self, index):
         if index.isValid():
             self.cellClicked.emit(index.row(), index.column())
 
+    
     def _enable_widgeted_cells(self):
         # Update all cells with WidgetedCell to have persistent editors
         model = self.model()
@@ -836,6 +889,7 @@ class DataFrameWidget(QTableView):
 
 class DataFrameApp(QMainWindow):
     """Sample DataFrameTable Application"""
+
     def __init__(self, df, title="Inspecting DataFrame"):
         super(DataFrameApp, self).__init__()
 
@@ -859,13 +913,14 @@ class DataFrameApp(QMainWindow):
         df = self.table.df
         title = self.title_base + ' [%dx%d]' % (len(df.index), len(df.columns))
         self.setWindowTitle(title)
+        
 
 class ExampleWidgetForWidgetedCell(QComboBox):
+    """To implement a persistent state for the widgetd cell, you must provide
+        a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
+        the WidgetedCell framework can create and destory your widget as needed.
     """
-    To implement a persistent state for the widgetd cell, you must provide
-    a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
-    the WidgetedCell framework can create and destory your widget as needed.
-    """
+    
     def __init__(self, parent):
         super(ExampleWidgetForWidgetedCell, self).__init__(parent)
         self.addItem("Option A")
@@ -876,6 +931,7 @@ class ExampleWidgetForWidgetedCell(QComboBox):
 
     def getWidgetedCellState(self):
         return self.currentIndex()
+
 
     def setWidgetedCellState(self, state):
         self.setCurrentIndex(state)
