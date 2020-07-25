@@ -42,3 +42,6 @@ for j in range(5):
     r.append(random.random()*10)
     data.append(r)
 df = pd.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+
+#In[0]
+help(pd.Series.sort_values)
