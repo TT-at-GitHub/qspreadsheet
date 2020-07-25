@@ -217,7 +217,8 @@ def to_intstr(s: pd.Series) -> pd.Series:
     return s.apply(float).apply(int).apply(str)
 
 
-def sort_mix_values(s: pd.Series, str_position='first', na_position='last'):
+
+def sort_mix_values(s: pd.Series, ascending=True, str_position='first', na_position='last'):
     """
     Sort by the values, where 'str' and 'numeric' values are sorted separately.
 
@@ -245,10 +246,10 @@ def sort_mix_values(s: pd.Series, str_position='first', na_position='last'):
         numeric, str_ndx = nulls_split(numeric)
         strings = s[str_ndx.index]
 
-    result = numeric.sort_values(ascending=True)
+    result = numeric.sort_values(ascending=ascending)
 
     if num_strings:
-        strings = strings.sort_values()
+        strings = strings.sort_values(ascending=ascending)
         if str_position == 'first':
             result = strings.append(result)
         elif str_position == 'last':
@@ -261,3 +262,4 @@ def sort_mix_values(s: pd.Series, str_position='first', na_position='last'):
             result = result.append(nulls)
             
     return result
+
