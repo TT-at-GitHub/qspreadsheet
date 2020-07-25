@@ -6,7 +6,8 @@ https://www.pythoncentral.io/validate-python-function-parameters-and-return-type
 
 """
 import sys, os
-import functools
+from functools import wraps 
+import warnings
 from fx import fx
 from fx.fxerror import ArgumentValidationError, InvalidReturnTypeError
 
@@ -364,24 +365,42 @@ def debug_rangetest(**kw_range_checks):
     return rangetest_wrapper
 
 
-# @returns(int)
-# @accepts(a=int, b=int)
-# def add_nums_correct(a, b):
-#     return a + b
+def doublewrap(func):
+
+    @wraps(func)
+    def new_decorator(*args, **kwargs):
+        if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
+            # called as @decorator
+            return func(args[0])
+        else:
+            # called as @decorator(*args, **kwargs)
+            return lambda actual: func(actual, *args, *kwargs)
+    return new_decorator
 
 
-# @returns((int, float))
-# @accepts(a=int, b=(int, float))
-# def add_nums_correctf(a, b):
-#     return a + b
+@doublewrap
+def deprecated(func, msg=None):
+    
+    warnings_msg = f'Call to deprecated function `{func.__name__}`'
+    if msg is not None:
+        warnings_msg = '\n'.join([warnings_msg, msg])
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        warnings.simplefilter('always', DeprecationWarning)
+        warnings.warn(warnings_msg, category=DeprecationWarning, stacklevel=5)
+        warnings.simplefilter('default', DeprecationWarning)
+        return func(*args, **kwargs)
+    
+    return wrapper
 
 
-# @returns((int, float))
-# @accepts(a=int, b=(int, float))
-# def add_nums_incorrect(a, b):
-#     return 'Not an int!'
-
-
-# print(add_nums_correct(3, 5))
-# print(add_nums_correctf(3, 5.0))
-# print(add_nums_incorrect(3, 5.0))
+def decorate_methods(decorator):
+    
+    @wraps(decorator)
+    def wrapper(cls):
+        for name, val in vars(cls).items():
+            if callable(val):
+                setattr(cls, name, decorator(val))
+        return cls 
+    return wrapper
