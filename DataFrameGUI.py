@@ -513,8 +513,9 @@ class FilterListMenuWidget(QWidgetAction):
 
         df = self.parent()._data_model._orig_df
         col = df.columns[self.col_ix]
-        full_col = set(df[col].astype(str))  # All Entries possible in this column
-        disp_col = set(self.parent().df[col].astype(str)) # Entries currently displayed
+        full_col = set(df[col])  # All Entries possible in this column
+        disp_col = set(self.parent().df[col]) # Entries currently displayed
+
 
         def _build_item(item, state=None):
             i = QListWidgetItem('%s' % item)
@@ -541,7 +542,9 @@ class FilterListMenuWidget(QWidgetAction):
             build_list = full_col
         else:
             build_list = disp_col
-        for i in sorted(build_list):
+        # for i in sorted(build_list):
+        vals = fx.sort_mix_values(pandas.Series(data=list(build_list))).to_list()
+        for i in vals:
             _build_item(i)
 
         # Add a (Blanks)
@@ -945,17 +948,15 @@ if __name__ == '__main__':
     import random
 
     rnd_txt = lambda: "".join( [random.choice(string.ascii_letters[:26]) for i in range(15)] )
-    data = [['a','b','c']*3]
+    data = []
     for j in range(5):
         r = []
         for k in range(6):
             r.append(rnd_txt())
         r.append(random.randint(1,20))
         r.append(random.random()*10)
-        r.append(WidgetedCell(ExampleWidgetForWidgetedCell))
         data.append(r)
-
-    df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH','III'])
+    df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
     app = DataFrameApp(df)
     app.show()
     _app.exec_()
