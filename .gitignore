@@ -1,6 +1,6 @@
-.vscode
-~*.*
 # Byte-compiled / optimized / DLL files
+.vscode/
+.vs/
 __pycache__/
 *.py[cod]
 *$py.class
