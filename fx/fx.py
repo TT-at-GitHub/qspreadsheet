@@ -218,7 +218,7 @@ def to_intstr(s: pd.Series) -> pd.Series:
 
 
 
-def sort_mix_values(s: pd.Series, ascending=True, str_position='first', na_position='last'):
+def sort_mix_values(s: pd.Series, ascending=True, str_position='first', na_position='last') -> pd.Series:
     """
     Sort by the values, where 'str' and 'numeric' values are sorted separately.
 
@@ -227,6 +227,7 @@ def sort_mix_values(s: pd.Series, ascending=True, str_position='first', na_posit
     Parameters
     ----------
     s : pd.Series
+    ascending : bool {'True' or 'False'}, default 'True'
     str_position : {'first' or 'last'}, default 'first'
     na_position : {'first' or 'last'}, default 'last'
     """    
