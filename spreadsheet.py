@@ -1,8 +1,8 @@
 import sys, os
 import typing
 
-import numpy as np 
-import pandas as pd 
+import numpy as np
+import pandas as pd
 
 import PySide2
 
@@ -58,11 +58,11 @@ class HeaderView(QHeaderView):
 
     def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
-        
+
         self.headers = []
         # self.signals = CustomHeaderView.Signals()
         self.filter_btn_mapper = QSignalMapper(self)
-        
+
         for i, name in enumerate(columns):
             header_widget = ColumnHeaderWidget(labelText=name, parent=self)
             header = HeaderItem(widget=header_widget)
@@ -84,8 +84,8 @@ class HeaderView(QHeaderView):
                 padding-left: 4px;
                 padding-right: 4px;
                 border: 1px solid #21618c;
-                
-            /* 
+
+            /*
                 margin-left: 2px;
                 margin-right: 2px;
             */
@@ -94,7 +94,7 @@ class HeaderView(QHeaderView):
     def filter_clicked(self, s: str):
         btn = self.filter_btn_mapper.mapping(s)
         print('Change the icon here!')
-        
+
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
             header.widget.setParent(self)
@@ -204,23 +204,26 @@ class DataFrameModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self._df = pd.DataFrame()
         self._original_df = pd.DataFrame()
-        self._pre_dyn_filter_df = None    
+        self._pre_dyn_filter_df = None
 
         self.logical = None
         self.dirty = False
 
         self._header_model = header_model
         self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
-        self.filter_values_mapper = QSignalMapper(self)        
+        self.filter_values_mapper = QSignalMapper(self)
 
 
     def set_df(self, df: pd.DataFrame):
         self._original_df = df.copy()
         self._pre_dyn_filter_df = None
-        
+
         self.modelAboutToBeReset.emit()
-        self._df = df 
+        self._df = df
         self.modelReset.emit()
+
+    def get_df(self) -> pd.DataFrame:
+        return self._df
 
 
     def rowCount(self, parent: QModelIndex) -> int:
@@ -291,7 +294,7 @@ class DataFrameModel(QAbstractTableModel):
 
 class DataFrameView(QTableView):
 
-    data_changed = Signal()
+    df_changed = Signal()
     cell_clicked = Signal(int, int)
 
     def __init__(self, parent=None, df=None) -> None:
@@ -301,34 +304,60 @@ class DataFrameView(QTableView):
         self._header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self._header_model)
 
-        self._df_model = DataFrameModel(data=df, header_model=self._header_model, parent=self)
-        self.setModel(self._df_model)
+        self._data_model = DataFrameModel(data=df, header_model=self._header_model, parent=self)
+        self.setModel(self._data_model)
 
         # Signals/Slots
-        self.horizontalScrollBar().valueChanged.connect(self._df_model.on_horizontal_scroll)
-        self.horizontalScrollBar().valueChanged.connect(self._df_model.on_vertical_scroll)
+        self._data_model.modelReset.connect(self.df_changed)
+        self._data_model.dataChanged.connect(self.df_changed)
+        self.clicked.connect(self.on_click)
+
+        self.horizontalScrollBar().valueChanged.connect(self._data_model.on_horizontal_scroll)
+        self.horizontalScrollBar().valueChanged.connect(self._data_model.on_vertical_scroll)
 
         item_delegete = DataFrameItemDelegate()
         self.setItemDelegate(item_delegete)
 
-    
+
     def set_df(self, df: pd.DataFrame):
-        self._df_model
+        self._data_model
+
+
+    def on_click(self, index: QModelIndex):
+        if index.isValid():
+            self.cell_clicked.emit(index.row(), index.column())
+
+
+    def _qicon(self, icon_name):
+        """Convinence function to get standard icons from Qt"""
+        if not icon_name.startswith('SP_'):
+            icon_name = 'SP_' + icon_name
+        icon = getattr(QStyle, icon_name, None)
+        if icon is None:
+            raise Exception("Unknown icon %s" % icon_name)
+        return self.style().standardIcon(icon)
+
 
 
 class MainWindow(QMainWindow):
+    MARGIN = 35
 
     def __init__(self, df: pd.DataFrame, title='Main Window'):
         super().__init__()
-        
-        self.title = title
 
+        self.title = title
+        self.setWindowTitle(self.title)
+
+        # Set the table and the data
         self.table = DataFrameView(self)
         self.table.set_df(df)
         self.setCentralWidget(self.table)
 
-        self.setMinimumSize(QSize(600, 400))
-        self.setWindowTitle("Table View")
+        # Set window size
+        col_width = sum([self.table.columnWidth(i) for i in range(df.shape[1])])
+        col_width = min(col_width + MainWindow.MARGIN * 2, 1280)
+        self.setGeometry(200, 300, col_width, 300)
+        self.setMinimumSize(QSize(400, 300))
 
 
     def filter_clicked(self, name):
@@ -353,20 +382,23 @@ class MainWindow(QMainWindow):
 
 
     def datatable_updated(self):
-        df = self.table
+        df = self.table.get_df()
+        star = '*' if self.table.dirty else ''
+        title = self.title + f'{star} ({df.shape[0]}, {df.shape[1]})'
+        self.setWindowTitle(title)
 
 
-# self.horizontalHeader().setStretchLastSection(True)
-# self.horizontalHeader().setMinimumSectionSize(100)
-# self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-# self.horizontalHeader().resizeSections(QHeaderView.Stretch)
-
+def mock_df() -> pd.DataFrame:
+    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+    df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    df.area = df.area.astype(float)
+    return df
 
 if __name__ == "__main__":
 
-    rng = np.random.RandomState(42)
-    df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
-
+    df = mock_df()
     app = QApplication(sys.argv)
     window = MainWindow(df)
     window.show()
