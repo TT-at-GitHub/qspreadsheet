@@ -53,14 +53,13 @@ class HeaderItem():
 
 class HeaderView(QHeaderView):
 
-    class Signals(QObject):
-        filter_clicked = Signal(str)
+    filter_clicked = Signal(str)
 
     def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
 
         self.headers = []
-        # self.signals = CustomHeaderView.Signals()
+        
         self.filter_btn_mapper = QSignalMapper(self)
 
         for i, name in enumerate(columns):
@@ -91,9 +90,11 @@ class HeaderView(QHeaderView):
             */
             }''')
 
+
     def filter_clicked(self, s: str):
         btn = self.filter_btn_mapper.mapping(s)
         print('Change the icon here!')
+
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
@@ -125,6 +126,7 @@ class HeaderView(QHeaderView):
             self.sectionSize(logical) - item.margins.left() - item.margins.right(),
             self.height() + item.margins.top() + item.margins.bottom() + 5)
 
+
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):
             logical = self.logicalIndex(i)
@@ -152,7 +154,6 @@ class HeaderView(QHeaderView):
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
-
 
 
 class DataFrameItemDelegate(QStyledItemDelegate):
@@ -221,6 +222,7 @@ class DataFrameModel(QAbstractTableModel):
         self.modelAboutToBeReset.emit()
         self._df = df
         self.modelReset.emit()
+
 
     def get_df(self) -> pd.DataFrame:
         return self._df
@@ -294,7 +296,7 @@ class DataFrameModel(QAbstractTableModel):
 
 class DataFrameView(QTableView):
 
-    df_changed = Signal()
+    dataframe_changed = Signal()
     cell_clicked = Signal(int, int)
 
     def __init__(self, parent=None, df=None) -> None:
@@ -304,23 +306,144 @@ class DataFrameView(QTableView):
         self._header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self._header_model)
 
-        self._data_model = DataFrameModel(data=df, header_model=self._header_model, parent=self)
+        self._data_model = DataFrameModel(self._header_model, self)
+        if df is None:
+            df = pd.DataFrame()
+        self._data_model.set_df(df)
         self.setModel(self._data_model)
 
         # Signals/Slots
-        self._data_model.modelReset.connect(self.df_changed)
-        self._data_model.dataChanged.connect(self.df_changed)
+        self._data_model.modelReset.connect(self.dataframe_changed)
+        self._data_model.dataChanged.connect(self.dataframe_changed)
         self.clicked.connect(self.on_click)
+        self.dataframe_changed.connect()
 
         self.horizontalScrollBar().valueChanged.connect(self._data_model.on_horizontal_scroll)
         self.horizontalScrollBar().valueChanged.connect(self._data_model.on_vertical_scroll)
 
-        item_delegete = DataFrameItemDelegate()
-        self.setItemDelegate(item_delegete)
+        item_delegate = DataFrameItemDelegate()
+        self.setItemDelegate(item_delegate)
+
+        # Create header menu bindings
+        self.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.horizontalHeader().customContextMenuRequested.connect(self._header_menu)
+
+
+    def make_cell_context_menu(self, menu, row_ix, col_ix):
+        """Create the mneu displayed when right-clicking on a cell.
+        Overrite this method to add custom right-click options
+
+        Parameters
+        ----------
+            menu (QMenu)
+                Menu to which to add actions
+            row_ix (int)
+                Row location in dataframe
+            col_ix (int)
+                Coloumn location in dataframe
+
+        Returns
+        -------
+            menu (QMenu)
+                Same menu passed in, with added actions
+        """
+        cell_val = self.df.iat[row_ix, col_ix]
+
+        # Quick Filter
+        def _cell_filter(s_col):
+            return s_col == cell_val
+        menu.addAction(self._icon('CommandLink'),
+            "By Value", 
+            partial(self._data_model.filterFunction, 
+                    col_ix=col_ix, function=_cell_filter))
+
+        # GreaterThan/LessThan filter
+        def _cmp_filter(s_col, op):
+            return op(s_col, cell_val)
+
+        menu.addAction("Greater Than",
+                        partial(self._data_model.filterFunction, col_ix=col_ix,
+                                function=partial(_cmp_filter, op=operator.ge)))
+        menu.addAction("Less Than",
+                        partial(self._data_model.filterFunction, col_ix=col_ix,
+                                function=partial(_cmp_filter, op=operator.le)))
+        menu.addAction(self._icon('DialogResetButton'),
+                        "Clear",
+                        self._data_model.reset)
+        # menu.addSeparator()
+
+        # Save to Excel
+        # def _to_excel():
+        #     from subprocess import Popen
+        #     self.df.to_excel(self.defaultExcelFile, self.defaultExcelSheet)
+        #     Popen(self.defaultExcelFile, shell=True)
+        # menu.addAction("Open in Excel",
+        #                _to_excel)
+
+        return menu
+
+
+    def contextMenuEvent(self, event):
+        """Implements right-clicking on cell.
+
+            NOTE: You probably want to overrite make_cell_context_menu, not this
+            function, when subclassing.
+        """
+        row_ix = self.rowAt(event.y())
+        col_ix = self.columnAt(event.x())
+
+        if row_ix < 0 or col_ix < 0:
+            return #out of bounds
+
+        menu = QMenu(self)
+        menu = self.make_cell_context_menu(menu, row_ix, col_ix)
+        menu.exec_(self.mapToGlobal(event.pos()))
+
+
+    def header_menu(self, pos):
+        """Create popup menu used for header"""
+        menu = QMenu(self)
+        col_ix = self.horizontalHeader().logicalIndexAt(pos)
+
+        if col_ix == -1:
+            # Out of bounds
+            return
+
+        # Filter Menu Action
+        menu.addAction(DynamicFilterMenuAction(self, menu, col_ix))
+        menu.addAction(FilterListMenuWidget(self, menu, col_ix))
+        menu.addAction(self._icon('DialogResetButton'),
+                        "Reset",
+                        self._data_model.reset)
+
+        # Sort Ascending/Decending Menu Action
+        menu.addAction(self._icon('TitleBarShadeButton'),
+                        "Sort Ascending",
+                       partial(self._data_model.sort, col_ix=col_ix, order=Qt.AscendingOrder))
+        menu.addAction(self._icon('TitleBarUnshadeButton'),
+                        "Sort Descending",
+                       partial(self._data_model.sort, col_ix=col_ix, order=Qt.DescendingOrder))
+        menu.addSeparator()
+
+        # Hide
+        menu.addAction("Hide", partial(self.hideColumn, col_ix))
+
+        # Show (column to left and right)
+        for i in (-1, 1):
+            if self.isColumnHidden(col_ix+i):
+                menu.addAction("Show %s" % self._data_model.headerData(col_ix+i, Qt.Horizontal),
+                                partial(self.showColumn, col_ix+i))
+
+        menu.exec_(self.mapToGlobal(pos))
+
+
+
+    def on_dataframe_changed(self):
+        print('DataFrame changed...')
 
 
     def set_df(self, df: pd.DataFrame):
-        self._data_model
+        self._data_model.set_df(df)
 
 
     def on_click(self, index: QModelIndex):
@@ -338,8 +461,8 @@ class DataFrameView(QTableView):
         return self.style().standardIcon(icon)
 
 
-
 class MainWindow(QMainWindow):
+    
     MARGIN = 35
 
     def __init__(self, df: pd.DataFrame, title='Main Window'):

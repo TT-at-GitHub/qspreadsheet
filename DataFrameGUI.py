@@ -75,11 +75,9 @@ class DataFrameModel(QAbstractTableModel):
         self._orig_df = dataFrame.copy()
         self._pre_dyn_filter_df = None # Clear dynamic filter
 
-
     @property
     def df(self):
         return self._df
-
 
     @df.setter
     def df(self, dataFrame):
@@ -87,7 +85,6 @@ class DataFrameModel(QAbstractTableModel):
         self.modelAboutToBeReset.emit()
         self._df = dataFrame
         self.modelReset.emit()
-
 
     @pyqtSlot()
     def beginDynamicFilter(self):
@@ -100,20 +97,17 @@ class DataFrameModel(QAbstractTableModel):
             print( "SAME DYNAMIC FILTER MODEL")
             pass
 
-
     @pyqtSlot()
     def endDynamicFilter(self):
         """Makes permanent the effects of the dynamic filter"""
         print( " * * * RESETING DYNAMIC")
         self._pre_dyn_filter_df = None
 
-
     @pyqtSlot()
     def cancelDynamicFilter(self):
         """Cancel the dynamic filter"""
         self.df = self._pre_dyn_filter_df.copy()
         self._pre_dyn_filter_df = None
-
 
     #------------- table display functions -----------------
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -342,11 +336,9 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         self._accepted_rows = ilocs.index
         self.modelReset.emit()
 
-
     @property
     def df(self):
         return self._source_df.iloc[self._accepted_rows]
-
 
     @df.setter
     def df(self, val):
@@ -399,7 +391,6 @@ class DynamicFilterLineEdit(QLineEdit):
         self.col_to_filter = col_ix
         self.textChanged.connect(self._update_filter)
 
-
     @property
     def host(self):
         if self._host is None:
@@ -407,7 +398,6 @@ class DynamicFilterLineEdit(QLineEdit):
             "before use.")
         else:
             return self._host
-
 
     @host.setter
     def host(self, value):
@@ -503,7 +493,7 @@ class FilterListMenuWidget(QWidgetAction):
 
         # Signals/slots
         self.list.itemChanged.connect(self.on_list_itemChanged)
-        self.parent().dataFrameChanged.connect(self._populate_list)
+        self.parent().dataframe_changed.connect(self._populate_list)
 
         self._populate_list(inital=True)
 
@@ -598,6 +588,7 @@ class FilterListMenuWidget(QWidgetAction):
         self.parent().blockSignals(False)
         self.parent()._enable_widgeted_cells()
 
+
 class DataFrameItemDelegate(QStyledItemDelegate):
     """Implements WidgetedCell"""
 
@@ -641,7 +632,6 @@ class DataFrameItemDelegate(QStyledItemDelegate):
         self._cell_widget_states[true_index] = widget_state
 
 
-
     def paint(self, painter, option, index):
         d = index.data(DataFrameModel.RawDataRole)
         if isinstance(d, WidgetedCell):
@@ -653,8 +643,8 @@ class DataFrameItemDelegate(QStyledItemDelegate):
 
 class DataFrameWidget(QTableView):
 
-    dataFrameChanged = pyqtSignal()
-    cellClicked = pyqtSignal(int, int)
+    dataframe_changed = pyqtSignal()
+    cell_clicked = pyqtSignal(int, int)
 
     def __init__(self, parent=None, df=None):
         """DataFrameTable
@@ -676,14 +666,15 @@ class DataFrameWidget(QTableView):
         self.setModel(self._data_model)
 
         # Signals/Slots
-        self._data_model.modelReset.connect(self.dataFrameChanged)
-        self._data_model.dataChanged.connect(self.dataFrameChanged)
+        self._data_model.modelReset.connect(self.dataframe_changed)
+        self._data_model.dataChanged.connect(self.dataframe_changed)
         self.clicked.connect(self._on_click)
-        self.dataFrameChanged.connect(self._enable_widgeted_cells)
+        self.dataframe_changed.connect(self._enable_widgeted_cells)
 
         # Set up delegate Delegate
         delegate = DataFrameItemDelegate()
         self.setItemDelegate(delegate)
+
         # Show the edit widget as soon as the user clicks in the cell
         #  (needed for item delegate)
         self.setEditTriggers(self.CurrentChanged)
@@ -692,7 +683,6 @@ class DataFrameWidget(QTableView):
         if df is None:
             df = pandas.DataFrame()
         self._data_model.setDataFrame(df)
-
 
         #self.setSortingEnabled(True)
 
@@ -719,21 +709,22 @@ class DataFrameWidget(QTableView):
         """
         cell_val = self.df.iat[row_ix, col_ix]
 
-
         # Quick Filter
         def _quick_filter(s_col):
             return s_col == cell_val
         menu.addAction(self._icon('CommandLink'),
-            "Quick Filter", partial(self._data_model.filterFunction, col_ix=col_ix, function=_quick_filter))
-
+            "By Value", 
+            partial(self._data_model.filterFunction, 
+                    col_ix=col_ix, function=_quick_filter))
 
         # GreaterThan/LessThan filter
         def _cmp_filter(s_col, op):
             return op(s_col, cell_val)
-        menu.addAction("Show Greater Than",
+
+        menu.addAction("Greater Than",
                         partial(self._data_model.filterFunction, col_ix=col_ix,
                                 function=partial(_cmp_filter, op=operator.ge)))
-        menu.addAction("Show Less Than",
+        menu.addAction("Less Than",
                         partial(self._data_model.filterFunction, col_ix=col_ix,
                                 function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(self._icon('DialogResetButton'),
@@ -876,7 +867,7 @@ class DataFrameWidget(QTableView):
 
     def _on_click(self, index):
         if index.isValid():
-            self.cellClicked.emit(index.row(), index.column())
+            self.cell_clicked.emit(index.row(), index.column())
 
 
     def _enable_widgeted_cells(self):
@@ -903,7 +894,7 @@ class DataFrameApp(QMainWindow):
 
         # Initialize main data table
         self.table = DataFrameWidget(self)
-        self.table.dataFrameChanged.connect(self.datatable_updated)
+        self.table.dataframe_changed.connect(self.datatable_updated)
         self.table.setDataFrame(df)
         self.setCentralWidget(self.table)
 
