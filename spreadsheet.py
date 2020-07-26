@@ -3,6 +3,7 @@ import typing
 
 import numpy as np
 import pandas as pd
+import operator
 
 import PySide2
 
@@ -13,6 +14,175 @@ from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 
+from functools import partial
+
+
+class DynamicFilterMenuAction(QWidgetAction):
+    """Filter textbox in column-header right-click menu"""
+
+    def __init__(self, parent, menu, col_ix):
+        """Filter textbox in column right-click menu
+            Args:
+                parent (DataFrameWidget)
+                    Parent who owns the DataFrame to filter
+                menu (QMenu)
+                    Menu object I am located on
+                col_ix (int)
+                    Index of column used in pandas DataFrame we are to filter
+        """
+        super(DynamicFilterMenuAction, self).__init__(parent)
+
+        # State
+        self.parent_menu = menu
+
+        # Build Widgets
+        widget = QWidget()
+        layout = QHBoxLayout()
+        self.label = QLabel('Filter')
+        self.text_box = DynamicFilterLineEdit()
+        self.text_box.bind_dataframewidget(self.parent(), col_ix)
+        self.text_box.returnPressed.connect(self._close_menu)
+
+        layout.addWidget(self.label)
+        layout.addWidget(self.text_box)
+        widget.setLayout(layout)
+
+        self.setDefaultWidget(widget)
+
+
+    def _close_menu(self):
+        """Gracefully handle menu"""
+        self.parent_menu.close()
+
+
+class FilterListMenuWidget(QWidgetAction):
+    """Filter textbox in column-right click menu"""
+
+    def __init__(self, parent, menu, col_ix):
+        """Filter textbox in column right-click menu
+        Args:
+            parent (DataFrameWidget)
+                Parent who owns the DataFrame to filter
+            menu (QMenu)
+                Menu object I am located on
+            col_ix (int)
+                Column index used in pandas DataFrame we are to filter
+            label (str)
+                Label in popup menu
+        """
+        super(FilterListMenuWidget, self).__init__(parent)
+
+        # State
+        self.menu = menu
+        self.col_ix = col_ix
+
+        # Build Widgets
+        widget = QWidget()
+        layout = QVBoxLayout()
+        self.list = QListWidget()
+        self.list.setFixedHeight(100)
+
+        layout.addWidget(self.list)
+        widget.setLayout(layout)
+
+        self.setDefaultWidget(widget)
+
+        # Signals/slots
+        self.list.itemChanged.connect(self.on_list_itemChanged)
+        self.parent().dataframe_changed.connect(self._populate_list)
+
+        self._populate_list(inital=True)
+
+
+    def _populate_list(self, inital=False):
+        self.list.clear()
+
+        df = self.parent()._data_model._orig_df
+        col = df.columns[self.col_ix]
+        full_col = set(df[col])  # All Entries possible in this column
+        disp_col = set(self.parent().df[col]) # Entries currently displayed
+
+
+        def _build_item(item, state=None):
+            i = QListWidgetItem('%s' % item)
+            i.setFlags(i.flags() | Qt.ItemIsUserCheckable)
+            if state is None:
+                if item in disp_col:
+                    state = Qt.Checked
+                else:
+                    state = Qt.Unchecked
+            i.setCheckState(state)
+            i.checkState()
+            self.list.addItem(i)
+            return i
+
+        # Add a (Select All)
+        if full_col == disp_col:
+            select_all_state = Qt.Checked
+        else:
+            select_all_state = Qt.Unchecked
+        self._action_select_all = _build_item('(Select All)', state=select_all_state)
+
+        # Add filter items
+        if inital:
+            build_list = full_col
+        else:
+            build_list = disp_col
+        # for i in sorted(build_list):
+        vals = fx.sort_mix_values(pandas.Series(data=list(build_list))).to_list()
+        for i in vals:
+            _build_item(i)
+
+        # Add a (Blanks)
+        # TODO
+
+
+    def on_list_itemChanged(self, item):
+        ###
+        # Figure out what "select all" check-box state should be
+        ###
+        self.list.blockSignals(True)
+        if item is self._action_select_all:
+            # Handle "select all" item click
+            if item.checkState() == Qt.Checked:
+                state = Qt.Checked
+            else:
+                state = Qt.Unchecked
+            # Select/deselect all items
+            for i in range(self.list.count()):
+                if i is self._action_select_all: continue
+                i = self.list.item(i)
+                i.setCheckState(state)
+        else:
+            # Non "select all" item; figure out what "select all" should be
+            if item.checkState() == Qt.Unchecked:
+                self._action_select_all.setCheckState(Qt.Unchecked)
+            else:
+                # "select all" only checked if all other items are checked
+                for i in range(self.list.count()):
+                    i = self.list.item(i)
+                    if i is self._action_select_all: continue
+                    if i.checkState() == Qt.Unchecked:
+                        self._action_select_all.setCheckState(Qt.Unchecked)
+                        break
+                else:
+                    self._action_select_all.setCheckState(Qt.Checked)
+        self.list.blockSignals(False)
+
+        ###
+        # Filter dataframe according to list
+        ###
+        include = []
+        for i in range(self.list.count()):
+            i = self.list.item(i)
+            if i is self._action_select_all: continue
+            if i.checkState() == Qt.Checked:
+                include.append(str(i.text()))
+
+        self.parent().blockSignals(True)
+        self.parent().filterIsIn(self.col_ix, include)
+        self.parent().blockSignals(False)
+        self.parent()._enable_widgeted_cells()
 
 
 class ColumnHeaderWidget(QWidget):
@@ -53,13 +223,12 @@ class HeaderItem():
 
 class HeaderView(QHeaderView):
 
-    filter_clicked = Signal(str)
-
     def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
 
         self.headers = []
         
+        # Header buttons Signals/Slots
         self.filter_btn_mapper = QSignalMapper(self)
 
         for i, name in enumerate(columns):
@@ -69,9 +238,13 @@ class HeaderView(QHeaderView):
             header_widget.button.clicked.connect(self.filter_btn_mapper.map)
             self.headers.append(header)
 
-        self.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
+        self.filter_btn_mapper.mapped[str].connect(self.on_header_clicked)
+        
+        # Sections Signals/Slots
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
+
+        # StyleSheet
         self.setStyleSheet('''
             QHeaderView::section {
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -91,7 +264,7 @@ class HeaderView(QHeaderView):
             }''')
 
 
-    def filter_clicked(self, s: str):
+    def on_header_clicked(self, s: str):
         btn = self.filter_btn_mapper.mapping(s)
         print('Change the icon here!')
 
@@ -211,7 +384,6 @@ class DataFrameModel(QAbstractTableModel):
         self.dirty = False
 
         self._header_model = header_model
-        self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
         self.filter_values_mapper = QSignalMapper(self)
 
 
@@ -299,16 +471,17 @@ class DataFrameView(QTableView):
     dataframe_changed = Signal()
     cell_clicked = Signal(int, int)
 
-    def __init__(self, parent=None, df=None) -> None:
+    def __init__(self, df: pd.DataFrame, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
 
         # Set the views
         self._header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self._header_model)
-
+        self._header_model.filter_btn_mapper.mapped[str].connect(self.header_menu)
+        
         self._data_model = DataFrameModel(self._header_model, self)
-        if df is None:
-            df = pd.DataFrame()
+        # if df is None:
+        #     df = pd.DataFrame()
         self._data_model.set_df(df)
         self.setModel(self._data_model)
 
@@ -316,7 +489,6 @@ class DataFrameView(QTableView):
         self._data_model.modelReset.connect(self.dataframe_changed)
         self._data_model.dataChanged.connect(self.dataframe_changed)
         self.clicked.connect(self.on_click)
-        self.dataframe_changed.connect()
 
         self.horizontalScrollBar().valueChanged.connect(self._data_model.on_horizontal_scroll)
         self.horizontalScrollBar().valueChanged.connect(self._data_model.on_vertical_scroll)
@@ -326,7 +498,7 @@ class DataFrameView(QTableView):
 
         # Create header menu bindings
         self.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
-        self.horizontalHeader().customContextMenuRequested.connect(self._header_menu)
+        self.horizontalHeader().customContextMenuRequested.connect(self.header_menu)
 
 
     def make_cell_context_menu(self, menu, row_ix, col_ix):
@@ -347,7 +519,8 @@ class DataFrameView(QTableView):
             menu (QMenu)
                 Same menu passed in, with added actions
         """
-        cell_val = self.df.iat[row_ix, col_ix]
+        df = self._data_model.get_df()
+        cell_val = df.iat[row_ix, col_ix]
 
         # Quick Filter
         def _cell_filter(s_col):
@@ -370,15 +543,15 @@ class DataFrameView(QTableView):
         menu.addAction(self._icon('DialogResetButton'),
                         "Clear",
                         self._data_model.reset)
-        # menu.addSeparator()
+        menu.addSeparator()
 
         # Save to Excel
-        # def _to_excel():
-        #     from subprocess import Popen
-        #     self.df.to_excel(self.defaultExcelFile, self.defaultExcelSheet)
-        #     Popen(self.defaultExcelFile, shell=True)
-        # menu.addAction("Open in Excel",
-        #                _to_excel)
+        def _to_excel():
+            from subprocess import Popen
+            df.to_excel(self.defaultExcelFile, self.defaultExcelSheet)
+            Popen(self.defaultExcelFile, shell=True)
+        menu.addAction("Open in Excel",
+                       _to_excel)
 
         return menu
 
@@ -400,10 +573,13 @@ class DataFrameView(QTableView):
         menu.exec_(self.mapToGlobal(event.pos()))
 
 
-    def header_menu(self, pos):
+    def header_menu(self, name):
         """Create popup menu used for header"""
+        
         menu = QMenu(self)
-        col_ix = self.horizontalHeader().logicalIndexAt(pos)
+
+        pos = df.columns.get_loc(name)
+        col_ix = self.horizontalHeader().logicalIndex(pos)
 
         if col_ix == -1:
             # Out of bounds
@@ -431,15 +607,11 @@ class DataFrameView(QTableView):
         # Show (column to left and right)
         for i in (-1, 1):
             if self.isColumnHidden(col_ix+i):
-                menu.addAction("Show %s" % self._data_model.headerData(col_ix+i, Qt.Horizontal),
+                
+                menu.addAction("Show %s" % name,
                                 partial(self.showColumn, col_ix+i))
 
         menu.exec_(self.mapToGlobal(pos))
-
-
-
-    def on_dataframe_changed(self):
-        print('DataFrame changed...')
 
 
     def set_df(self, df: pd.DataFrame):
@@ -472,8 +644,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.title)
 
         # Set the table and the data
-        self.table = DataFrameView(self)
-        self.table.set_df(df)
+        self.table = DataFrameView(df, self)
         self.setCentralWidget(self.table)
 
         # Set window size
@@ -481,27 +652,6 @@ class MainWindow(QMainWindow):
         col_width = min(col_width + MainWindow.MARGIN * 2, 1280)
         self.setGeometry(200, 300, col_width, 300)
         self.setMinimumSize(QSize(400, 300))
-
-
-    def filter_clicked(self, name):
-        print(self.__class__.__name__, ': ', name)
-        ndx = self._df.columns.get_loc(name)
-        self.logical = self.logicalIndex(ndx)
-
-        self.filter_menu = QMenu(self)
-        self.filter_values_mapper
-        unique_values = self._df[name].unique()
-
-        action_all = QAction('All', self)
-        action_all.triggered.connect(self.on_action_all_triggered)
-        self.filter_menu.addAction(action_all)
-        self.filter_menu.addSeparator()
-
-        for i, name in enumerate(sorted(unique_values)):
-            action = QAction(name, self)
-            self.filter_values_mapper.setMapping(action, i)
-            action.triggered.connect(self.filter_values_mapper.map)
-            self.filter_menu.addAction(action)
 
 
     def datatable_updated(self):
@@ -518,6 +668,7 @@ def mock_df() -> pd.DataFrame:
     df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
     df.area = df.area.astype(float)
     return df
+
 
 if __name__ == "__main__":
 

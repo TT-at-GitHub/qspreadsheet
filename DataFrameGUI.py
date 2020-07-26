@@ -11,7 +11,7 @@
     - To quickly display a dataframe, just use DataFrameApp(df)
     >>> import sys, pandas
     >>> from DataFrameGUI import DataFrameApp
-    >>> df = pandas.DataFrame([1,2,3])
+    >>> df = pd.DataFrame([1,2,3])
     >>> root = QApplication(sys.argv)
     >>> app = DataFrameApp(df)
     >>> app.show()
@@ -24,7 +24,7 @@
 # sip.setapi('QString', 2)
 # sip.setapi('QVariant', 2)
 
-import pandas
+import pandas as pd
 import operator
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -63,8 +63,8 @@ class DataFrameModel(QAbstractTableModel):
 
     def __init__(self):
         super(DataFrameModel, self).__init__()
-        self._df = pandas.DataFrame()
-        self._orig_df = pandas.DataFrame()
+        self._df = pd.DataFrame()
+        self._orig_df = pd.DataFrame()
         self._pre_dyn_filter_df = None
         self._resort = lambda : None # Null resort functon
 
@@ -143,7 +143,7 @@ class DataFrameModel(QAbstractTableModel):
             if role == DataFrameModel.RawDataRole:
                 return data
 
-            if pandas.isnull(data):
+            if pd.isnull(data):
                 return QVariant()
             return '%s' % data
         else:
@@ -329,7 +329,7 @@ class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
         df = self._source_df
         col = df.columns[self.filterKeyColumn()]
 
-        ilocs = pandas.DataFrame(range(len(df)))
+        ilocs = pd.DataFrame(range(len(df)))
         ilocs = ilocs[mask.reset_index(drop=True)]
 
         self.modelAboutToBeReset.emit()
@@ -533,7 +533,7 @@ class FilterListMenuWidget(QWidgetAction):
         else:
             build_list = disp_col
         # for i in sorted(build_list):
-        vals = fx.sort_mix_values(pandas.Series(data=list(build_list))).to_list()
+        vals = fx.sort_mix_values(pd.Series(data=list(build_list))).to_list()
         for i in vals:
             _build_item(i)
 
@@ -681,7 +681,7 @@ class DataFrameWidget(QTableView):
 
         # Initialize to passed dataframe
         if df is None:
-            df = pandas.DataFrame()
+            df = pd.DataFrame()
         self._data_model.setDataFrame(df)
 
         #self.setSortingEnabled(True)
@@ -839,7 +839,7 @@ class DataFrameWidget(QTableView):
             return
 
         # Capture selection into a DataFrame
-        items = pandas.DataFrame()
+        items = pd.DataFrame()
         for idx in indexes:
             row = idx.row()
             col = idx.column()
@@ -933,6 +933,15 @@ class ExampleWidgetForWidgetedCell(QComboBox):
         self.setCurrentIndex(state)
 
 
+def mock_df() -> pd.DataFrame:
+    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+    df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    df.area = df.area.astype(float)
+    return df
+    
+
 if __name__ == '__main__':
     # Create a quick example
     _app = QApplication(sys.argv)
@@ -948,7 +957,8 @@ if __name__ == '__main__':
         r.append(random.randint(1,20))
         r.append(random.random()*10)
         data.append(r)
-    df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+    # df = pd.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+    df = mock_df()
     app = DataFrameApp(df)
     app.show()
     _app.exec_()
