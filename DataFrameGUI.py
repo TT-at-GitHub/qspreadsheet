@@ -598,6 +598,7 @@ class FilterListMenuWidget(QWidgetAction):
         self.parent().blockSignals(False)
         self.parent()._enable_widgeted_cells()
 
+
 class DataFrameItemDelegate(QStyledItemDelegate):
     """Implements WidgetedCell"""
 

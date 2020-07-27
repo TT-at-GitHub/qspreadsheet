@@ -33,7 +33,7 @@ class DataFrameView(QTableView):
 
         self.model = DataFrameModel(df=df, header_model=self.header_model, parent=self)
         self.proxy = DataFrameSortFilterProxy()
-        self.proxy .setSourceModel(self.model)
+        self.proxy.setSourceModel(self.model)
         self.setModel(self.proxy)
 
         self.horizontalScrollBar().valueChanged.connect(self.model.on_horizontal_scroll)
