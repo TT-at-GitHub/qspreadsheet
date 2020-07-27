@@ -27,40 +27,30 @@ class DataFrameView(QTableView):
 
     def __init__(self, df: pd.DataFrame, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
-
-        self._df = df
         
         self.header_model = CustomHeaderView(columns=df.columns.tolist())
-        self.model = DataFrameModel(data=df, header_model=self.header_model, parent=self)
-
         self.setHorizontalHeader(self.header_model)
+
+        self.model = DataFrameModel(df=df, header_model=self.header_model, parent=self)
+        self.proxy = DataFrameSortFilterProxy()
+        self.proxy .setSourceModel(self.model)
+        self.setModel(self.proxy)
+
         self.horizontalScrollBar().valueChanged.connect(self.model.on_horizontal_scroll)
         self.horizontalScrollBar().valueChanged.connect(self.model.on_vertical_scroll)
-        self.setModel(self.model)        
 
         delegate = DataFrameDelegate(self)
         self.setItemDelegate(delegate)
-        
 
-    def filter_clicked(self, name):
-        print(self.__class__.__name__, ': ', name)
-        ndx = self._data.columns.get_loc(name)
-        self.logical = self.logicalIndex(ndx)
+    @property
+    def df(self):
+        return self.model.df
 
-        self.filter_menu = QMenu(self)
-        self.filter_values_mapper
-        unique_values = self._data[name].unique()
-
-        action_all = QAction('All', self)
-        action_all.triggered.connect(self.on_action_all_triggered)
-        self.filter_menu.addAction(action_all)
-        self.filter_menu.addSeparator()
-
-        for i, name in enumerate(sorted(unique_values)):
-            action = QAction(name, self)
-            self.filter_values_mapper.setMapping(action, i)
-            action.triggered.connect(self.filter_values_mapper.map)
-            self.filter_menu.addAction(action)
+    @df.setter
+    def df(self, df: pd.DataFrame):
+        # Use the "hard setting" of the dataframe because anyone who's interacting with the
+        #  DataFrameWidget (ie, end user) would be setting this
+        self.model.df(df)
 
 
 class MainWindow(QMainWindow):
@@ -72,7 +62,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.table)
         self.setMinimumSize(QSize(600, 400))
         self.setWindowTitle("Table View")
-
 
 
 if __name__ == "__main__":

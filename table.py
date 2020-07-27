@@ -54,9 +54,9 @@ class DataFrameDelegate(QStyledItemDelegate):
 
 class DataFrameModel(QAbstractTableModel):
 
-    def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
+    def __init__(self, df: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
-        self._data = data.copy()
+        self.df = df.copy()
         self._header_model = header_model
         self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
         self.filter_values_mapper = QSignalMapper(self)        
@@ -65,16 +65,16 @@ class DataFrameModel(QAbstractTableModel):
 
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self._data.index.size
+        return self.df.index.size
 
 
     def columnCount(self, parent: QModelIndex) -> int:
-        return self._data.columns.size
+        return self.df.columns.size
 
 
     def data(self, index: QModelIndex, role: int) -> typing.Any:
         if role == Qt.DisplayRole:
-            return str(self._data.iloc[index.row(), index.column()])
+            return str(self.df.iloc[index.row(), index.column()])
 
         return None
 
@@ -87,16 +87,16 @@ class DataFrameModel(QAbstractTableModel):
 
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
-        if index.isValid() and 0 <= index.row() < self._data.shape[0]:
+        if index.isValid() and 0 <= index.row() < self.df.shape[0]:
             if not value:
-                self._data.iloc[index.row(), index.column()] = np.nan
+                self.df.iloc[index.row(), index.column()] = np.nan
             else:
                 try:
                     number = pd.to_numeric(value)
                 except :
-                    self._data.iloc[index.row(), index.column()] = str(value)
+                    self.df.iloc[index.row(), index.column()] = str(value)
                 else:
-                    self._data.iloc[index.row(), index.column()] = number
+                    self.df.iloc[index.row(), index.column()] = number
 
             self.dirty = True
 
@@ -113,7 +113,7 @@ class DataFrameModel(QAbstractTableModel):
             if orientation == Qt.Horizontal:
                 return self._header_model.headers[section]
             if orientation == Qt.Vertical:
-                return str(self._data.index[section])
+                return str(self.df.index[section])
 
         return None
 
