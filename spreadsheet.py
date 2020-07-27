@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 import operator
 
+from fx import fx
+from fx.deco import decorate_methods
+
 import PySide2
 
 plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
@@ -15,6 +18,60 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 
 from functools import partial
+
+
+class DynamicFilterLineEdit(QLineEdit):
+    """Filter textbox for a DataFrameTable"""
+
+    def __init__(self, *args, **kwargs):
+        self._always_dynamic = kwargs.pop('always_dynamic', False)
+
+        super(DynamicFilterLineEdit, self).__init__(*args, **kwargs)
+
+        self.col_to_filter = None
+        self._host = None
+
+
+    def bind_dataframe_view(self, host, col_ix):
+        """Bind tihs DynamicFilterLineEdit to a DataFrameTable's column
+        Args:
+            host (DataFrameWidget)
+                Host to filter
+            col_ix (int)
+                Index of column of host to filter
+        """
+        self.host = host
+        self.col_to_filter = col_ix
+        self.textChanged.connect(self._update_filter)
+
+    @property
+    def host(self):
+        if self._host is None:
+            raise RuntimeError("Must call bind_dataframe_view() "
+            "before use.")
+        else:
+            return self._host
+
+    @host.setter
+    def host(self, value):
+        if not isinstance(value, DataFrameView):
+            raise ValueError("Must bind to a DataFrameView, not %s" % value)
+        else:
+            self._host = value
+
+        if not self._always_dynamic:
+            self.editingFinished.connect(self._host._data_model.end_dynamic_filter)
+
+
+    def focusInEvent(self, QFocusEvent):
+        self._host._data_model.beginDynamicFilter()
+
+
+    def _update_filter(self, text):
+        """Called everytime we type in the filter box"""
+        col_ix = self.col_to_filter
+
+        self.host.filter(col_ix, text)
 
 
 class DynamicFilterMenuAction(QWidgetAction):
@@ -40,7 +97,7 @@ class DynamicFilterMenuAction(QWidgetAction):
         layout = QHBoxLayout()
         self.label = QLabel('Filter')
         self.text_box = DynamicFilterLineEdit()
-        self.text_box.bind_dataframewidget(self.parent(), col_ix)
+        self.text_box.bind_dataframe_view(self.parent(), col_ix)
         self.text_box.returnPressed.connect(self._close_menu)
 
         layout.addWidget(self.label)
@@ -88,7 +145,7 @@ class FilterListMenuWidget(QWidgetAction):
         self.setDefaultWidget(widget)
 
         # Signals/slots
-        self.list.itemChanged.connect(self.on_list_itemChanged)
+        self.list.itemChanged.connect(self.on_listitem_changed)
         self.parent().dataframe_changed.connect(self._populate_list)
 
         self._populate_list(inital=True)
@@ -97,24 +154,24 @@ class FilterListMenuWidget(QWidgetAction):
     def _populate_list(self, inital=False):
         self.list.clear()
 
-        df = self.parent()._data_model._orig_df
+        df = self.parent()._data_model._original_df
         col = df.columns[self.col_ix]
         full_col = set(df[col])  # All Entries possible in this column
-        disp_col = set(self.parent().df[col]) # Entries currently displayed
+        disp_col = set(self.parent().get_df()[col]) # Entries currently displayed
 
 
-        def _build_item(item, state=None):
-            i = QListWidgetItem('%s' % item)
-            i.setFlags(i.flags() | Qt.ItemIsUserCheckable)
+        def _build_item(val, state=None):
+            item = QListWidgetItem('%s' % val)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             if state is None:
-                if item in disp_col:
+                if val in disp_col:
                     state = Qt.Checked
                 else:
                     state = Qt.Unchecked
-            i.setCheckState(state)
-            i.checkState()
-            self.list.addItem(i)
-            return i
+            item.setCheckState(state)
+            item.checkState()
+            self.list.addItem(item)
+            return item
 
         # Add a (Select All)
         if full_col == disp_col:
@@ -128,16 +185,14 @@ class FilterListMenuWidget(QWidgetAction):
             build_list = full_col
         else:
             build_list = disp_col
-        # for i in sorted(build_list):
-        vals = fx.sort_mix_values(pandas.Series(data=list(build_list))).to_list()
-        for i in vals:
-            _build_item(i)
+        for val in sorted(build_list):
+            _build_item(val)
 
         # Add a (Blanks)
         # TODO
 
 
-    def on_list_itemChanged(self, item):
+    def on_listitem_changed(self, item):
         ###
         # Figure out what "select all" check-box state should be
         ###
@@ -150,7 +205,8 @@ class FilterListMenuWidget(QWidgetAction):
                 state = Qt.Unchecked
             # Select/deselect all items
             for i in range(self.list.count()):
-                if i is self._action_select_all: continue
+                if i is self._action_select_all: 
+                    continue
                 i = self.list.item(i)
                 i.setCheckState(state)
         else:
@@ -161,7 +217,8 @@ class FilterListMenuWidget(QWidgetAction):
                 # "select all" only checked if all other items are checked
                 for i in range(self.list.count()):
                     i = self.list.item(i)
-                    if i is self._action_select_all: continue
+                    if i is self._action_select_all: 
+                        continue
                     if i.checkState() == Qt.Unchecked:
                         self._action_select_all.setCheckState(Qt.Unchecked)
                         break
@@ -175,14 +232,15 @@ class FilterListMenuWidget(QWidgetAction):
         include = []
         for i in range(self.list.count()):
             i = self.list.item(i)
-            if i is self._action_select_all: continue
+            if i is self._action_select_all: 
+                continue
             if i.checkState() == Qt.Checked:
                 include.append(str(i.text()))
 
         self.parent().blockSignals(True)
-        self.parent().filterIsIn(self.col_ix, include)
+        self.parent().filter_values(self.col_ix, include)
         self.parent().blockSignals(False)
-        self.parent()._enable_widgeted_cells()
+        # self.parent()._enable_widgeted_cells()
 
 
 class ColumnHeaderWidget(QWidget):
@@ -265,8 +323,9 @@ class HeaderView(QHeaderView):
 
 
     def on_header_clicked(self, s: str):
-        btn = self.filter_btn_mapper.mapping(s)
-        print('Change the icon here!')
+        pass
+        # btn = self.filter_btn_mapper.mapping(s)
+        # print('Change the icon here!')
 
 
     def showEvent(self, e: QShowEvent):
@@ -379,6 +438,7 @@ class DataFrameModel(QAbstractTableModel):
         self._df = pd.DataFrame()
         self._original_df = pd.DataFrame()
         self._pre_dyn_filter_df = None
+        self._resort = lambda : None # Null resort functon
 
         self.logical = None
         self.dirty = False
@@ -465,6 +525,70 @@ class DataFrameModel(QAbstractTableModel):
     def on_action_all_triggered(self, dx: int):
         self.logical
 
+    @Slot()
+    def begin_dynamic_filter(self):
+        """Effects of using the "filter" function will not become permanent until endDynamicFilter called"""
+        if self._pre_dyn_filter_df is None:
+            print( "NEW DYNAMIC FILTER MODEL")
+            self._pre_dyn_filter_df = df.copy()
+        else:
+            # Already dynamically filtering, so don't override that
+            print( "SAME DYNAMIC FILTER MODEL")
+            pass
+
+    @Slot()
+    def end_dynamic_filter(self):
+        """Makes permanent the effects of the dynamic filter"""
+        print( " * * * RESETING DYNAMIC")
+        self._pre_dyn_filter_df = None
+
+
+    def sort(self, col_ix, order = Qt.AscendingOrder):
+        df = self.get_df()
+
+        if col_ix >= df.shape[1]:
+            # Column out of bounds
+            return
+
+        self.layoutAboutToBeChanged.emit()
+        ascending = True if order == Qt.AscendingOrder else False
+        df = df.sort_values(by=df.columns[col_ix], ascending=ascending)
+
+        self.layoutChanged.emit()
+
+        # Set sorter to current sort (for future filtering)
+        self._resort = partial(self.sort, col_ix, order)
+
+
+    def reset(self):
+        self.set_df(self._original_df.copy())
+        self._resort = lambda: None
+        self._pre_dyn_filter_df = None
+
+
+    def filter_values(self, col_ix, include):
+        df = self._original_df
+        col = self.get_df().columns[col_ix]
+
+        # Convert to string
+        s_col = df[col].astype('str')
+
+        # Filter
+        self.set_df(df[s_col.isin(include)])
+
+        # Resort
+        self._resort()
+
+
+    def filter_function(self, col_ix, function):
+        df = self.get_df()
+        col = df.columns[col_ix]
+
+        self.set_df(df[function(df[col])])
+
+        # Resort
+        self._resort()
+
 
 class DataFrameView(QTableView):
 
@@ -522,12 +646,13 @@ class DataFrameView(QTableView):
         df = self._data_model.get_df()
         cell_val = df.iat[row_ix, col_ix]
 
-        # Quick Filter
+        # By Value Filter
         def _cell_filter(s_col):
             return s_col == cell_val
-        menu.addAction(self._icon('CommandLink'),
+
+        menu.addAction(self._qicon('CommandLink'),
             "By Value", 
-            partial(self._data_model.filterFunction, 
+            partial(self._data_model.filter_function, 
                     col_ix=col_ix, function=_cell_filter))
 
         # GreaterThan/LessThan filter
@@ -535,12 +660,12 @@ class DataFrameView(QTableView):
             return op(s_col, cell_val)
 
         menu.addAction("Greater Than",
-                        partial(self._data_model.filterFunction, col_ix=col_ix,
+                        partial(self._data_model.filter_function, col_ix=col_ix,
                                 function=partial(_cmp_filter, op=operator.ge)))
         menu.addAction("Less Than",
-                        partial(self._data_model.filterFunction, col_ix=col_ix,
+                        partial(self._data_model.filter_function, col_ix=col_ix,
                                 function=partial(_cmp_filter, op=operator.le)))
-        menu.addAction(self._icon('DialogResetButton'),
+        menu.addAction(self._qicon('DialogResetButton'),
                         "Clear",
                         self._data_model.reset)
         menu.addSeparator()
@@ -548,10 +673,13 @@ class DataFrameView(QTableView):
         # Save to Excel
         def _to_excel():
             from subprocess import Popen
-            df.to_excel(self.defaultExcelFile, self.defaultExcelSheet)
-            Popen(self.defaultExcelFile, shell=True)
-        menu.addAction("Open in Excel",
-                       _to_excel)
+            xlfile = "temp.xls"
+            xlsheet = "Output"        
+
+            df.to_excel(xlfile, xlsheet)
+            Popen(xlfile, shell=True)
+
+        menu.addAction("Open in Excel", _to_excel)
 
         return menu
 
@@ -588,15 +716,15 @@ class DataFrameView(QTableView):
         # Filter Menu Action
         menu.addAction(DynamicFilterMenuAction(self, menu, col_ix))
         menu.addAction(FilterListMenuWidget(self, menu, col_ix))
-        menu.addAction(self._icon('DialogResetButton'),
+        menu.addAction(self._qicon('DialogResetButton'),
                         "Reset",
                         self._data_model.reset)
 
         # Sort Ascending/Decending Menu Action
-        menu.addAction(self._icon('TitleBarShadeButton'),
+        menu.addAction(self._qicon('TitleBarShadeButton'),
                         "Sort Ascending",
                        partial(self._data_model.sort, col_ix=col_ix, order=Qt.AscendingOrder))
-        menu.addAction(self._icon('TitleBarUnshadeButton'),
+        menu.addAction(self._qicon('TitleBarUnshadeButton'),
                         "Sort Descending",
                        partial(self._data_model.sort, col_ix=col_ix, order=Qt.DescendingOrder))
         menu.addSeparator()
@@ -610,12 +738,20 @@ class DataFrameView(QTableView):
                 
                 menu.addAction("Show %s" % name,
                                 partial(self.showColumn, col_ix+i))
-
-        menu.exec_(self.mapToGlobal(pos))
+        
+        menu.exec_(QCursor.pos())
 
 
     def set_df(self, df: pd.DataFrame):
         self._data_model.set_df(df)
+
+
+    def get_df(self):
+        return self._data_model.get_df()
+
+
+    def filter_values(self, col_ix, include):
+        return self._data_model.filter_values(col_ix, include)
 
 
     def on_click(self, index: QModelIndex):

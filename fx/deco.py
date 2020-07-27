@@ -45,7 +45,7 @@ def accepts(**kwargtypes):
         allargs = code.co_varnames[:code.co_argcount]
         fn_name = fn.__name__
 
-        @functools.wraps(fn)  # to avoid loosing fn's docstring
+        @wraps(fn)  # to avoid loosing fn's docstring
         def fn_wrapper(*pargs, **kargs):
             positionals = list(allargs)[:len(pargs)]
 
@@ -105,7 +105,7 @@ def debug_accepts(**kwargtypes):
             allargs = code.co_varnames[:code.co_argcount]
             fn_name = fn.__name__
 
-            @functools.wraps(fn)  # to avoid loosing fn's docstring
+            @wraps(fn)  # to avoid loosing fn's docstring
             def fn_wrapper(*pargs, **kargs):
                 positionals = list(allargs)[:len(pargs)]
 
@@ -149,7 +149,7 @@ def returns(*return_type):
         if len(return_type) == 0:
             raise TypeError('You must specify a return type.')
 
-        @functools.wraps(fn)
+        @wraps(fn)
         def fn_wrapper(*fn_args, **fn_kwargs):
             # More than one return type has been specified.
             if len(return_type) > 1:
@@ -199,7 +199,7 @@ def debug_returns(*return_type):
             if len(return_type) == 0:
                 raise TypeError('You must specify a return type.')
 
-            @functools.wraps(fn)
+            @wraps(fn)
             def fn_wrapper(*fn_args, **fn_kwargs):
                 # More than one return type has been specified.
                 if len(return_type) > 1:
@@ -260,7 +260,7 @@ def rangetest(**kw_range_checks):
         allargs = code.co_varnames[:code.co_argcount]
         fn_name = fn.__name__
 
-        @functools.wraps(fn)  # to avoid loosing fn's docstring
+        @wraps(fn)  # to avoid loosing fn's docstring
         def fn_wrapper(*args, **kwargs):
                 # all args match first N args by position
                 # the rest must be in kwargs or omitted defaults
@@ -333,7 +333,7 @@ def debug_rangetest(**kw_range_checks):
             allargs = code.co_varnames[:code.co_argcount]
             fn_name = fn.__name__
 
-            @functools.wraps(fn)  # to avoid loosing fn's docstring
+            @wraps(fn)  # to avoid loosing fn's docstring
             def fn_wrapper(*args, **kwargs):
                     # all args match first N args by position
                     # the rest must be in kwargs or omitted defaults
