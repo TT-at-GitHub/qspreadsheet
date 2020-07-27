@@ -128,3 +128,7 @@ class DataFrameTableModel(QAbstractTableModel):
 
     def on_action_all_triggered(self, dx: int):
         self.logical
+
+
+    def filter_clicked(self, name):
+        print(name)
