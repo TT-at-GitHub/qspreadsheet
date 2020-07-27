@@ -14,42 +14,33 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 
 from header import CustomHeaderView
-from table import DataFrameTableModel, DataFrameItemDelegate
+from table import DataFrameModel, DataFrameDelegate
 
 
-class MainWindow(QMainWindow):
+class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
-    def __init__(self, df: pd.DataFrame):
-        super().__init__()
+    def __init__(self) -> None:
+        super(DataFrameSortFilterProxy, self).__init__()
 
-        table = QTableView()
-        header_model = CustomHeaderView(columns=df.columns.tolist())
-        model = DataFrameTableModel(data=df, header_model=header_model, parent=table)
 
-        table.setHorizontalHeader(header_model)
-        table.horizontalHeader().setStretchLastSection(True)
-        table.horizontalHeader().setMinimumSectionSize(100)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        table.horizontalHeader().resizeSections(QHeaderView.Stretch)
-        table.horizontalScrollBar().valueChanged.connect(model.on_horizontal_scroll)
-        table.horizontalScrollBar().valueChanged.connect(model.on_vertical_scroll)
-        table.setModel(model)
+class DataFrameView(QTableView):
 
-        item_delegete = DataFrameItemDelegate()
-        table.setItemDelegate(item_delegete)
+    def __init__(self, df: pd.DataFrame, parent=None) -> None:
+        super(DataFrameView, self).__init__(parent)
+
+        self._df = df
         
-        w = QWidget()
-        self.setCentralWidget(w)
-        layout = QVBoxLayout(w)
-        layout.addWidget(table)
-       
-        self.table = table
-        self.header_model = header_model
-        self.model = model        
+        self.header_model = CustomHeaderView(columns=df.columns.tolist())
+        self.model = DataFrameModel(data=df, header_model=self.header_model, parent=self)
 
-        self.setMinimumSize(QSize(600, 400))
-        self.setWindowTitle("Table View")
+        self.setHorizontalHeader(self.header_model)
+        self.horizontalScrollBar().valueChanged.connect(self.model.on_horizontal_scroll)
+        self.horizontalScrollBar().valueChanged.connect(self.model.on_vertical_scroll)
+        self.setModel(self.model)        
 
+        delegate = DataFrameDelegate(self)
+        self.setItemDelegate(delegate)
+        
 
     def filter_clicked(self, name):
         print(self.__class__.__name__, ': ', name)
@@ -70,6 +61,18 @@ class MainWindow(QMainWindow):
             self.filter_values_mapper.setMapping(action, i)
             action.triggered.connect(self.filter_values_mapper.map)
             self.filter_menu.addAction(action)
+
+
+class MainWindow(QMainWindow):
+
+    def __init__(self, df: pd.DataFrame):
+        super().__init__()
+
+        self.table = DataFrameView(df, self)
+        self.setCentralWidget(self.table)
+        self.setMinimumSize(QSize(600, 400))
+        self.setWindowTitle("Table View")
+
 
 
 if __name__ == "__main__":

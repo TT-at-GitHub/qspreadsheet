@@ -9,10 +9,10 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from header import CustomHeaderView
 
-class DataFrameItemDelegate(QStyledItemDelegate):
+class DataFrameDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(DataFrameItemDelegate, self).__init__(parent)
+        super(DataFrameDelegate, self).__init__(parent)
 
 
     def paint(self, painter, option, index):
@@ -52,7 +52,7 @@ class DataFrameItemDelegate(QStyledItemDelegate):
         QStyledItemDelegate.setModelData(self, editor, model, index)
 
 
-class DataFrameTableModel(QAbstractTableModel):
+class DataFrameModel(QAbstractTableModel):
 
     def __init__(self, data: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
