@@ -32,6 +32,8 @@ class DataFrameView(QTableView):
         self.setHorizontalHeader(self.header_model)
 
         self.model = DataFrameModel(df=df, header_model=self.header_model, parent=self)
+        self.header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
+
         self.proxy = DataFrameSortFilterProxy()
         self.proxy.setSourceModel(self.model)
         self.setModel(self.proxy)
@@ -52,6 +54,9 @@ class DataFrameView(QTableView):
         #  DataFrameWidget (ie, end user) would be setting this
         self.model.df(df)
 
+    def filter_clicked(self, name):
+        print(name)
+
 
 class MainWindow(QMainWindow):
 
@@ -64,12 +69,19 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Table View")
 
 
+def mock_df():
+    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+    df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    return df
+
+
 if __name__ == "__main__":
 
-    rng = np.random.RandomState(42)
-    df = pd.DataFrame(rng.randint(0, 10, (3, 4)), columns=['Abcd', 'Some very long header Background', 'Cell', 'Date'])
-
     app = QApplication(sys.argv)
+
+    df = mock_df()
     window = MainWindow(df)
     window.show()
     sys.exit(app.exec_())

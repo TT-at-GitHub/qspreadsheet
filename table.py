@@ -131,4 +131,4 @@ class DataFrameModel(QAbstractTableModel):
 
 
     def filter_clicked(self, name):
-        print(name)
+        pass
