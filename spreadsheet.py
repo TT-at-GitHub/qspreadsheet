@@ -23,6 +23,17 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         super(DataFrameSortFilterProxy, self).__init__()
 
 
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        print(source_row)
+        return True
+
+
+    def setCustomFilter(self, name: str):
+        print(f'Filter column: {name}')
+        self.invalidateFilter()
+
+
+
 class DataFrameView(QTableView):
 
     def __init__(self, df: pd.DataFrame, parent=None) -> None:
@@ -44,6 +55,11 @@ class DataFrameView(QTableView):
         delegate = DataFrameDelegate(self)
         self.setItemDelegate(delegate)
 
+        # Create header menu bindings
+        self.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.horizontalHeader().customContextMenuRequested.connect(self._header_menu)
+        
+
     @property
     def df(self):
         return self.model.df
@@ -55,7 +71,7 @@ class DataFrameView(QTableView):
         self.model.df(df)
 
     def filter_clicked(self, name):
-        print(name)
+        self.proxy.setCustomFilter(name)
 
 
 class MainWindow(QMainWindow):
