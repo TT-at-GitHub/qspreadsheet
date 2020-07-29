@@ -39,6 +39,7 @@ class FilterListMenuWidget(QWidgetAction):
         # State
         self.menu = menu
         self.col_ndx = col_ndx
+        self.checked_values = []
 
         # Build Widgets
         widget = QWidget()
@@ -60,6 +61,7 @@ class FilterListMenuWidget(QWidgetAction):
 
     def populate_list(self, initial=False):
         self.list.clear()
+        self.checked_values.clear()
 
         df = self.parent().df
         mask = self.parent().proxy.accepted_mask
@@ -71,7 +73,7 @@ class FilterListMenuWidget(QWidgetAction):
             item = QListWidgetItem(str(val))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             if state is None:
-                if val in disp_col:
+                if val in disp_col.values:
                     state = Qt.Checked
                 else:
                     state = Qt.Unchecked
@@ -79,12 +81,12 @@ class FilterListMenuWidget(QWidgetAction):
             item.checkState()
             return item
 
-        if full_col.equals(disp_col):
+        # Add a (Select All)
+        if mask.all():
             select_all_state = Qt.Checked
         else:
             select_all_state = Qt.Unchecked
 
-        # Add a (Select All)
         self._action_select_all = _build_item('(Select All)', state=select_all_state)
         self.list.addItem(self._action_select_all)
 
@@ -104,10 +106,8 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.blockSignals(True)
         if item is self._action_select_all:
             # Handle "select all" item click
-            if item.checkState() == Qt.Checked:
-                state = Qt.Checked
-            else:
-                state = Qt.Unchecked
+            state = item.checkState()
+
             # Select/deselect all items
             for i in range(self.list.count()):
                 if i is self._action_select_all: 
@@ -131,21 +131,21 @@ class FilterListMenuWidget(QWidgetAction):
                     self._action_select_all.setCheckState(Qt.Checked)
         self.list.blockSignals(False)
 
-        ###
-        # Filter dataframe according to list
-        ###
-        include = []
         for i in range(self.list.count()):
             item = self.list.item(i)
             if item is self._action_select_all:
                 continue
             if item.checkState() == Qt.Checked:
-                include.append(item.text())
+                self.checked_values.append(item.text())
 
+
+    def apply_and_close(self):
         self.parent().blockSignals(True)
         self.parent().proxy.setFilterKeyColumn(self.col_ndx)
-        self.parent().proxy.isin_filter(include)
+        self.parent().proxy.isin_filter(self.checked_values)
+        self.checked_values.clear()
         self.parent().blockSignals(False)
+        self.menu.close()
 
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
@@ -155,6 +155,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._df = pd.DataFrame()
         self.accepted_mask = pd.Series()
         self._masks_cache = []
+
 
     def set_df(self, df):
         self._df = df
@@ -176,7 +177,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             mask = self._alltrues()
         else:
             mask = self._df[colname].astype('str').str.lower().str.contains(text)
-        self.accepted_mask = self.accepted_mask & mask
+        self.accepted_mask = mask
         self.invalidate()
 
     
@@ -185,9 +186,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         print('DataFrameSortFilterProxy.isin_filter:'
             ' check if ints will not become float strings...')
         mask = self._df[colname].astype('str').isin(values)
-        self.accepted_mask = self.accepted_mask & mask
+        self.accepted_mask = mask
         self.invalidate()
-    
+
+
     def reset_filter(self):
         self.accepted_mask = self._alltrues()
         self.invalidateFilter()
@@ -325,9 +327,10 @@ class DataFrameView(QTableView):
         str_filter.textChanged.connect(self.proxy.string_filter)
         menu.addAction(str_filter)
 
-        menu.addAction(FilterListMenuWidget(self, menu, col_ix))
+        list_filter = FilterListMenuWidget(self, menu, col_ix)
+        menu.addAction(list_filter)
         menu.addAction(self._icon('DialogResetButton'),
-                        "Reset",
+                        "Clear Filter",
                         self.proxy.reset_filter)
         
         # Sort Ascending/Decending Menu Action
@@ -340,7 +343,7 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide", partial(self.hideColumn, col_ix))
+        menu.addAction("Hide Column...", partial(self.hideColumn, col_ix))
 
         # Unhide column to left and right
         for i in (-1, 1):
@@ -356,8 +359,22 @@ class DataFrameView(QTableView):
         hidden = [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
         if hidden:
             menu.addAction(f'Unhide All',
-                            partial(_unhide_all, hidden))                                
+                            partial(_unhide_all, hidden))
+
+        
+        menu.addSeparator()
+        
+        # Filter Button box
+        btn_box = QDialogButtonBox(self)
+        btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btn_box.accepted.connect(list_filter.apply_and_close)
+        btn_box.rejected.connect(menu.close)
+        btn_action = QWidgetAction(self)
+        btn_action.setDefaultWidget(btn_box)
+        menu.addAction(btn_action)
+       
         return menu
+
 
     def _icon(self, icon_name):
         """Convenience function to get standard icons from Qt"""
