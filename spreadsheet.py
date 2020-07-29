@@ -289,12 +289,7 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Save to Excel
-        def _to_excel():
-            from subprocess import Popen
-            mask = self.proxy.accepted_mask
-            self.df.loc[mask].to_excel('temp.xls', 'Output')
-            Popen('temp.xls', shell=True)
-        menu.addAction("Open in Excel", _to_excel)
+        menu.addAction("Open in Excel", self._to_excel)
 
         return menu
 
@@ -340,6 +335,7 @@ class DataFrameView(QTableView):
         menu.addAction(self._icon('TitleBarUnshadeButton'),
                         "Sort Descending",
                        partial(self.proxy.sort, col_ix, Qt.DescendingOrder))
+                 
         menu.addSeparator()
 
         # Hide
@@ -356,14 +352,13 @@ class DataFrameView(QTableView):
                 self.showColumn(ndx)
 
         # Unhide all hidden columns
-        hidden = [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
-        if hidden:
+        hidden_indices = self._get_hidden_column_indices()
+        if hidden_indices:
             menu.addAction(f'Unhide All',
-                            partial(_unhide_all, hidden))
-
+                            partial(_unhide_all, hidden_indices))
         
         menu.addSeparator()
-        
+
         # Filter Button box
         btn_box = QDialogButtonBox(self)
         btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -376,7 +371,23 @@ class DataFrameView(QTableView):
         return menu
 
 
-    def _icon(self, icon_name):
+    def _to_excel(self):
+        from subprocess import Popen
+        rows = self.proxy.accepted_mask
+        columns = self._get_visible_column_names()
+        self.df.loc[rows, columns].to_excel('temp.xls', 'Output')
+        Popen('temp.xls', shell=True)
+        
+
+    def _get_visible_column_names(self) -> list:
+        return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]
+
+
+    def _get_hidden_column_indices(self) -> list:
+        return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
+
+
+    def _icon(self, icon_name) -> QIcon:
         """Convenience function to get standard icons from Qt"""
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
@@ -398,7 +409,7 @@ class MainWindow(QMainWindow):
 
 
 def mock_df():
-    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    area = pd.Series({0 : 423967.3, 1: 695662.3, 2: 141297.3, 3: 170312.7, 4: 149995.9})
     pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
     states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
     df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))

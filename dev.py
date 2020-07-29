@@ -1,6 +1,8 @@
 #In[0]
 import sys, os
-from PyQt5.QtCore import center
+from PySide2.QtCore import *
+from PySide2.QtWidgets import *
+from PySide2.QtGui import *
 import numpy as np
 import numpy
 import pandas as pd 
@@ -62,3 +64,9 @@ s
 s.all()
 
 # %%
+st = QStyle()
+st
+#In[0]
+for attr in dir(QStyle):
+    if attr.startswith('SP_'):
+        print(attr)
