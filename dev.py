@@ -45,3 +45,20 @@ df = pd.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'
 
 #In[0]
 help(pd.Series.sort_values)
+
+#In[0]
+area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+data = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+df = data
+df
+#In[0]
+s = pd.Series(data=True, index=df.index)
+s.iloc[0] = False
+s
+
+# %%
+s.all()
+
+# %%

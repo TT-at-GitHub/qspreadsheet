@@ -865,7 +865,7 @@ class DataFrameWidget(QTableView):
 
 
     def _icon(self, icon_name):
-        """Convinence function to get standard icons from Qt"""
+        """Convenience function to get standard icons from Qt"""
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
         icon = getattr(QStyle, icon_name, None)
