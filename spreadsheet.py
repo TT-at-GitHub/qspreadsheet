@@ -249,8 +249,12 @@ class DataFrameView(QTableView):
         col_ndx = self.df.columns.get_loc(name)
         self.proxy.setFilterKeyColumn(col_ndx)
 
+        # TODO: look for other ways to position the menu
+        header_pos = self.mapToGlobal(btn.parent().pos())
         menu = self.make_header_menu(col_ndx)
-        menu.exec_(self.mapToGlobal(btn.pos()))
+        menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5, 
+                            header_pos.y() + btn.height() + 15)
+        menu.exec_(menu_pos)
 
         # col_ndx = self.df.columns.get_loc(name)
         # self.proxy.sort(col_ndx, Qt.SortOrder.DescendingOrder)

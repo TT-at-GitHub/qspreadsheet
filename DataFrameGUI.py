@@ -942,22 +942,31 @@ class ExampleWidgetForWidgetedCell(QComboBox):
         self.setCurrentIndex(state)
 
 
+def mock_df():
+    area = pandas.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    pop = pandas.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+    df = pandas.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    return df
+
+
 if __name__ == '__main__':
     # Create a quick example
     _app = QApplication(sys.argv)
     import string
     import random
 
-    rnd_txt = lambda: "".join( [random.choice(string.ascii_letters[:26]) for i in range(15)] )
-    data = []
-    for j in range(5):
-        r = []
-        for k in range(6):
-            r.append(rnd_txt())
-        r.append(random.randint(1,20))
-        r.append(random.random()*10)
-        data.append(r)
-    df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+    # rnd_txt = lambda: "".join( [random.choice(string.ascii_letters[:26]) for i in range(15)] )
+    # data = []
+    # for j in range(5):
+    #     r = []
+    #     for k in range(6):
+    #         r.append(rnd_txt())
+    #     r.append(random.randint(1,20))
+    #     r.append(random.random()*10)
+    #     data.append(r)
+    # df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+    df = mock_df()
     app = DataFrameApp(df)
     app.show()
     _app.exec_()
