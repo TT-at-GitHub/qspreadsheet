@@ -45,6 +45,12 @@ class FilterListMenuWidget(QWidgetAction):
         widget = QWidget()
         layout = QVBoxLayout()
         self.list = QListWidget()
+        self.list.setStyleSheet("""
+            QListView::item:selected { 
+                background: rgb(195, 225, 250); 
+                color: rgb(0, 0, 0);
+            }
+        """)
         self.list.setFixedHeight(100)
 
         layout.addWidget(self.list)

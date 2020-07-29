@@ -966,6 +966,7 @@ if __name__ == '__main__':
     #     r.append(random.random()*10)
     #     data.append(r)
     # df = pandas.DataFrame(data, columns=['AAA','BBB','CCC','DDD','EEE','FFF','GGG','HHH'])
+    
     df = mock_df()
     app = DataFrameApp(df)
     app.show()
