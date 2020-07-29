@@ -43,9 +43,6 @@ class HeaderItem():
 
 class CustomHeaderView(QHeaderView):
 
-    class Signals(QObject):
-        filter_clicked = Signal(str)
-
     def __init__(self, columns: list, parent=None):
         super().__init__(Qt.Horizontal, parent)
         
@@ -81,10 +78,12 @@ class CustomHeaderView(QHeaderView):
             */
             }''')
 
+
     def filter_clicked(self, s: str):
         btn = self.filter_btn_mapper.mapping(s)
         print('Change the icon here!')
         
+
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
             header.widget.setParent(self)
