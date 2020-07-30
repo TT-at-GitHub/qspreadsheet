@@ -16,8 +16,7 @@ class ColumnHeaderWidget(QWidget):
         self.label.setWordWrap(True)
         self.label.setStyleSheet('''
             color: white;
-            font: bold 14px 'Consolas';
-        ''')
+            font: bold 14px 'Consolas'; ''')
 
         self.button.setFixedSize(QSize(25, 20))
         icon = QIcon((QPixmap("./images/next.svg")

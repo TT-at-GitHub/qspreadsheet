@@ -5,13 +5,13 @@ from PySide2.QtWidgets import *
 
 LEFT, ABOVE = range(2)
 
-class LabelledLineEdit(QWidget):
+class LabeledLineEdit(QWidget):
 
     def __init__(self, label_text='', position=LEFT,
                  parent=None):
-        super(LabelledLineEdit, self).__init__(parent)
-        self.label = QLabel(label_text)
-        self.lineEdit = QLineEdit()
+        super(LabeledLineEdit, self).__init__(parent)
+        self.label = QLabel(label_text, self)
+        self.lineEdit = QLineEdit(self)
         self.label.setBuddy(self.lineEdit)
         layout = QBoxLayout(QBoxLayout.LeftToRight
                 if position == LEFT else QBoxLayout.TopToBottom)
@@ -20,13 +20,13 @@ class LabelledLineEdit(QWidget):
         self.setLayout(layout)
 
 
-class LabelledTextEdit(QWidget):
+class LabeledTextEdit(QWidget):
 
     def __init__(self, labelText="", position=LEFT,
                  parent=None):
-        super(LabelledTextEdit, self).__init__(parent)
-        self.label = QLabel(labelText)
-        self.textEdit = QTextEdit()
+        super(LabeledTextEdit, self).__init__(parent)
+        self.label = QLabel(labelText, self)
+        self.textEdit = QTextEdit(self)
         self.label.setBuddy(self.textEdit)
         layout = QBoxLayout(QBoxLayout.LeftToRight
                 if position == LEFT else QBoxLayout.TopToBottom)
@@ -36,21 +36,12 @@ class LabelledTextEdit(QWidget):
 
 
 class LineEditMenuAction(QWidgetAction):
-    """Labeled Textbox in right-click menu"""
+    """Labeled Textbox in menu"""
 
     def __init__(self, parent, menu, label_text='', position=LEFT):
-        """Labeled Textbox in right-click menu
-            Args:
-                parent (DataFrameWidget)
-                    Parent who owns the DataFrame to filter
-                menu (QMenu)
-                    Menu object I am located on
-                col_ix (int)
-                    Index of column used in pandas DataFrame we are to filter
-        """
         super(LineEditMenuAction, self).__init__(parent)
 
-        widget = LabelledLineEdit(label_text, position, parent=menu)
+        widget = LabeledLineEdit(label_text, position, parent=menu)
         self.returnPressed = widget.lineEdit.returnPressed
         self.textChanged = widget.lineEdit.textChanged
         self.setDefaultWidget(widget)
@@ -62,11 +53,11 @@ class LineEditMenuAction(QWidgetAction):
 #     def __init__(self, address=None, parent=None):
 #         super(Dialog, self).__init__(parent)
 
-#         self.street = LabelledLineEdit("&Street:")
-#         self.city = LabelledLineEdit("&City:")
-#         self.state = LabelledLineEdit("St&ate:")
-#         self.zipcode = LabelledLineEdit("&Zipcode:")
-#         self.notes = LabelledTextEdit("&Notes:", ABOVE)
+#         self.street = LabeledLineEdit("&Street:")
+#         self.city = LabeledLineEdit("&City:")
+#         self.state = LabeledLineEdit("St&ate:")
+#         self.zipcode = LabeledLineEdit("&Zipcode:")
+#         self.notes = LabeledTextEdit("&Notes:", ABOVE)
 #         if address is not None:
 #             self.street.lineEdit.setText(address.get("street", ""))
 #             self.city.lineEdit.setText(address.get("city", ""))
@@ -90,7 +81,7 @@ class LineEditMenuAction(QWidgetAction):
 #         buttonBox.accepted.connect(self.accept)
 #         buttonBox.rejected.connect(self.reject)
 
-#         self.setWindowTitle("Labelled Widgets")
+#         self.setWindowTitle("Labeled Widgets")
 
 
 # if __name__ == "__main__":

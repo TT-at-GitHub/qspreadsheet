@@ -259,9 +259,9 @@ class DataFrameView(QTableView):
         # self.proxy.sort(col_ndx, Qt.SortOrder.DescendingOrder)
 
 
-    def make_cell_context_menu(self, menu, row_ndx, col_ndx):
+    def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
+        menu = QMenu(self)
         cell_val = self.df.iat[row_ndx, col_ndx]
-
 
         # By Value Filter
         def _quick_filter(cell_val):
@@ -275,40 +275,39 @@ class DataFrameView(QTableView):
         def _cmp_filter(s_col, op):
             return op(s_col, cell_val)
         # menu.addAction("Filter Greater Than",
-        #                 partial(self._data_model.filterFunction, col_ix=col_ndx,
+        #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.ge)))
         # menu.addAction("Filter Less Than",
-        #                 partial(self._data_model.filterFunction, col_ix=col_ndx,
+        #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(self._icon('DialogResetButton'),
-                        "Clear",
+                        "Clear Filter",
                         self.proxy.reset_filter)
         menu.addSeparator()
 
-        # Save to Excel
-        menu.addAction("Open in Excel", self._to_excel)
+        # Open in Excel
+        menu.addAction("Open in Excel...", self._to_excel)
 
         return menu
 
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event: QContextMenuEvent):
         """Implements right-clicking on cell.
 
             NOTE: You probably want to overrite make_cell_context_menu, not this
             function, when subclassing.
         """
-        row_ix = self.rowAt(event.y())
-        col_ix = self.columnAt(event.x())
+        row_ndx = self.rowAt(event.y())
+        col_ndx = self.columnAt(event.x())
 
-        if row_ix < 0 or col_ix < 0:
+        if row_ndx < 0 or col_ndx < 0:
             return #out of bounds
 
-        menu = QMenu(self)
-        menu = self.make_cell_context_menu(menu, row_ix, col_ix)
+        menu = self.make_cell_context_menu(row_ndx, col_ndx)
         menu.exec_(self.mapToGlobal(event.pos()))
 
 
-    def make_header_menu(self, col_ix: int) -> QMenu:
+    def make_header_menu(self, col_ndx: int) -> QMenu:
         """Create popup menu used for header"""
 
         menu = QMenu(self)
@@ -319,7 +318,7 @@ class DataFrameView(QTableView):
         str_filter.textChanged.connect(self.proxy.string_filter)
         menu.addAction(str_filter)
 
-        list_filter = FilterListMenuWidget(self, menu, col_ix)
+        list_filter = FilterListMenuWidget(self, menu, col_ndx)
         menu.addAction(list_filter)
         menu.addAction(self._icon('DialogResetButton'),
                         "Clear Filter",
@@ -328,21 +327,21 @@ class DataFrameView(QTableView):
         # Sort Ascending/Decending Menu Action
         menu.addAction(self._icon('TitleBarShadeButton'),
                         "Sort Ascending",
-                       partial(self.proxy.sort, col_ix, Qt.AscendingOrder))
+                       partial(self.proxy.sort, col_ndx, Qt.AscendingOrder))
         menu.addAction(self._icon('TitleBarUnshadeButton'),
                         "Sort Descending",
-                       partial(self.proxy.sort, col_ix, Qt.DescendingOrder))
+                       partial(self.proxy.sort, col_ndx, Qt.DescendingOrder))
                  
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide Column...", partial(self.hideColumn, col_ix))
+        menu.addAction("Hide Column...", partial(self.hideColumn, col_ndx))
 
         # Unhide column to left and right
         for i in (-1, 1):
-            if self.isColumnHidden(col_ix+i):
-                menu.addAction(f'Unhide {self.df.columns[col_ix+i]}',
-                                partial(self.showColumn, col_ix+i))
+            if self.isColumnHidden(col_ndx+i):
+                menu.addAction(f'Unhide {self.df.columns[col_ndx+i]}',
+                                partial(self.showColumn, col_ndx+i))
 
         def _unhide_all(hidden: list):
             for ndx in hidden:
@@ -384,13 +383,13 @@ class DataFrameView(QTableView):
         return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
 
 
-    def _icon(self, icon_name) -> QIcon:
+    def _icon(self, icon_name: str) -> QIcon:
         """Convenience function to get standard icons from Qt"""
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
         icon = getattr(QStyle, icon_name, None)
         if icon is None:
-            raise Exception("Unknown icon %s" % icon_name)
+            raise Exception("Unknown icon {}".format(icon_name))
         return self.style().standardIcon(icon)        
 
 
