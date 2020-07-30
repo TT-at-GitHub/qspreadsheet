@@ -1,8 +1,8 @@
 import sys, os
 import typing
 
-import numpy as np 
-import pandas as pd 
+import numpy as np
+import pandas as pd
 
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
@@ -26,7 +26,7 @@ class DataFrameDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
         editor.setStyleSheet("""
-            background-color:#fffd99
+            background-color: #fffd99
         """)
         editor.returnPressed.connect(self.commitAndCloseEditor)
         return editor
@@ -36,7 +36,6 @@ class DataFrameDelegate(QStyledItemDelegate):
 
     def commitAndCloseEditor(self):
         editor = self.sender()
-        # if isinstance(editor, (QTextEdit, QLineEdit)):
         self.commitData.emit(editor)
         self.closeEditor.emit(editor)
 
@@ -44,8 +43,6 @@ class DataFrameDelegate(QStyledItemDelegate):
     def setEditorData(self, editor, index):
         text = index.model().data(index, Qt.DisplayRole)
         editor.setText(text)
-        # else:
-            # QStyledItemDelegate.setEditorData(self, editor, index)
 
 
     def setModelData(self, editor, model, index):
@@ -59,17 +56,17 @@ class DataFrameModel(QAbstractTableModel):
         self.df = df.copy()
         self._header_model = header_model
         self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
-        self.filter_values_mapper = QSignalMapper(self)        
+        self.filter_values_mapper = QSignalMapper(self)
         self.logical = None
         self.dirty = False
 
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self.df.index.size
+        return self.df.shape[0]
 
 
     def columnCount(self, parent: QModelIndex) -> int:
-        return self.df.columns.size
+        return self.df.shape[1]
 
 
     def data(self, index: QModelIndex, role: int) -> typing.Any:
@@ -87,7 +84,7 @@ class DataFrameModel(QAbstractTableModel):
 
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
-        if index.isValid() and 0 <= index.row() < self.df.shape[0]:
+        if index.isValid() and 0 <= index.row() < self.rowCount(index):
             if not value:
                 self.df.iloc[index.row(), index.column()] = np.nan
             else:

@@ -47,10 +47,9 @@ class CustomHeaderView(QHeaderView):
         super().__init__(Qt.Horizontal, parent)
         
         self.headers = []
-        # self.signals = CustomHeaderView.Signals()
         self.filter_btn_mapper = QSignalMapper(self)
         
-        for i, name in enumerate(columns):
+        for name in columns:
             header_widget = ColumnHeaderWidget(labelText=name, parent=self)
             header = HeaderItem(widget=header_widget)
             self.filter_btn_mapper.setMapping(header_widget.button, name)
@@ -79,8 +78,8 @@ class CustomHeaderView(QHeaderView):
             }''')
 
 
-    def filter_clicked(self, s: str):
-        btn = self.filter_btn_mapper.mapping(s)
+    def filter_clicked(self, name: str):
+        btn = self.filter_btn_mapper.mapping(name)
         print('Change the icon here!')
         
 
@@ -103,23 +102,22 @@ class CustomHeaderView(QHeaderView):
     def on_section_resized(self, i):
         for ndx in range(i, len(self.headers)):
             logical = self.logicalIndex(ndx)
-
-            header = self.headers[logical]
-            self._set_item_geometry(header, logical)
+            self._set_item_geometry(self.headers[logical], logical)
 
 
     def _set_item_geometry(self, item: HeaderItem, logical:int):
         item.widget.setGeometry(
-            self.sectionViewportPosition(logical), -4,
-            self.sectionSize(logical) - item.margins.left() - item.margins.right(),
-            self.height() + item.margins.top() + item.margins.bottom() + 5)
+            self.sectionViewportPosition(logical), 0,
+            self.sectionSize(logical) - item.margins.left() - item.margins.right() - 1,
+            self.height() + item.margins.top() + item.margins.bottom() - 1)
+
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):
             logical = self.logicalIndex(i)
             header = self.headers[i]
 
-            self.headers[logical].w.setGeometry(
+            self.headers[logical].widget.setGeometry(
                 self.sectionViewportPosition(logical) + header.margins.left(),
                 header.margins.top(),
                 self.sectionSize(i) - header.margins.left() - header.margins.right() -1,
@@ -133,7 +131,7 @@ class CustomHeaderView(QHeaderView):
 
     def set_item_widget(self, index: int, widget: QWidget):
         widget.setParent(self)
-        self.headers[index].w = widget
+        self.headers[index].widget = widget
         self.headers[index].margins = QMargins(2, 2, 2, 2)
         self.fix_item_positions()
         widget.show()
@@ -141,9 +139,3 @@ class CustomHeaderView(QHeaderView):
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    # ...
-    sys.exit(app.exec_())

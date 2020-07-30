@@ -20,7 +20,7 @@ from labelledwidgets import LineEditMenuAction
 
 
 class FilterListMenuWidget(QWidgetAction):
-    """Checkbox list filter menu"""
+    """Checkboxed list filter menu"""
 
     def __init__(self, parent, menu, col_ndx):
         """Checkbox list filter menu
@@ -49,8 +49,7 @@ class FilterListMenuWidget(QWidgetAction):
             QListView::item:selected { 
                 background: rgb(195, 225, 250); 
                 color: rgb(0, 0, 0);
-            }
-        """)
+            } """)
         self.list.setFixedHeight(100)
 
         layout.addWidget(self.list)
@@ -107,7 +106,7 @@ class FilterListMenuWidget(QWidgetAction):
             self.list.addItem( _build_item(val))
 
 
-    def on_listitem_changed(self, item):
+    def on_listitem_changed(self, item: QListWidgetItem):
 
         self.list.blockSignals(True)
         if item is self._action_select_all:
@@ -118,8 +117,8 @@ class FilterListMenuWidget(QWidgetAction):
             for i in range(self.list.count()):
                 if i is self._action_select_all: 
                     continue
-                item = self.list.item(i)
-                item.setCheckState(state)
+                itm = self.list.item(i)
+                itm.setCheckState(state)
         else:
             # Non "select all" item; figure out what "select all" should be
             if item.checkState() == Qt.Unchecked:
@@ -127,10 +126,10 @@ class FilterListMenuWidget(QWidgetAction):
             else:
                 # "select all" only checked if all other items are checked
                 for i in range(self.list.count()):
-                    item = self.list.item(i)
-                    if item is self._action_select_all: 
+                    itm = self.list.item(i)
+                    if itm is self._action_select_all: 
                         continue
-                    if item.checkState() == Qt.Unchecked:
+                    if itm.checkState() == Qt.Unchecked:
                         self._action_select_all.setCheckState(Qt.Unchecked)
                         break
                 else:
@@ -138,17 +137,17 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.blockSignals(False)
 
         for i in range(self.list.count()):
-            item = self.list.item(i)
-            if item is self._action_select_all:
+            itm = self.list.item(i)
+            if itm is self._action_select_all:
                 continue
-            if item.checkState() == Qt.Checked:
-                self.checked_values.append(item.text())
+            if itm.checkState() == Qt.Checked:
+                self.checked_values.append(itm.text())
 
 
     def apply_and_close(self):
         self.parent().blockSignals(True)
         self.parent().proxy.setFilterKeyColumn(self.col_ndx)
-        self.parent().proxy.isin_filter(self.checked_values)
+        self.parent().proxy.list_filter(self.checked_values)
         self.checked_values.clear()
         self.parent().blockSignals(False)
         self.menu.close()
@@ -156,14 +155,14 @@ class FilterListMenuWidget(QWidgetAction):
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
-    def __init__(self) -> None:
-        super(DataFrameSortFilterProxy, self).__init__()
+    def __init__(self, parent=None) -> None:
+        super(DataFrameSortFilterProxy, self).__init__(parent)
         self._df = pd.DataFrame()
         self.accepted_mask = pd.Series()
         self._masks_cache = []
 
 
-    def set_df(self, df):
+    def set_df(self, df: pd.DataFrame):
         self._df = df
         self.accepted_mask = self._alltrues()
 
@@ -172,25 +171,20 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         return self.accepted_mask.iloc[source_row]
 
 
-    def custom_filter(self, *args, **kwargs):
-        pass
-
-
     def string_filter(self, text: str):
         text = text.lower()
         colname = self._colname()
-        if text == '':
+        if not text:
             mask = self._alltrues()
         else:
             mask = self._df[colname].astype('str').str.lower().str.contains(text)
+
         self.accepted_mask = mask
         self.invalidate()
 
     
-    def isin_filter(self, values):
+    def list_filter(self, values):
         colname = self._colname()
-        print('DataFrameSortFilterProxy.isin_filter:'
-            ' check if ints will not become float strings...')
         mask = self._df[colname].astype('str').isin(values)
         self.accepted_mask = mask
         self.invalidate()
@@ -225,33 +219,30 @@ class DataFrameView(QTableView):
         self.model = DataFrameModel(df=df, header_model=self.header_model, parent=self)
         self.header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
 
-        self.proxy = DataFrameSortFilterProxy()
+        self.proxy = DataFrameSortFilterProxy(self)
         self.proxy.set_df(df)
         self.proxy.setSourceModel(self.model)
         self.setModel(self.proxy)
 
         self.horizontalScrollBar().valueChanged.connect(self.model.on_horizontal_scroll)
-        self.horizontalScrollBar().valueChanged.connect(self.model.on_vertical_scroll)
+        self.verticalScrollBar().valueChanged.connect(self.model.on_vertical_scroll)
 
+        # TODO: make the delegate generic !
         delegate = DataFrameDelegate(self)
         self.setItemDelegate(delegate)
 
-        # # Create header menu bindings
-        # self.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
-        # self.horizontalHeader().customContextMenuRequested.connect(self._header_menu)
-
 
     @property
-    def df(self):
+    def df(self) -> pd.DataFrame:
         return self.model.df
 
     @df.setter
     def df(self, df: pd.DataFrame):
-        # Use the "hard setting" of the dataframe because anyone who's interacting with the
-        #  DataFrameWidget (ie, end user) would be setting this
-        self.model.df(df)
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError('Invalid type for `df`. Expected DataFrame')
+        self.model.df = df
 
-    def filter_clicked(self, name):
+    def filter_clicked(self, name: str):
         btn = self.header_model.filter_btn_mapper.mapping(name)
 
         col_ndx = self.df.columns.get_loc(name)
