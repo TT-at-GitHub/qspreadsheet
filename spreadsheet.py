@@ -3,6 +3,7 @@ from functools import partial
 import operator
 
 import numpy as np
+from numpy.core.numeric import indices
 import pandas as pd
 
 import PySide2
@@ -18,6 +19,18 @@ from header import CustomHeaderView
 from table import DataFrameModel, DataFrameDelegate
 from labelledwidgets import LineEditMenuAction
 
+
+class ActionButtonBox(QWidgetAction):
+
+    def __init__(self, parent):
+        super(ActionButtonBox, self).__init__(parent)
+
+        btn_box = QDialogButtonBox(self)
+        btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.accepted = btn_box.accepted
+        self.rejected = btn_box.rejected
+        self.setDefaultWidget(btn_box)
+        
 
 class FilterListMenuWidget(QWidgetAction):
     """Checkboxed list filter menu"""
@@ -335,19 +348,19 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide Column...", partial(self.hideColumn, col_ndx))
+        menu.addAction("Hide Column", partial(self.hideColumn, col_ndx))
 
         # Unhide column to left and right
         for i in (-1, 1):
-            if self.isColumnHidden(col_ndx+i):
-                menu.addAction(f'Unhide {self.df.columns[col_ndx+i]}',
-                                partial(self.showColumn, col_ndx+i))
-
-        def _unhide_all(hidden: list):
-            for ndx in hidden:
-                self.showColumn(ndx)
+            ndx = col_ndx + i
+            if self.isColumnHidden(ndx):
+                menu.addAction(f'Unhide {self.df.columns[ndx]}',
+                                partial(self.showColumn, ndx))
 
         # Unhide all hidden columns
+        def _unhide_all(hidden_indices: list):
+            for ndx in hidden_indices:
+                self.showColumn(ndx)
         hidden_indices = self._get_hidden_column_indices()
         if hidden_indices:
             menu.addAction(f'Unhide All',
@@ -356,13 +369,10 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Filter Button box
-        btn_box = QDialogButtonBox(self)
-        btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btn_box.accepted.connect(list_filter.apply_and_close)
-        btn_box.rejected.connect(menu.close)
-        btn_action = QWidgetAction(self)
-        btn_action.setDefaultWidget(btn_box)
-        menu.addAction(btn_action)
+        action_btn_box = ActionButtonBox(menu)
+        action_btn_box.accepted.connect(list_filter.apply_and_close)
+        action_btn_box.rejected.connect(menu.close)
+        menu.addAction(action_btn_box)    
        
         return menu
 
