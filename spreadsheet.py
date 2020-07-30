@@ -25,7 +25,7 @@ class ActionButtonBox(QWidgetAction):
     def __init__(self, parent):
         super(ActionButtonBox, self).__init__(parent)
 
-        btn_box = QDialogButtonBox(self)
+        btn_box = QDialogButtonBox(parent)
         btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.accepted = btn_box.accepted
         self.rejected = btn_box.rejected

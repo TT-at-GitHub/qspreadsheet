@@ -43,7 +43,7 @@ class HeaderItem():
 class CustomHeaderView(QHeaderView):
 
     def __init__(self, columns: list, parent=None):
-        super().__init__(Qt.Horizontal, parent)
+        super(CustomHeaderView, self).__init__(Qt.Horizontal, parent)
         
         self.headers = []
         self.filter_btn_mapper = QSignalMapper(self)
