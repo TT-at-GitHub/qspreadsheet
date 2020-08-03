@@ -101,10 +101,10 @@ class CustomHeaderView(QHeaderView):
 
     def __init__(self, columns: list, parent=None):
         super(CustomHeaderView, self).__init__(Qt.Horizontal, parent)
-        
+
         self.headers = []
         self.filter_btn_mapper = QSignalMapper(self)
-        
+
         for name in columns:
             header_widget = ColumnHeaderWidget(labelText=name, parent=self)
             header = HeaderItem(widget=header_widget)
@@ -126,8 +126,8 @@ class CustomHeaderView(QHeaderView):
                 padding-left: 4px;
                 padding-right: 4px;
                 border: 1px solid #21618c;
-                
-            /* 
+
+            /*
                 margin-left: 2px;
                 margin-right: 2px;
             */
@@ -137,7 +137,7 @@ class CustomHeaderView(QHeaderView):
     def filter_clicked(self, name: str):
         btn = self.filter_btn_mapper.mapping(name)
         print('Change the icon here!')
-        
+
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
@@ -432,9 +432,9 @@ class DataFrameModel(QAbstractTableModel):
         return self.df.shape[1]
 
 
-    def data(self, index: QModelIndex, role: int) -> Any:
+    def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         if role == Qt.DisplayRole:
-            return str(self.df.iloc[index.row(), index.column()])
+            return str(self.df.iat[index.row(), index.column()])
 
         return None
 
@@ -504,7 +504,7 @@ class ActionButtonBox(QWidgetAction):
         self.accepted = btn_box.accepted
         self.rejected = btn_box.rejected
         self.setDefaultWidget(btn_box)
-        
+
 
 class FilterListMenuWidget(QWidgetAction):
     """Checkboxed list filter menu"""
@@ -526,15 +526,14 @@ class FilterListMenuWidget(QWidgetAction):
         # State
         self.menu = menu
         self.col_ndx = col_ndx
-        self.checked_values = []
 
         # Build Widgets
         widget = QWidget()
         layout = QVBoxLayout()
         self.list = QListWidget()
         self.list.setStyleSheet("""
-            QListView::item:selected { 
-                background: rgb(195, 225, 250); 
+            QListView::item:selected {
+                background: rgb(195, 225, 250);
                 color: rgb(0, 0, 0);
             } """)
         self.list.setFixedHeight(100)
@@ -553,48 +552,46 @@ class FilterListMenuWidget(QWidgetAction):
 
     def populate_list(self, initial=False):
         self.list.clear()
-        self.checked_values.clear()
-
-        df = self.parent().df
-        mask = self.parent().proxy.accepted_mask
-        col = df.columns[self.col_ndx]
-        full_col = df[col]  # All Entries possible in this column
-        disp_col = df.loc[mask, col] # Entries currently displayed
+        unq_list = self.parent().proxy.unique_values()
+        # df = self.parent().df
+        # mask = self.parent().proxy.accepted_mask
+        # col = df.columns[self.col_ndx]
+        # full_col = df[col]  # All Entries possible in this column
+        # disp_col = df.loc[mask, col] # Entries currently displayed
 
         def _build_item(val, state=None) -> QListWidgetItem:
             item = QListWidgetItem(str(val))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             if state is None:
-                if val in disp_col.values:
+                if val in unq_list:
                     state = Qt.Checked
                 else:
                     state = Qt.Unchecked
             item.setCheckState(state)
-            item.checkState()
+            self.list.addItem(item)
             return item
 
         # Add a (Select All)
-        if mask.all():
-            select_all_state = Qt.Checked
-        else:
-            select_all_state = Qt.Unchecked
-
-        self._action_select_all = _build_item('(Select All)', state=select_all_state)
-        self.list.addItem(self._action_select_all)
+        self._action_select_all = _build_item('(Select All)', state=Qt.Unchecked)
+        self.list.addItem(self._action_select_all)            
 
         # Add filter items
-        if initial:
-            unq_list = full_col.unique()
-        else:
-            unq_list = disp_col.unique()
-            
         try:
-            unq_list = np.sort(unq_list)
+            unq_list = sorted(unq_list)
         except:
             pass
 
+        num_checked = 0
         for val in unq_list:
-            self.list.addItem( _build_item(val))
+            item = _build_item(val)
+            if item.checkState() == Qt.Checked:
+                num_checked += 1
+
+        if num_checked == len(unq_list):
+            select_all_state = Qt.Checked
+        else:
+            select_all_state = Qt.Unchecked
+        self._action_select_all.setCheckState(select_all_state)
 
 
     def on_listitem_changed(self, item: QListWidgetItem):
@@ -606,7 +603,7 @@ class FilterListMenuWidget(QWidgetAction):
 
             # Select/deselect all items
             for i in range(self.list.count()):
-                if i is self._action_select_all: 
+                if i is self._action_select_all:
                     continue
                 itm = self.list.item(i)
                 itm.setCheckState(state)
@@ -618,7 +615,7 @@ class FilterListMenuWidget(QWidgetAction):
                 # "select all" only checked if all other items are checked
                 for i in range(self.list.count()):
                     itm = self.list.item(i)
-                    if itm is self._action_select_all: 
+                    if itm is self._action_select_all:
                         continue
                     if itm.checkState() == Qt.Unchecked:
                         self._action_select_all.setCheckState(Qt.Unchecked)
@@ -627,19 +624,21 @@ class FilterListMenuWidget(QWidgetAction):
                     self._action_select_all.setCheckState(Qt.Checked)
         self.list.blockSignals(False)
 
+
+    def checked_values(self) -> List[str]:
+        checked = []
         for i in range(self.list.count()):
             itm = self.list.item(i)
             if itm is self._action_select_all:
                 continue
             if itm.checkState() == Qt.Checked:
-                self.checked_values.append(itm.text())
+                checked.append(itm.text())
+        return checked
 
 
     def apply_and_close(self):
         self.parent().blockSignals(True)
-        self.parent().proxy.setFilterKeyColumn(self.col_ndx)
-        self.parent().proxy.list_filter(self.checked_values)
-        self.checked_values.clear()
+        self.parent().proxy.list_filter(self.checked_values())
         self.parent().blockSignals(False)
         self.menu.close()
 
@@ -673,10 +672,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted_mask = mask
         self.invalidate()
 
-    
+
     def list_filter(self, values):
         colname = self._colname()
-        mask = self._df[colname].astype('str').isin(values)
+        mask = self._df[colname].apply(str).isin(values)
         self.accepted_mask = mask
         self.invalidate()
 
@@ -686,17 +685,21 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.invalidateFilter()
 
 
-    def _update_accepted(self, mask: pd.Series):
-        self._masks_cache.append((self._colnname(), mask))
-        self.accepted_mask = self.accepted_mask & mask
-
-
     def _colname(self) -> str:
         return self._df.columns[self.filterKeyColumn()]
 
 
     def _alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._df.index)
+
+
+    def unique_values(self) -> List[Any]:
+        result = []
+        for i in range(self.rowCount()):
+            index = self.index(i, self.filterKeyColumn())
+            val = self.data(index, Qt.DisplayRole)
+            result.append(val)
+        return result
 
 
 class DataFrameView(QTableView):
@@ -742,7 +745,7 @@ class DataFrameView(QTableView):
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(btn.parent().pos())
         menu = self.make_header_menu(col_ndx)
-        menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5, 
+        menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
                             header_pos.y() + btn.height() + 15)
         menu.exec_(menu_pos)
 
@@ -814,7 +817,7 @@ class DataFrameView(QTableView):
         menu.addAction(self._icon('DialogResetButton'),
                         "Clear Filter",
                         self.proxy.reset_filter)
-        
+
         # Sort Ascending/Decending Menu Action
         menu.addAction(self._icon('TitleBarShadeButton'),
                         "Sort Ascending",
@@ -822,7 +825,7 @@ class DataFrameView(QTableView):
         menu.addAction(self._icon('TitleBarUnshadeButton'),
                         "Sort Descending",
                        partial(self.proxy.sort, col_ndx, Qt.DescendingOrder))
-                 
+
         menu.addSeparator()
 
         # Hide
@@ -843,15 +846,15 @@ class DataFrameView(QTableView):
         if hidden_indices:
             menu.addAction(f'Unhide All',
                             partial(_unhide_all, hidden_indices))
-        
+
         menu.addSeparator()
 
         # Filter Button box
         action_btn_box = ActionButtonBox(menu)
         action_btn_box.accepted.connect(list_filter.apply_and_close)
         action_btn_box.rejected.connect(menu.close)
-        menu.addAction(action_btn_box)    
-       
+        menu.addAction(action_btn_box)
+
         return menu
 
 
@@ -862,7 +865,7 @@ class DataFrameView(QTableView):
         fname = 'temp.xlsx'
         self.df.loc[rows, columns].to_excel(fname, 'Output')
         Popen(fname, shell=True)
-        
+
 
     def _get_visible_column_names(self) -> list:
         return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]
@@ -879,7 +882,7 @@ class DataFrameView(QTableView):
         icon = getattr(QStyle, icon_name, None)
         if icon is None:
             raise Exception("Unknown icon {}".format(icon_name))
-        return self.style().standardIcon(icon)        
+        return self.style().standardIcon(icon)
 
 
 class MainWindow(QMainWindow):
@@ -898,7 +901,7 @@ def mock_df():
     population = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
     population = population.astype(float)
     states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
-    df = pd.DataFrame({'states':states, 
+    df = pd.DataFrame({'states':states,
         'area':area, 'population':population}, index=range(len(states)))
     dates = [pd.to_datetime('06-15-2020') + pd.DateOffset(i) for i in range(1, df.shape[0] + 1)]
     df['dates'] = dates
