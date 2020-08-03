@@ -584,12 +584,16 @@ class FilterListMenuWidget(QWidgetAction):
 
         # Add filter items
         if initial:
-            build_list = full_col.unique()
+            unq_list = full_col.unique()
         else:
-            build_list = disp_col.unique()
+            unq_list = disp_col.unique()
             
-        # build_list = fx.sort_mix_values(pandas.Series(data=list(build_list))).to_list()
-        for val in np.sort(build_list):
+        try:
+            unq_list = np.sort(unq_list)
+        except:
+            pass
+
+        for val in unq_list:
             self.list.addItem( _build_item(val))
 
 
@@ -716,7 +720,7 @@ class DataFrameView(QTableView):
 
         # TODO: make the delegate generic !
         self.delegate = delegate or DefaultDataFrameDelegate(self)
-        self.setItemDelegate(delegate)
+        self.setItemDelegate(self.delegate)
 
 
     @property
@@ -883,17 +887,26 @@ class MainWindow(QMainWindow):
     def __init__(self, df: pd.DataFrame):
         super().__init__()
 
-        self.table = DataFrameView(df, self)
+        self.table = DataFrameView(df=df, parent=self)
         self.setCentralWidget(self.table)
         self.setMinimumSize(QSize(600, 400))
         self.setWindowTitle("Table View")
 
 
 def mock_df():
-    area = pd.Series({0 : 423967.3, 1: 695662.3, 2: 141297.3, 3: 170312.7, 4: 149995.9})
-    pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    population = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    population = population.astype(float)
     states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
-    df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    df = pd.DataFrame({'states':states, 
+        'area':area, 'population':population}, index=range(len(states)))
+    dates = [pd.to_datetime('06-15-2020') + pd.DateOffset(i) for i in range(1, df.shape[0] + 1)]
+    df['dates'] = dates
+    df['bools'] = (df.index % 2 == 1)
+    df['multip'] = df.population * 3.42 * df['bools']
+    df['div'] = df.population / 2.3 * (~df['bools'])
+    df['multip'] = (df['multip'] + df['div']).astype('float32')
+    df['div'] = df['div'].astype('int32')
     return df
 
 
