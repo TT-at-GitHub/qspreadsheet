@@ -1,6 +1,7 @@
 import operator
 import os
 import sys
+from copy import deepcopy
 from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
@@ -520,7 +521,6 @@ class FilterListMenuWidget(QWidgetAction):
 
         # State
         self.menu = menu
-        self.col_ndx = col_ndx
 
         # Build Widgets
         widget = QWidget()
@@ -577,7 +577,9 @@ class FilterListMenuWidget(QWidgetAction):
                 num_checked += 1
 
         state = Qt.Checked if num_checked == len(unq_list) else Qt.Unchecked
+        self.list.blockSignals(True)
         self._action_select_all.setCheckState(state)
+        self.list.blockSignals(False)
 
 
     def on_listitem_changed(self, item: QListWidgetItem):
@@ -734,9 +736,6 @@ class DataFrameView(QTableView):
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
                             header_pos.y() + btn.height() + 15)
         menu.exec_(menu_pos)
-
-        # col_ndx = self.df.columns.get_loc(name)
-        # self.proxy.sort(col_ndx, Qt.SortOrder.DescendingOrder)
 
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
