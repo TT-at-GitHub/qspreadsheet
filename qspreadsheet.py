@@ -1,21 +1,19 @@
-import sys, os
-from typing import Any, Optional, Union, List, Sequence, Iterable, Dict
-from functools import partial
 import operator
+import os
+import sys
+from functools import partial
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
-from numpy.core.numeric import indices
 import pandas as pd
-
 import PySide2
-
 plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
-
-from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from PySide2.QtGui import *
+from PySide2.QtWidgets import *
 
+import richtextlineedit
 
 LEFT, ABOVE = range(2)
 
@@ -195,9 +193,6 @@ class CustomHeaderView(QHeaderView):
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
-
-
-import richtextlineedit
 
 
 class GenericDelegate(QStyledItemDelegate):
@@ -553,11 +548,10 @@ class FilterListMenuWidget(QWidgetAction):
     def populate_list(self, initial=False):
         self.list.clear()
         unq_list = self.parent().proxy.unique_values()
-        # df = self.parent().df
-        # mask = self.parent().proxy.accepted_mask
-        # col = df.columns[self.col_ndx]
-        # full_col = df[col]  # All Entries possible in this column
-        # disp_col = df.loc[mask, col] # Entries currently displayed
+        try:
+            unq_list = sorted(unq_list)
+        except:
+            pass
 
         def _build_item(val, state=None) -> QListWidgetItem:
             item = QListWidgetItem(str(val))
@@ -576,22 +570,14 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.addItem(self._action_select_all)            
 
         # Add filter items
-        try:
-            unq_list = sorted(unq_list)
-        except:
-            pass
-
         num_checked = 0
         for val in unq_list:
             item = _build_item(val)
             if item.checkState() == Qt.Checked:
                 num_checked += 1
 
-        if num_checked == len(unq_list):
-            select_all_state = Qt.Checked
-        else:
-            select_all_state = Qt.Unchecked
-        self._action_select_all.setCheckState(select_all_state)
+        state = Qt.Checked if num_checked == len(unq_list) else Qt.Unchecked
+        self._action_select_all.setCheckState(state)
 
 
     def on_listitem_changed(self, item: QListWidgetItem):
