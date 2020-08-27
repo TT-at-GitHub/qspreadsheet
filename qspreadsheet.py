@@ -8,13 +8,16 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 import PySide2
-plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
-os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import resources_rc
 import richtextlineedit
+
+plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
+os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
+
 
 LEFT, ABOVE = range(2)
 
@@ -75,7 +78,7 @@ class ColumnHeaderWidget(QWidget):
             font: bold 14px 'Consolas'; ''')
 
         self.button.setFixedSize(QSize(25, 20))
-        icon = QIcon((QPixmap("./images/next.svg")
+        icon = QIcon((QPixmap(":/down-arrow")
                     .transformed(QTransform().rotate(90))))
         self.button.setIcon(icon)
 
