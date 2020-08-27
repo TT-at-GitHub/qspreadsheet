@@ -879,8 +879,13 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.table = DataFrameView(df=df, parent=self)
-        self.setCentralWidget(self.table)
-        self.setMinimumSize(QSize(600, 400))
+        central_widget = QWidget(self)
+        h_layout = QHBoxLayout()
+        central_widget.setLayout(h_layout)
+        h_layout.addWidget(self.table)
+
+        self.setCentralWidget(central_widget)
+        self.setMinimumSize(QSize(960, 640))
         self.setWindowTitle("Table View")
 
 
@@ -898,6 +903,10 @@ def mock_df():
     df['div'] = df.population / 2.3 * (~df['bools'])
     df['multip'] = (df['multip'] + df['div']).astype('float32')
     df['div'] = df['div'].astype('int32')
+    df.iloc[1, 0] = np.nan
+    df.iloc[2, 0] = np.nan
+    df.iloc[2, 1] = np.nan
+    df.iloc[1, 3] = np.nan
     return df
 
 
