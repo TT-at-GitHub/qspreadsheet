@@ -14,8 +14,10 @@ from PySide2.QtWidgets import *
 
 import resources_rc
 import richtextlineedit
+import delegates
 
-plugin_path = os.path.join(os.path.dirname(PySide2.__file__), 'plugins', 'platforms')
+plugin_path = os.path.join(os.path.dirname(
+    PySide2.__file__), 'plugins', 'platforms')
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
 
@@ -31,7 +33,7 @@ class LabeledLineEdit(QWidget):
         self.lineEdit = QLineEdit(self)
         self.label.setBuddy(self.lineEdit)
         layout = QBoxLayout(QBoxLayout.LeftToRight
-                if position == LEFT else QBoxLayout.TopToBottom)
+                            if position == LEFT else QBoxLayout.TopToBottom)
         layout.addWidget(self.label)
         layout.addWidget(self.lineEdit)
         self.setLayout(layout)
@@ -46,7 +48,7 @@ class LabeledTextEdit(QWidget):
         self.textEdit = QTextEdit(self)
         self.label.setBuddy(self.textEdit)
         layout = QBoxLayout(QBoxLayout.LeftToRight
-                if position == LEFT else QBoxLayout.TopToBottom)
+                            if position == LEFT else QBoxLayout.TopToBottom)
         layout.addWidget(self.label)
         layout.addWidget(self.textEdit)
         self.setLayout(layout)
@@ -78,8 +80,7 @@ class ColumnHeaderWidget(QWidget):
             font: bold 14px 'Consolas'; ''')
 
         self.button.setFixedSize(QSize(25, 20))
-        icon = QIcon((QPixmap(":/down-arrow")
-                    .transformed(QTransform().rotate(90))))
+        icon = QIcon(":/down-arrow")
         self.button.setIcon(icon)
 
         layout = QGridLayout()
@@ -91,7 +92,7 @@ class ColumnHeaderWidget(QWidget):
 
 class HeaderItem():
 
-    def __init__(self, widget: QWidget=None, margins: QMargins=None):
+    def __init__(self, widget: QWidget = None, margins: QMargins = None):
         self.widget = widget
         self.margins = margins
 
@@ -135,11 +136,8 @@ class CustomHeaderView(QHeaderView):
             */
             }''')
 
-
     def filter_clicked(self, name: str):
         btn = self.filter_btn_mapper.mapping(name)
-        print('Change the icon here!')
-
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
@@ -149,26 +147,23 @@ class CustomHeaderView(QHeaderView):
 
         super().showEvent(e)
 
-
     def sizeHint(self) -> QSize:
         # insert space for our filter row
         super_sz_h = super().sizeHint()
         return QSize(super_sz_h.width() + 5,
-            super_sz_h.height() + 5)
-
+                     super_sz_h.height() + 5)
 
     def on_section_resized(self, i):
         for ndx in range(i, len(self.headers)):
             logical = self.logicalIndex(ndx)
             self._set_item_geometry(self.headers[logical], logical)
 
-
-    def _set_item_geometry(self, item: HeaderItem, logical:int):
+    def _set_item_geometry(self, item: HeaderItem, logical: int):
         item.widget.setGeometry(
             self.sectionViewportPosition(logical), 0,
-            self.sectionSize(logical) - item.margins.left() - item.margins.right() - 1,
+            self.sectionSize(logical) - item.margins.left() -
+            item.margins.right() - 1,
             self.height() + item.margins.top() + item.margins.bottom() - 1)
-
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):
@@ -178,14 +173,13 @@ class CustomHeaderView(QHeaderView):
             self.headers[logical].widget.setGeometry(
                 self.sectionViewportPosition(logical) + header.margins.left(),
                 header.margins.top(),
-                self.sectionSize(i) - header.margins.left() - header.margins.right() -1,
+                self.sectionSize(i) - header.margins.left() -
+                header.margins.right() - 1,
                 self.height() - header.margins.top() - header.margins.bottom() - 1)
-
 
     def fix_item_positions(self):
         for i, header in enumerate(self.headers):
             self._set_item_geometry(header, i)
-
 
     def set_item_widget(self, index: int, widget: QWidget):
         widget.setParent(self)
@@ -193,7 +187,6 @@ class CustomHeaderView(QHeaderView):
         self.headers[index].margins = QMargins(2, 2, 2, 2)
         self.fix_item_positions()
         widget.show()
-
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
@@ -205,16 +198,13 @@ class GenericDelegate(QStyledItemDelegate):
         super(GenericDelegate, self).__init__(parent)
         self.delegates = {}
 
-
     def insertColumnDelegate(self, column, delegate):
         delegate.setParent(self)
         self.delegates[column] = delegate
 
-
     def removeColumnDelegate(self, column):
         if column in self.delegates:
             del self.delegates[column]
-
 
     def paint(self, painter, option, index):
         delegate = self.delegates.get(index.column())
@@ -222,7 +212,6 @@ class GenericDelegate(QStyledItemDelegate):
             delegate.paint(painter, option, index)
         else:
             QStyledItemDelegate.paint(self, painter, option, index)
-
 
     def createEditor(self, parent, option, index):
         delegate = self.delegates.get(index.column())
@@ -232,14 +221,12 @@ class GenericDelegate(QStyledItemDelegate):
             return QStyledItemDelegate.createEditor(self, parent, option,
                                                     index)
 
-
     def setEditorData(self, editor, index):
         delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.setEditorData(editor, index)
         else:
             QStyledItemDelegate.setEditorData(self, editor, index)
-
 
     def setModelData(self, editor, model, index):
         delegate = self.delegates.get(index.column())
@@ -256,18 +243,15 @@ class IntegerColumnDelegate(QStyledItemDelegate):
         self.minimum = minimum
         self.maximum = maximum
 
-
     def createEditor(self, parent, option, index):
         spinbox = QSpinBox(parent)
         spinbox.setRange(self.minimum, self.maximum)
-        spinbox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        spinbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         return spinbox
-
 
     def setEditorData(self, editor, index):
         value = int(index.model().data(index, Qt.DisplayRole))
         editor.setValue(value)
-
 
     def setModelData(self, editor, model, index):
         editor.interpretText()
@@ -284,20 +268,17 @@ class DateColumnDelegate(QStyledItemDelegate):
         self.maximum = maximum
         self.format = format
 
-
     def createEditor(self, parent, option, index):
         dateedit = QDateEdit(parent)
         dateedit.setDateRange(self.minimum, self.maximum)
-        dateedit.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        dateedit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         dateedit.setDisplayFormat(self.format)
         dateedit.setCalendarPopup(True)
         return dateedit
 
-
     def setEditorData(self, editor, index):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setDate(value)
-
 
     def setModelData(self, editor, model, index):
         model.setData(index, editor.date())
@@ -308,16 +289,13 @@ class PlainTextColumnDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(PlainTextColumnDelegate, self).__init__(parent)
 
-
     def createEditor(self, parent, option, index):
         lineedit = QLineEdit(parent)
         return lineedit
 
-
     def setEditorData(self, editor, index):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setText(value)
-
 
     def setModelData(self, editor, model, index):
         model.setData(index, editor.text())
@@ -328,7 +306,6 @@ class RichTextColumnDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(RichTextColumnDelegate, self).__init__(parent)
 
-
     def paint(self, painter, option, index):
         text = index.model().data(index, Qt.DisplayRole)
         palette = QApplication.palette()
@@ -336,19 +313,18 @@ class RichTextColumnDelegate(QStyledItemDelegate):
         document.setDefaultFont(option.font)
         if option.state & QStyle.State_Selected:
             document.setHtml("<font color={}>{}</font>".format(
-                    palette.highlightedText().color().name(), text))
+                palette.highlightedText().color().name(), text))
         else:
             document.setHtml(text)
         painter.save()
         color = (palette.highlight().color()
                  if option.state & QStyle.State_Selected
                  else QColor(index.model().data(index,
-                             Qt.BackgroundColorRole)))
+                                                Qt.BackgroundColorRole)))
         painter.fillRect(option.rect, color)
         painter.translate(option.rect.x(), option.rect.y())
         document.drawContents(painter)
         painter.restore()
-
 
     def sizeHint(self, option, index):
         text = index.model().data(index)
@@ -358,16 +334,13 @@ class RichTextColumnDelegate(QStyledItemDelegate):
         return QSize(document.idealWidth() + 5,
                      option.fontMetrics.height())
 
-
     def createEditor(self, parent, option, index):
         lineedit = richtextlineedit.RichTextLineEdit(parent)
         return lineedit
 
-
     def setEditorData(self, editor, index):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setHtml(value)
-
 
     def setModelData(self, editor, model, index):
         model.setData(index, editor.toSimpleHtml())
@@ -378,14 +351,11 @@ class DefaultDataFrameDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(DefaultDataFrameDelegate, self).__init__(parent)
 
-
     def paint(self, painter, option, index):
         QStyledItemDelegate.paint(self, painter, option, index)
 
-
     def sizeHint(self, option, index):
         return QStyledItemDelegate.sizeHint(self, option, index)
-
 
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
@@ -395,17 +365,14 @@ class DefaultDataFrameDelegate(QStyledItemDelegate):
         editor.returnPressed.connect(self.commitAndCloseEditor)
         return editor
 
-
     def commitAndCloseEditor(self):
         editor = self.sender()
         self.commitData.emit(editor)
         self.closeEditor.emit(editor)
 
-
     def setEditorData(self, editor, index):
         text = index.model().data(index, Qt.DisplayRole)
         editor.setText(text)
-
 
     def setModelData(self, editor, model, index):
         QStyledItemDelegate.setModelData(self, editor, model, index)
@@ -417,19 +384,17 @@ class DataFrameModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
         self._header_model = header_model
-        self._header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
+        self._header_model.filter_btn_mapper.mapped[str].connect(
+            self.filter_clicked)
         self.filter_values_mapper = QSignalMapper(self)
         self.logical = None
         self.dirty = False
 
-
     def rowCount(self, parent: QModelIndex) -> int:
         return self.df.shape[0]
 
-
     def columnCount(self, parent: QModelIndex) -> int:
         return self.df.shape[1]
-
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         if role == Qt.DisplayRole:
@@ -437,13 +402,11 @@ class DataFrameModel(QAbstractTableModel):
 
         return None
 
-
     def flags(self, index):
         if not index.isValid():
             return Qt.ItemIsEnabled
-        return Qt.ItemFlags(QAbstractTableModel.flags(self, index)|
+        return Qt.ItemFlags(QAbstractTableModel.flags(self, index) |
                             Qt.ItemIsEditable)
-
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
         if index.isValid() and 0 <= index.row() < self.rowCount(index):
@@ -452,7 +415,7 @@ class DataFrameModel(QAbstractTableModel):
             else:
                 try:
                     number = pd.to_numeric(value)
-                except :
+                except:
                     self.df.iloc[index.row(), index.column()] = str(value)
                 else:
                     self.df.iloc[index.row(), index.column()] = number
@@ -462,7 +425,6 @@ class DataFrameModel(QAbstractTableModel):
             self.dataChanged.emit(index, index)
             return True
         return False
-
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
         if section < 0:
@@ -476,18 +438,14 @@ class DataFrameModel(QAbstractTableModel):
 
         return None
 
-
     def on_horizontal_scroll(self, dx: int):
         self._header_model.fix_item_positions()
-
 
     def on_vertical_scroll(self, dy: int):
         pass
 
-
     def on_action_all_triggered(self, dx: int):
         self.logical
-
 
     def filter_clicked(self, name):
         pass
@@ -499,7 +457,8 @@ class ActionButtonBox(QWidgetAction):
         super(ActionButtonBox, self).__init__(parent)
 
         btn_box = QDialogButtonBox(parent)
-        btn_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btn_box.setStandardButtons(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.accepted = btn_box.accepted
         self.rejected = btn_box.rejected
         self.setDefaultWidget(btn_box)
@@ -547,7 +506,6 @@ class FilterListMenuWidget(QWidgetAction):
 
         self.populate_list(initial=True)
 
-
     def populate_list(self, initial=False):
         self.list.clear()
         unq_list = self.parent().proxy.unique_values()
@@ -569,8 +527,9 @@ class FilterListMenuWidget(QWidgetAction):
             return item
 
         # Add a (Select All)
-        self._action_select_all = _build_item('(Select All)', state=Qt.Unchecked)
-        self.list.addItem(self._action_select_all)            
+        self._action_select_all = _build_item(
+            '(Select All)', state=Qt.Unchecked)
+        self.list.addItem(self._action_select_all)
 
         # Add filter items
         num_checked = 0
@@ -583,7 +542,6 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.blockSignals(True)
         self._action_select_all.setCheckState(state)
         self.list.blockSignals(False)
-
 
     def on_listitem_changed(self, item: QListWidgetItem):
 
@@ -615,7 +573,6 @@ class FilterListMenuWidget(QWidgetAction):
                     self._action_select_all.setCheckState(Qt.Checked)
         self.list.blockSignals(False)
 
-
     def checked_values(self) -> List[str]:
         checked = []
         for i in range(self.list.count()):
@@ -625,7 +582,6 @@ class FilterListMenuWidget(QWidgetAction):
             if itm.checkState() == Qt.Checked:
                 checked.append(itm.text())
         return checked
-
 
     def apply_and_close(self):
         self.parent().blockSignals(True)
@@ -642,15 +598,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted_mask = pd.Series()
         self._masks_cache = []
 
-
     def set_df(self, df: pd.DataFrame):
         self._df = df
         self.accepted_mask = self._alltrues()
 
-
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         return self.accepted_mask.iloc[source_row]
-
 
     def string_filter(self, text: str):
         text = text.lower()
@@ -658,11 +611,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         if not text:
             mask = self._alltrues()
         else:
-            mask = self._df[colname].astype('str').str.lower().str.contains(text)
+            mask = self._df[colname].astype(
+                'str').str.lower().str.contains(text)
 
         self.accepted_mask = mask
         self.invalidate()
-
 
     def list_filter(self, values):
         colname = self._colname()
@@ -670,19 +623,15 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted_mask = mask
         self.invalidate()
 
-
     def reset_filter(self):
         self.accepted_mask = self._alltrues()
         self.invalidateFilter()
 
-
     def _colname(self) -> str:
         return self._df.columns[self.filterKeyColumn()]
 
-
     def _alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._df.index)
-
 
     def unique_values(self) -> List[Any]:
         result = []
@@ -701,8 +650,10 @@ class DataFrameView(QTableView):
         self.header_model = CustomHeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self.header_model)
 
-        self.model = DataFrameModel(df=df, header_model=self.header_model, parent=self)
-        self.header_model.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
+        self.model = DataFrameModel(
+            df=df, header_model=self.header_model, parent=self)
+        self.header_model.filter_btn_mapper.mapped[str].connect(
+            self.filter_clicked)
 
         self.proxy = DataFrameSortFilterProxy(self)
         self.proxy.set_df(df)
@@ -715,7 +666,6 @@ class DataFrameView(QTableView):
         # TODO: make the delegate generic !
         self.delegate = delegate or DefaultDataFrameDelegate(self)
         self.setItemDelegate(self.delegate)
-
 
     @property
     def df(self) -> pd.DataFrame:
@@ -737,9 +687,8 @@ class DataFrameView(QTableView):
         header_pos = self.mapToGlobal(btn.parent().pos())
         menu = self.make_header_menu(col_ndx)
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
-                            header_pos.y() + btn.height() + 15)
+                          header_pos.y() + btn.height() + 15)
         menu.exec_(menu_pos)
-
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
         menu = QMenu(self)
@@ -751,7 +700,7 @@ class DataFrameView(QTableView):
             self.proxy.string_filter(str(cell_val))
 
         menu.addAction(self._icon('CommandLink'),
-            "Filter By Value", partial(_quick_filter, cell_val))
+                       "Filter By Value", partial(_quick_filter, cell_val))
 
         # GreaterThan/LessThan filter
         def _cmp_filter(s_col, op):
@@ -763,15 +712,14 @@ class DataFrameView(QTableView):
         #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(self._icon('DialogResetButton'),
-                        "Clear Filter",
-                        self.proxy.reset_filter)
+                       "Clear Filter",
+                       self.proxy.reset_filter)
         menu.addSeparator()
 
         # Open in Excel
         menu.addAction("Open in Excel...", self._to_excel)
 
         return menu
-
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         """Implements right-clicking on cell.
@@ -783,11 +731,10 @@ class DataFrameView(QTableView):
         col_ndx = self.columnAt(event.x())
 
         if row_ndx < 0 or col_ndx < 0:
-            return #out of bounds
+            return  # out of bounds
 
         menu = self.make_cell_context_menu(row_ndx, col_ndx)
         menu.exec_(self.mapToGlobal(event.pos()))
-
 
     def make_header_menu(self, col_ndx: int) -> QMenu:
         """Create popup menu used for header"""
@@ -803,15 +750,15 @@ class DataFrameView(QTableView):
         list_filter = FilterListMenuWidget(self, menu, col_ndx)
         menu.addAction(list_filter)
         menu.addAction(self._icon('DialogResetButton'),
-                        "Clear Filter",
-                        self.proxy.reset_filter)
+                       "Clear Filter",
+                       self.proxy.reset_filter)
 
         # Sort Ascending/Decending Menu Action
         menu.addAction(self._icon('TitleBarShadeButton'),
-                        "Sort Ascending",
+                       "Sort Ascending",
                        partial(self.proxy.sort, col_ndx, Qt.AscendingOrder))
         menu.addAction(self._icon('TitleBarUnshadeButton'),
-                        "Sort Descending",
+                       "Sort Descending",
                        partial(self.proxy.sort, col_ndx, Qt.DescendingOrder))
 
         menu.addSeparator()
@@ -824,7 +771,7 @@ class DataFrameView(QTableView):
             ndx = col_ndx + i
             if self.isColumnHidden(ndx):
                 menu.addAction(f'Unhide {self.df.columns[ndx]}',
-                                partial(self.showColumn, ndx))
+                               partial(self.showColumn, ndx))
 
         # Unhide all hidden columns
         def _unhide_all(hidden_indices: list):
@@ -833,7 +780,7 @@ class DataFrameView(QTableView):
         hidden_indices = self._get_hidden_column_indices()
         if hidden_indices:
             menu.addAction(f'Unhide All',
-                            partial(_unhide_all, hidden_indices))
+                           partial(_unhide_all, hidden_indices))
 
         menu.addSeparator()
 
@@ -845,7 +792,6 @@ class DataFrameView(QTableView):
 
         return menu
 
-
     def _to_excel(self):
         from subprocess import Popen
         rows = self.proxy.accepted_mask
@@ -854,14 +800,11 @@ class DataFrameView(QTableView):
         self.df.loc[rows, columns].to_excel(fname, 'Output')
         Popen(fname, shell=True)
 
-
     def _get_visible_column_names(self) -> list:
         return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]
 
-
     def _get_hidden_column_indices(self) -> list:
         return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
-
 
     def _icon(self, icon_name: str) -> QIcon:
         """Convenience function to get standard icons from Qt"""
@@ -875,14 +818,16 @@ class DataFrameView(QTableView):
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None):
         super().__init__()
 
-        self.table = DataFrameView(df=df, parent=self)
+        self.table_view = DataFrameView(df=df, parent=self)
+        delegate = delegate or delegates.GenericDelegate(self)
+        self.table_view.setItemDelegate(delegate)
         central_widget = QWidget(self)
         h_layout = QHBoxLayout()
         central_widget.setLayout(h_layout)
-        h_layout.addWidget(self.table)
+        h_layout.addWidget(self.table_view)
 
         self.setCentralWidget(central_widget)
         self.setMinimumSize(QSize(960, 640))
@@ -890,13 +835,15 @@ class MainWindow(QMainWindow):
 
 
 def mock_df():
-    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
-    population = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    population = pd.Series(
+        {0: 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
     population = population.astype(float)
     states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
-    df = pd.DataFrame({'states':states,
-        'area':area, 'population':population}, index=range(len(states)))
-    dates = [pd.to_datetime('06-15-2020') + pd.DateOffset(i) for i in range(1, df.shape[0] + 1)]
+    df = pd.DataFrame({'states': states,
+                       'area': area, 'population': population}, index=range(len(states)))
+    dates = [pd.to_datetime('06-15-2020') + pd.DateOffset(i)
+             for i in range(1, df.shape[0] + 1)]
     df['dates'] = dates
     df['bools'] = (df.index % 2 == 1)
     df['multip'] = df.population * 3.42 * df['bools']
