@@ -914,11 +914,6 @@ class ExampleWidgetForWidgetedCell(QComboBox):
         a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
         the WidgetedCell framework can create and destory your widget as needed.
     """
-    To implement a persistent state for the widgetd cell, you must provide
-    a `getWidgetedCellState` and `setWidgetedCellState` methods.  This is how
-    the WidgetedCell framework can create and destory your widget as needed.
-    """
-
     def __init__(self, parent):
         super(ExampleWidgetForWidgetedCell, self).__init__(parent)
         self.addItem("Option A")
@@ -960,7 +955,7 @@ if __name__ == '__main__':
         r.append(random.random()*10)
         data.append(r)
 
-    df = pandas.DataFrame(
+    df = pd.DataFrame(
         data, columns=['AAA', 'BBB', 'CCC', 'DDD', 'EEE', 'FFF', 'GGG', 'HHH', 'III'])
     app = DataFrameApp(df)
     app.show()
