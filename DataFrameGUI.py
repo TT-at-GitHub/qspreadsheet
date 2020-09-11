@@ -250,103 +250,103 @@ class DataFrameModel(QAbstractTableModel):
         self._pre_dyn_filter_df = None
 
 
-class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
-    def __init__(self):
-        super(DataFrameSortFilterProxyModel, self).__init__()
+# class DataFrameSortFilterProxyModel(QSortFilterProxyModel):
+#     def __init__(self):
+#         super(DataFrameSortFilterProxyModel, self).__init__()
 
-        self._accepted_rows = []
-        self._source_df = None
-        self._refilter = lambda: None
+#         self._accepted_rows = []
+#         self._source_df = None
+#         self._refilter = lambda: None
 
-    def setSourceModel(self, source_model):
-        super(DataFrameSortFilterProxyModel, self).setSourceModel(source_model)
+#     def setSourceModel(self, source_model):
+#         super(DataFrameSortFilterProxyModel, self).setSourceModel(source_model)
 
-        source_model.modelReset.connect(self._source_model_changed)
-        self._source_model_changed()
+#         source_model.modelReset.connect(self._source_model_changed)
+#         self._source_model_changed()
 
-    def sort(self, *args):
-        # Delegate sorting to the underyling model
-        self.sourceModel().sort(*args)
+#     def sort(self, *args):
+#         # Delegate sorting to the underyling model
+#         self.sourceModel().sort(*args)
 
-    def _source_model_changed(self):
-        self._source_df = self.sourceModel().df
-        # Accept all rows
-        self._accepted_rows = range(0, self._source_df.shape[0])
-        print("SOURCE MODEL CHANGED", len(self._accepted_rows))
-        if len(self._accepted_rows) > 0:
-            self.setFilterString('')    # Reset the filter
-        self._refilter()
+#     def _source_model_changed(self):
+#         self._source_df = self.sourceModel().df
+#         # Accept all rows
+#         self._accepted_rows = range(0, self._source_df.shape[0])
+#         print("SOURCE MODEL CHANGED", len(self._accepted_rows))
+#         if len(self._accepted_rows) > 0:
+#             self.setFilterString('')    # Reset the filter
+#         self._refilter()
 
-    def setFilterString(self, needle):
-        """Filter DataFrame using df[col].str.contains(needle).  Case insensitive."""
-        df = self._source_df
-        col = df.columns[self.filterKeyColumn()]
+#     def setFilterString(self, needle):
+#         """Filter DataFrame using df[col].str.contains(needle).  Case insensitive."""
+#         df = self._source_df
+#         col = df.columns[self.filterKeyColumn()]
 
-        # Create lowercase string version of column as series
-        s_lower = df[col].astype('str').str.lower()
+#         # Create lowercase string version of column as series
+#         s_lower = df[col].astype('str').str.lower()
 
-        # Make needle lower case too
-        needle = str(needle).lower()
+#         # Make needle lower case too
+#         needle = str(needle).lower()
 
-        mask = s_lower.str.contains(str(needle))
-        self._filter_using_mask(mask)
-        self._refilter = partial(self.setFilterString, needle)
+#         mask = s_lower.str.contains(str(needle))
+#         self._filter_using_mask(mask)
+#         self._refilter = partial(self.setFilterString, needle)
 
-    def setFilterList(self, filter_list):
-        """Filter DataFrame using df[col].isin(filter_list)."""
-        df = self._source_df
-        col = df.columns[self.filterKeyColumn()]
+#     def setFilterList(self, filter_list):
+#         """Filter DataFrame using df[col].isin(filter_list)."""
+#         df = self._source_df
+#         col = df.columns[self.filterKeyColumn()]
 
-        mask = df[col].isin(filter_list)
-        self._filter_using_mask(mask)
+#         mask = df[col].isin(filter_list)
+#         self._filter_using_mask(mask)
 
-    def setFilterFunction(self, func):
-        """Filter DataFrame using df[col].apply(func).  Func should return True or False"""
-        df = self._source_df
-        col = df.columns[self.filterKeyColumn()]
+#     def setFilterFunction(self, func):
+#         """Filter DataFrame using df[col].apply(func).  Func should return True or False"""
+#         df = self._source_df
+#         col = df.columns[self.filterKeyColumn()]
 
-        mask = df[col].apply(func)
-        self._filter_using_mask(mask)
+#         mask = df[col].apply(func)
+#         self._filter_using_mask(mask)
 
-    def _filter_using_mask(self, mask):
-        # Actually filter (need *locations* of filtered values)
-        df = self._source_df
-        col = df.columns[self.filterKeyColumn()]
+#     def _filter_using_mask(self, mask):
+#         # Actually filter (need *locations* of filtered values)
+#         df = self._source_df
+#         col = df.columns[self.filterKeyColumn()]
 
-        ilocs = pandas.DataFrame(range(len(df)))
-        ilocs = ilocs[mask.reset_index(drop=True)]
+#         ilocs = pandas.DataFrame(range(len(df)))
+#         ilocs = ilocs[mask.reset_index(drop=True)]
 
-        self.modelAboutToBeReset.emit()
-        self._accepted_rows = ilocs.index
-        self.modelReset.emit()
+#         self.modelAboutToBeReset.emit()
+#         self._accepted_rows = ilocs.index
+#         self.modelReset.emit()
 
-    @property
-    def df(self):
-        return self._source_df.iloc[self._accepted_rows]
+#     @property
+#     def df(self):
+#         return self._source_df.iloc[self._accepted_rows]
 
-    @df.setter
-    def df(self, val):
-        raise AttributeError(
-            "Tried to set the dataframe of DataFrameSortFilterProxyModel")
+#     @df.setter
+#     def df(self, val):
+#         raise AttributeError(
+#             "Tried to set the dataframe of DataFrameSortFilterProxyModel")
 
-    def filterAcceptsRow(self, row, idx):
-        return row in self._accepted_rows
+#     def filterAcceptsRow(self, row, idx):
+#         return row in self._accepted_rows
 
-    def filterAcceptsColumn(self, col, idx):
-        # Columns are hidden manually.  No need for this
-        return True
+#     def filterAcceptsColumn(self, col, idx):
+#         # Columns are hidden manually.  No need for this
+#         return True
 
-    def setFilterRegExp(self, *args):
-        raise NotImplementedError(
-            "Use setFilterString, setFilterList, or setFilterFunc instead")
+#     def setFilterRegExp(self, *args):
+#         raise NotImplementedError(
+#             "Use setFilterString, setFilterList, or setFilterFunc instead")
 
-    def setFilterWildcard(self, *args):
-        raise NotImplementedError(
-            "Use setFilterString, setFilterList, or setFilterFunc instead")
+#     def setFilterWildcard(self, *args):
+#         raise NotImplementedError(
+#             "Use setFilterString, setFilterList, or setFilterFunc instead")
 
-    def setFilterFixedString(self, *args):
-        raise NotImplementedError(
-            "Use setFilterString, setFilterList, or setFilterFunc instead")
+#     def setFilterFixedString(self, *args):
+#         raise NotImplementedError(
+#             "Use setFilterString, setFilterList, or setFilterFunc instead")
 
 
 class DynamicFilterLineEdit(QLineEdit):
