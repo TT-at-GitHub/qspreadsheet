@@ -889,12 +889,12 @@ if __name__ == '__main__':
 
     rnd_txt = lambda: "".join( [random.choice(string.ascii_letters[:26]) for i in range(15)] )
     data = [['a','b','c']*3]
-    for j in range(5):
+    for j in range(10000):
         r = []
         for k in range(6):
             r.append(rnd_txt())
         r.append(random.randint(1,20))
-        r.append(random.random()*10)
+        r.append(random.random()*5)
         r.append(WidgetedCell(ExampleWidgetForWidgetedCell))
         data.append(r)
 
