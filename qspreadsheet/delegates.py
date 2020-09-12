@@ -2,14 +2,9 @@ import os
 import platform
 import sys
 
-import PySide2
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-
-plugin_path = os.path.join(os.path.dirname(
-    PySide2.__file__), 'plugins', 'platforms')
-os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
 
 class RichTextLineEdit(QTextEdit):

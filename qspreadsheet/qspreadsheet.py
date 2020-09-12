@@ -7,22 +7,14 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
-import PySide2
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import resources_rc
-import richtextlineedit
-import delegates
-
-plugin_path = os.path.join(os.path.dirname(
-    PySide2.__file__), 'plugins', 'platforms')
-os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
-
-
-LEFT, ABOVE = range(2)
-
+from qspreadsheet import resources_rc
+from qspreadsheet import richtextlineedit
+from qspreadsheet import delegates
+from qspreadsheet import LEFT
 
 class LabeledLineEdit(QWidget):
 
@@ -833,35 +825,3 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(QSize(960, 640))
         self.setWindowTitle("Table View")
 
-
-def mock_df():
-    area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
-    population = pd.Series(
-        {0: 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
-    population = population.astype(float)
-    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
-    df = pd.DataFrame({'states': states,
-                       'area': area, 'population': population}, index=range(len(states)))
-    dates = [pd.to_datetime('06-15-2020') + pd.DateOffset(i)
-             for i in range(1, df.shape[0] + 1)]
-    df['dates'] = dates
-    df['bools'] = (df.index % 2 == 1)
-    df['multip'] = df.population * 3.42 * df['bools']
-    df['div'] = df.population / 2.3 * (~df['bools'])
-    df['multip'] = (df['multip'] + df['div']).astype('float32')
-    df['div'] = df['div'].astype('int32')
-    df.iloc[1, 0] = np.nan
-    df.iloc[2, 0] = np.nan
-    df.iloc[2, 1] = np.nan
-    df.iloc[1, 3] = np.nan
-    return df
-
-
-if __name__ == "__main__":
-
-    app = QApplication(sys.argv)
-
-    df = mock_df()
-    window = MainWindow(df)
-    window.show()
-    sys.exit(app.exec_())
