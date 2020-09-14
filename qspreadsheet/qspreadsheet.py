@@ -58,10 +58,10 @@ class LineEditMenuAction(QWidgetAction):
         self.setDefaultWidget(widget)
 
 
-class ColumnHeaderWidget(QWidget):
+class HeaderWidget(QWidget):
 
     def __init__(self, labelText="", parent=None):
-        super(ColumnHeaderWidget, self).__init__(parent)
+        super(HeaderWidget, self).__init__(parent)
         self.label = QLabel(labelText, parent)
         self.button = QPushButton('', parent)
         self.button.setIconSize(QSize(12, 12))
@@ -82,30 +82,19 @@ class ColumnHeaderWidget(QWidget):
         self.setMinimumHeight(30)
 
 
-class HeaderItem():
-
-    def __init__(self, widget: QWidget = None, margins: QMargins = None):
-        self.widget = widget
-        self.margins = margins
-
-        if self.margins is None:
-            self.margins = QMargins(2, 2, 2, 2)
-
-
-class CustomHeaderView(QHeaderView):
+class HeaderView(QHeaderView):
 
     def __init__(self, columns: list, parent=None):
-        super(CustomHeaderView, self).__init__(Qt.Horizontal, parent)
+        super(HeaderView, self).__init__(Qt.Horizontal, parent)
 
         self.headers = []
         self.filter_btn_mapper = QSignalMapper(self)
 
         for name in columns:
-            header_widget = ColumnHeaderWidget(labelText=name, parent=self)
-            header = HeaderItem(widget=header_widget)
+            header_widget = HeaderWidget(labelText=name, parent=self)
             self.filter_btn_mapper.setMapping(header_widget.button, name)
             header_widget.button.clicked.connect(self.filter_btn_mapper.map)
-            self.headers.append(header)
+            self.headers.append(header_widget)
 
         self.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
         self.sectionResized.connect(self.on_section_resized)
@@ -113,46 +102,39 @@ class CustomHeaderView(QHeaderView):
         self.setStyleSheet('''
             QHeaderView::section {
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                            stop:0 #5dade2, stop: 0.5 #3498db,
-                                            stop: 0.6 #3498db, stop:1 #21618c);
+                                                  stop:0 #5dade2, stop: 0.5 #3498db,
+                                                  stop: 0.6 #3498db, stop:1 #21618c);
                 color: white;
                 padding-top: 4px;
                 padding-bottom: 4px;
                 padding-left: 4px;
                 padding-right: 4px;
-                border: 1px solid #21618c;
-
-            /*
-                margin-left: 2px;
-                margin-right: 2px;
-            */
-            }''')
+                border: 1px solid #21618c; }''')
 
     def filter_clicked(self, name: str):
         btn = self.filter_btn_mapper.mapping(name)
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
-            header.widget.setParent(self)
+            header.setParent(self)
             self._set_item_geometry(header, i)
-            header.widget.show()
-
+            header.show()
         super().showEvent(e)
 
     def sizeHint(self) -> QSize:
         # insert space for our filter row
         super_sz_h = super().sizeHint()
-        return QSize(super_sz_h.width() + 5,
-                     super_sz_h.height() + 5)
+        return QSize(super_sz_h.width(), super_sz_h.height() + 8)
 
     def on_section_resized(self, i):
         for ndx in range(i, len(self.headers)):
             logical = self.logicalIndex(ndx)
             self._set_item_geometry(self.headers[logical], logical)
 
-    def _set_item_geometry(self, item: HeaderItem, logical: int):
-        item.widget.setGeometry(
-            self.sectionViewportPosition(logical), 0,
+    def _set_item_geometry(self, item: HeaderWidget, logical: int):
+        item.setGeometry(
+            self.sectionViewportPosition(logical) + item.margins.left(), 
+            item.margins.top(),
             self.sectionSize(logical) - item.margins.left() -
             item.margins.right() - 1,
             self.height() + item.margins.top() + item.margins.bottom() - 1)
@@ -160,25 +142,11 @@ class CustomHeaderView(QHeaderView):
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):
             logical = self.logicalIndex(i)
-            header = self.headers[i]
-
-            self.headers[logical].widget.setGeometry(
-                self.sectionViewportPosition(logical) + header.margins.left(),
-                header.margins.top(),
-                self.sectionSize(i) - header.margins.left() -
-                header.margins.right() - 1,
-                self.height() - header.margins.top() - header.margins.bottom() - 1)
+            self._set_item_geometry(self.headers[i], logical)
 
     def fix_item_positions(self):
         for i, header in enumerate(self.headers):
             self._set_item_geometry(header, i)
-
-    def set_item_widget(self, index: int, widget: QWidget):
-        widget.setParent(self)
-        self.headers[index].widget = widget
-        self.headers[index].margins = QMargins(2, 2, 2, 2)
-        self.fix_item_positions()
-        widget.show()
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
@@ -372,7 +340,7 @@ class DefaultDataFrameDelegate(QStyledItemDelegate):
 
 class DataFrameModel(QAbstractTableModel):
 
-    def __init__(self, df: pd.DataFrame, header_model: CustomHeaderView, parent=None) -> None:
+    def __init__(self, df: pd.DataFrame, header_model: HeaderView, parent=None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
         self._header_model = header_model
@@ -639,7 +607,7 @@ class DataFrameView(QTableView):
     def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
 
-        self.header_model = CustomHeaderView(columns=df.columns.tolist())
+        self.header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self.header_model)
 
         self.model = DataFrameModel(
