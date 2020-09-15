@@ -47,7 +47,7 @@ class LabeledTextEdit(QWidget):
 
 
 class LineEditMenuAction(QWidgetAction):
-    """Labeled Textbox in menu"""
+    '''Labeled Textbox in menu'''
 
     def __init__(self, parent, menu, label_text='', position=LEFT):
         super(LineEditMenuAction, self).__init__(parent)
@@ -60,10 +60,11 @@ class LineEditMenuAction(QWidgetAction):
 
 class HeaderWidget(QWidget):
 
-    def __init__(self, labelText="", parent=None):
+    def __init__(self, labelText='', margins: Optional[QMargins] = None, parent=None):
         super(HeaderWidget, self).__init__(parent)
         self.label = QLabel(labelText, parent)
         self.button = QPushButton('', parent)
+        self.margins = margins or QMargins(2, 2, 2, 2)
         self.button.setIconSize(QSize(12, 12))
         self.label.setBuddy(self.button)
         self.label.setWordWrap(True)
@@ -75,11 +76,15 @@ class HeaderWidget(QWidget):
         icon = QIcon(":/down-arrow")
         self.button.setIcon(icon)
 
-        layout = QGridLayout()
-        layout.addWidget(self.label, 0, 0, 1, 2, Qt.AlignJustify)
-        layout.addWidget(self.button, 0, 1, 1, 1, Qt.AlignRight)
+        layout = QHBoxLayout()
+        layout.addWidget(self.label)
+        layout.addStretch()
+        layout.addWidget(self.button)
         self.setLayout(layout)
-        self.setMinimumHeight(30)
+        # self.setMinimumHeight(30)
+
+    def sizeHint(self) -> QSize:
+        return QSize(300, 200)
 
 
 class HeaderView(QHeaderView):
@@ -319,9 +324,9 @@ class DefaultDataFrameDelegate(QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
-        editor.setStyleSheet("""
+        editor.setStyleSheet('''
             background-color: #fffd99
-        """)
+        ''')
         editor.returnPressed.connect(self.commitAndCloseEditor)
         return editor
 
@@ -359,7 +364,6 @@ class DataFrameModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         if role == Qt.DisplayRole:
             return str(self.df.iat[index.row(), index.column()])
-
         return None
 
     def flags(self, index):
@@ -425,20 +429,26 @@ class ActionButtonBox(QWidgetAction):
 
 
 class FilterListMenuWidget(QWidgetAction):
-    """Checkboxed list filter menu"""
+    '''Checkboxed list filter menu'''
 
     def __init__(self, parent, menu, col_ndx):
-        """Checkbox list filter menu
-        Args:
-            parent (Widget)
+        '''Checkbox list filter menu
+
+            Arguments
+            ----------
+            
+            parent: (Widget)
                 Parent
-            menu (QMenu)
+            
+            menu: (QMenu)
                 Menu object this list is located on
-            col_ndx (int)
+            
+            col_ndx: (int)
                 Column index to filter
-            label (str)
+            
+            label: (str)
                 Label in popup menu
-        """
+        '''
         super(FilterListMenuWidget, self).__init__(parent)
 
         # State
@@ -448,11 +458,11 @@ class FilterListMenuWidget(QWidgetAction):
         widget = QWidget()
         layout = QVBoxLayout()
         self.list = QListWidget()
-        self.list.setStyleSheet("""
+        self.list.setStyleSheet('''
             QListView::item:selected {
                 background: rgb(195, 225, 250);
                 color: rgb(0, 0, 0);
-            } """)
+            } ''')
         self.list.setFixedHeight(100)
 
         layout.addWidget(self.list)
@@ -681,12 +691,27 @@ class DataFrameView(QTableView):
 
         return menu
 
+    def sizeHint(self) -> QSize:
+        width = 0
+
+        for i in self.df.shape[1]:
+            hh = self.horizontalHeader().sizeHintForColumn(i)
+            print(hh.width(), hh.height())
+
+            width += self.columnWidth(i)
+
+        width += self.verticalHeader().sizeHint().width()
+        width += self.verticalScrollBar().sizeHint().width()
+        width += self.frameWidth() * 2
+        return QSize(width, self.height())
+
+
     def contextMenuEvent(self, event: QContextMenuEvent):
-        """Implements right-clicking on cell.
+        '''Implements right-clicking on cell.
 
             NOTE: You probably want to overrite make_cell_context_menu, not this
             function, when subclassing.
-        """
+        '''
         row_ndx = self.rowAt(event.y())
         col_ndx = self.columnAt(event.x())
 
@@ -697,7 +722,7 @@ class DataFrameView(QTableView):
         menu.exec_(self.mapToGlobal(event.pos()))
 
     def make_header_menu(self, col_ndx: int) -> QMenu:
-        """Create popup menu used for header"""
+        '''Create popup menu used for header'''
 
         menu = QMenu(self)
 
@@ -767,7 +792,7 @@ class DataFrameView(QTableView):
         return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
 
     def _icon(self, icon_name: str) -> QIcon:
-        """Convenience function to get standard icons from Qt"""
+        '''Convenience function to get standard icons from Qt'''
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
         icon = getattr(QStyle, icon_name, None)
