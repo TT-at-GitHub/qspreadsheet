@@ -36,6 +36,8 @@ def mock_df():
 app = QApplication(sys.argv)
 
 df = mock_df()
+# df = df.rename(columns={'div': 'super long header name and so on, asdskfk ,sdfkslks ,sfd'})
+
 window = MainWindow(df)
 window.show()
 sys.exit(app.exec_())

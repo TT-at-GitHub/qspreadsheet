@@ -62,29 +62,48 @@ class HeaderWidget(QWidget):
 
     def __init__(self, labelText='', margins: Optional[QMargins] = None, parent=None):
         super(HeaderWidget, self).__init__(parent)
-        self.label = QLabel(labelText, parent)
-        self.button = QPushButton('', parent)
+        self._text = labelText
+        self.label = QLabel()
+        self.button = QPushButton('')
         self.margins = margins or QMargins(2, 2, 2, 2)
-        self.button.setIconSize(QSize(12, 12))
-        self.label.setBuddy(self.button)
-        self.label.setWordWrap(True)
+        
+        self._setup_label()
+        self._setup_button()
+
+        layout = QGridLayout(self)
+        layout.addWidget(self.label, 0, 0, 1, 1, Qt.AlignVCenter)
+        layout.addWidget(self.button, 0, 1, 1, 1)
+        layout.setSpacing(1)
+        layout.setContentsMargins(QMargins(2, 1, 2, 1))
+        self.setLayout(layout)
+        
+    def text(self):
+        return self._text
+
+    def _setup_label(self):
         self.label.setStyleSheet('''
             color: white;
-            font: bold 14px 'Consolas'; ''')
+            font: bold 12px ; ''')  # 'Consolas'
+        self.label.setWordWrap(True)
+        fm = QFontMetrics(self.label.font())
+        elided_text = fm.elidedText(self._text, Qt.ElideRight, self.label.width())
+        self.label.setText(elided_text)
 
+    def _setup_button(self):
         self.button.setFixedSize(QSize(25, 20))
         icon = QIcon(":/down-arrow")
         self.button.setIcon(icon)
-
-        layout = QHBoxLayout()
-        layout.addWidget(self.label)
-        layout.addStretch()
-        layout.addWidget(self.button)
-        self.setLayout(layout)
-        # self.setMinimumHeight(30)
+        self.button.setIconSize(QSize(12, 12))
 
     def sizeHint(self) -> QSize:
-        return QSize(300, 200)
+        fm = QFontMetrics(self.label.font())
+        width = max(fm.width(self.label.text()), 2) / 2 + self.width()
+        return QSize(width, self.height())
+
+    def resizeEvent(self, event: QResizeEvent):
+        fm = QFontMetrics(self.label.font())
+        elided_text = fm.elidedText(self._text, Qt.ElideRight, self.label.width())
+        self.label.setText(elided_text)        
 
 
 class HeaderView(QHeaderView):
@@ -92,7 +111,7 @@ class HeaderView(QHeaderView):
     def __init__(self, columns: list, parent=None):
         super(HeaderView, self).__init__(Qt.Horizontal, parent)
 
-        self.headers = []
+        self.headers: List[HeaderWidget] = []
         self.filter_btn_mapper = QSignalMapper(self)
 
         for name in columns:
@@ -115,7 +134,7 @@ class HeaderView(QHeaderView):
                 padding-left: 4px;
                 padding-right: 4px;
                 border: 1px solid #21618c; }''')
-
+        
     def filter_clicked(self, name: str):
         btn = self.filter_btn_mapper.mapping(name)
 
@@ -129,7 +148,7 @@ class HeaderView(QHeaderView):
     def sizeHint(self) -> QSize:
         # insert space for our filter row
         super_sz_h = super().sizeHint()
-        return QSize(super_sz_h.width(), super_sz_h.height() + 8)
+        return QSize(super_sz_h.width(), super_sz_h.height() + 10)
 
     def on_section_resized(self, i):
         for ndx in range(i, len(self.headers)):
@@ -140,8 +159,7 @@ class HeaderView(QHeaderView):
         item.setGeometry(
             self.sectionViewportPosition(logical) + item.margins.left(), 
             item.margins.top(),
-            self.sectionSize(logical) - item.margins.left() -
-            item.margins.right() - 1,
+            self.sectionSize(logical) - item.margins.left() - item.margins.right() - 1,
             self.height() + item.margins.top() + item.margins.bottom() - 1)
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
@@ -394,11 +412,11 @@ class DataFrameModel(QAbstractTableModel):
         if section < 0:
             print('section: {}'.format(section))
 
-        if role == Qt.DisplayRole:
-            if orientation == Qt.Horizontal:
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
                 return self._header_model.headers[section]
-            if orientation == Qt.Vertical:
-                return str(self.df.index[section])
+        if orientation == Qt.Vertical:
+            return str(self.df.index[section])
 
         return None
 
@@ -636,6 +654,13 @@ class DataFrameView(QTableView):
         # TODO: make the delegate generic !
         self.delegate = delegate or DefaultDataFrameDelegate(self)
         self.setItemDelegate(self.delegate)
+        self.set_column_widths()
+
+    def set_column_widths(self):
+        header = self.horizontalHeader()
+        for i in range(header.count()):
+            header.resizeSection(
+                i, self.header_model.headers[i].sizeHint().width())
 
     @property
     def df(self) -> pd.DataFrame:
@@ -693,18 +718,13 @@ class DataFrameView(QTableView):
 
     def sizeHint(self) -> QSize:
         width = 0
-
-        for i in self.df.shape[1]:
-            hh = self.horizontalHeader().sizeHintForColumn(i)
-            print(hh.width(), hh.height())
-
+        for i in range(self.df.shape[1]):
             width += self.columnWidth(i)
-
         width += self.verticalHeader().sizeHint().width()
         width += self.verticalScrollBar().sizeHint().width()
         width += self.frameWidth() * 2
-        return QSize(width, self.height())
 
+        return QSize(width, self.height())
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         '''Implements right-clicking on cell.
