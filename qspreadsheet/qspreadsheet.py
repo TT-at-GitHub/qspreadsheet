@@ -14,6 +14,7 @@ from PySide2.QtWidgets import *
 from qspreadsheet import resources_rc
 from qspreadsheet import richtextlineedit
 from qspreadsheet import delegates
+from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet import LEFT
 
 class LabeledLineEdit(QWidget):
@@ -576,58 +577,6 @@ class FilterListMenuWidget(QWidgetAction):
         self.parent().proxy.list_filter(self.checked_values())
         self.parent().blockSignals(False)
         self.menu.close()
-
-
-class DataFrameSortFilterProxy(QSortFilterProxyModel):
-
-    def __init__(self, parent=None) -> None:
-        super(DataFrameSortFilterProxy, self).__init__(parent)
-        self._df = pd.DataFrame()
-        self.accepted_mask = pd.Series()
-        self._masks_cache = []
-
-    def set_df(self, df: pd.DataFrame):
-        self._df = df
-        self.accepted_mask = self._alltrues()
-
-    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        return self.accepted_mask.iloc[source_row]
-
-    def string_filter(self, text: str):
-        text = text.lower()
-        colname = self._colname()
-        if not text:
-            mask = self._alltrues()
-        else:
-            mask = self._df[colname].astype(
-                'str').str.lower().str.contains(text)
-
-        self.accepted_mask = mask
-        self.invalidate()
-
-    def list_filter(self, values):
-        colname = self._colname()
-        mask = self._df[colname].apply(str).isin(values)
-        self.accepted_mask = mask
-        self.invalidate()
-
-    def reset_filter(self):
-        self.accepted_mask = self._alltrues()
-        self.invalidateFilter()
-
-    def _colname(self) -> str:
-        return self._df.columns[self.filterKeyColumn()]
-
-    def _alltrues(self) -> pd.Series:
-        return pd.Series(data=True, index=self._df.index)
-
-    def unique_values(self) -> List[Any]:
-        result = []
-        for i in range(self.rowCount()):
-            index = self.index(i, self.filterKeyColumn())
-            val = self.data(index, Qt.DisplayRole)
-            result.append(val)
-        return result
 
 
 class DataFrameView(QTableView):
