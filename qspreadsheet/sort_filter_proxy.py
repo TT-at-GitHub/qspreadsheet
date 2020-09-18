@@ -8,6 +8,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def __init__(self, parent=None) -> None:
@@ -21,7 +22,9 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted_mask = self._alltrues()
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        return self.accepted_mask.iloc[source_row]
+        if source_row < self.accepted_mask.size:
+            return self.accepted_mask.iloc[source_row]
+        return True
 
     def string_filter(self, text: str):
         text = text.lower()

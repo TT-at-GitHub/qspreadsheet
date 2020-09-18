@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from PySide2.QtCore import *
@@ -37,7 +38,6 @@ class LabeledTextEdit(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.textEdit)
         self.setLayout(layout)
-
 
 
 class RichTextLineEdit(QTextEdit):
@@ -250,3 +250,16 @@ class RichTextLineEdit(QTextEdit):
                 iterator += 1
             block = block.next()
         return html
+
+
+class ActionButtonBox(QWidgetAction):
+
+    def __init__(self, parent):
+        super(ActionButtonBox, self).__init__(parent)
+
+        btn_box = QDialogButtonBox(parent)
+        btn_box.setStandardButtons(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.accepted = btn_box.accepted
+        self.rejected = btn_box.rejected
+        self.setDefaultWidget(btn_box)

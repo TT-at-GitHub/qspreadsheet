@@ -1,13 +1,18 @@
 #In[0]
 import sys, os
+from typing import Optional
+
+import numpy as np
+import pandas as pd 
+
 from PySide2.QtCore import *
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
-import numpy as np
-import pandas as pd 
+
+
 from datetime import datetime, timedelta
 from fx import fx
-from qspreadsheet import MainWindow
+from qspreadsheet import DataFrameView, DataFrameModel, delegates
 
 
 def mock_df():
@@ -33,11 +38,28 @@ def mock_df():
     return df
 
 
+class MainWindow(QMainWindow):
+
+    def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None):
+        super().__init__()
+
+        self.table_view = DataFrameView(df=df, parent=self)
+        delegate = delegate or delegates.GenericDelegate(self)
+        self.table_view.setItemDelegate(delegate)
+        central_widget = QWidget(self)
+        h_layout = QHBoxLayout()
+        central_widget.setLayout(h_layout)
+        h_layout.addWidget(self.table_view)
+
+        self.setCentralWidget(central_widget)
+        self.setMinimumSize(QSize(960, 640))
+        self.setWindowTitle("Table View")
+
 app = QApplication(sys.argv)
 
 df = mock_df()
-# df = df.rename(columns={'div': 'super long header name and so on, asdskfk ,sdfkslks ,sfd'})
 
 window = MainWindow(df)
 window.show()
 sys.exit(app.exec_())
+

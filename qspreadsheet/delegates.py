@@ -6,6 +6,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from qspreadsheet import DF
 from qspreadsheet.custom_widgets import RichTextLineEdit
 
 
@@ -30,7 +31,7 @@ class GenericDelegate(QStyledItemDelegate):
         else:
             QStyledItemDelegate.paint(self, painter, option, index)
 
-    def createEditor(self, parent, option, index):
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.createEditor(parent, option, index)
@@ -38,14 +39,14 @@ class GenericDelegate(QStyledItemDelegate):
             return QStyledItemDelegate.createEditor(self, parent, option,
                                                     index)
 
-    def setEditorData(self, editor, index):
+    def setEditorData(self, editor: QWidget, index: QModelIndex):
         delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.setEditorData(editor, index)
         else:
             QStyledItemDelegate.setEditorData(self, editor, index)
 
-    def setModelData(self, editor, model, index):
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
         delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.setModelData(editor, model, index)
@@ -53,77 +54,120 @@ class GenericDelegate(QStyledItemDelegate):
             QStyledItemDelegate.setModelData(self, editor, model, index)
 
 
-class IntegerColumnDelegate(QStyledItemDelegate):
+class IntDelegate(QStyledItemDelegate):
 
     def __init__(self, minimum=0, maximum=100, parent=None):
-        super(IntegerColumnDelegate, self).__init__(parent)
+        super(IntDelegate, self).__init__(parent)
         self.minimum = minimum
         self.maximum = maximum
 
-    def createEditor(self, parent, option, index):
-        spinbox = QSpinBox(parent)
-        spinbox.setRange(self.minimum, self.maximum)
-        spinbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        return spinbox
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = QSpinBox(parent)
+        editor.setRange(self.minimum, self.maximum)
+        editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        return editor
 
-    def setEditorData(self, editor, index):
+    def setEditorData(self, editor: QSpinBox, index: QModelIndex):
         value = int(index.model().data(index, Qt.DisplayRole))
         editor.setValue(value)
 
-    def setModelData(self, editor, model, index):
+    def setModelData(self, editor: QSpinBox, model: QAbstractItemModel, index: QModelIndex):
         editor.interpretText()
         model.setData(index, editor.value())
 
 
-class DateColumnDelegate(QStyledItemDelegate):
+class FloatDelegate(QStyledItemDelegate):
+
+    def __init__(self, parent=None):
+        super(FloatDelegate, self).__init__(parent)
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = QDoubleSpinBox(parent)
+        editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        return editor
+
+    def setEditorData(self, editor: QDoubleSpinBox, index: QModelIndex):
+        value = float(index.model().data(index, Qt.DisplayRole))
+        editor.setValue(value)
+
+    def setModelData(self, editor: QDoubleSpinBox, model: QAbstractItemModel, index: QModelIndex):
+        editor.interpretText()
+        model.setData(index, editor.value())
+
+
+class BoolDelegate(QStyledItemDelegate):
+
+    def __init__(self, parent=None):
+        super(BoolDelegate, self).__init__(parent)
+        self.choices = [True, False]
+        self.str_choices = list(map(str, self.choices))
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = QComboBox(parent)
+        editor.addItems(self.str_choices)
+        editor.setEditable(True)
+        editor.lineEdit().setReadOnly(True)
+        editor.lineEdit().setAlignment(Qt.AlignVCenter)
+        return editor
+
+    def setEditorData(self, editor: QComboBox, index: QModelIndex):
+        value = index.model().data(index, Qt.DisplayRole)
+        editor.setCurrentIndex(self.str_choices.index(value))
+
+    def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):
+        value = self.choices[editor.currentIndex()]
+        model.setData(index, editor.value())
+
+
+class DateDelegate(QStyledItemDelegate):
 
     def __init__(self, minimum=QDate(),
                  maximum=QDate.currentDate(),
                  format="yyyy-MM-dd", parent=None):
-        super(DateColumnDelegate, self).__init__(parent)
+        super(DateDelegate, self).__init__(parent)
         self.minimum = minimum
         self.maximum = maximum
         self.format = format
 
-    def createEditor(self, parent, option, index):
-        dateedit = QDateEdit(parent)
-        dateedit.setDateRange(self.minimum, self.maximum)
-        dateedit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        dateedit.setDisplayFormat(self.format)
-        dateedit.setCalendarPopup(True)
-        return dateedit
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = QDateEdit(parent)
+        editor.setDateRange(self.minimum, self.maximum)
+        editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        editor.setDisplayFormat(self.format)
+        editor.setCalendarPopup(True)
+        return editor
 
-    def setEditorData(self, editor, index):
+    def setEditorData(self, editor: QDateEdit, index: QModelIndex):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setDate(value)
 
-    def setModelData(self, editor, model, index):
+    def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.date())
 
 
-class PlainTextColumnDelegate(QStyledItemDelegate):
+class StringDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(PlainTextColumnDelegate, self).__init__(parent)
+        super(StringDelegate, self).__init__(parent)
 
-    def createEditor(self, parent, option, index):
-        lineedit = QLineEdit(parent)
-        return lineedit
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = QLineEdit(parent)
+        return editor
 
-    def setEditorData(self, editor, index):
+    def setEditorData(self, editor: QLineEdit, index: QModelIndex):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setText(value)
 
-    def setModelData(self, editor, model, index):
+    def setModelData(self, editor: QLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.text())
 
 
-class RichTextColumnDelegate(QStyledItemDelegate):
+class RichTextDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(RichTextColumnDelegate, self).__init__(parent)
+        super(RichTextDelegate, self).__init__(parent)
 
-    def paint(self, painter, option, index):
+    def paint(self, painter, option, index: QModelIndex):
         text = index.model().data(index, Qt.DisplayRole)
         palette = QApplication.palette()
         document = QTextDocument()
@@ -143,7 +187,7 @@ class RichTextColumnDelegate(QStyledItemDelegate):
         document.drawContents(painter)
         painter.restore()
 
-    def sizeHint(self, option, index):
+    def sizeHint(self, option, index: QModelIndex):
         text = index.model().data(index)
         document = QTextDocument()
         document.setDefaultFont(option.font)
@@ -151,45 +195,21 @@ class RichTextColumnDelegate(QStyledItemDelegate):
         return QSize(document.idealWidth() + 5,
                      option.fontMetrics.height())
 
-    def createEditor(self, parent, option, index):
-        lineedit = RichTextLineEdit(parent)
-        return lineedit
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        editor = RichTextLineEdit(parent)
+        return editor
 
-    def setEditorData(self, editor, index):
+    def setEditorData(self, editor: RichTextLineEdit, index: QModelIndex):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setHtml(value)
 
-    def setModelData(self, editor, model, index):
+    def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.toSimpleHtml())
 
 
-class DefaultDataFrameDelegate(QStyledItemDelegate):
-
-    def __init__(self, parent=None):
-        super(DefaultDataFrameDelegate, self).__init__(parent)
-
-    def paint(self, painter, option, index):
-        QStyledItemDelegate.paint(self, painter, option, index)
-
-    def sizeHint(self, option, index):
-        return QStyledItemDelegate.sizeHint(self, option, index)
-
-    def createEditor(self, parent, option, index):
-        editor = QLineEdit(parent)
-        editor.setStyleSheet('''
-            background-color: #fffd99
-        ''')
-        editor.returnPressed.connect(self.commitAndCloseEditor)
-        return editor
-
-    def commitAndCloseEditor(self):
-        editor = self.sender()
-        self.commitData.emit(editor)
-        self.closeEditor.emit(editor)
-
-    def setEditorData(self, editor, index):
-        text = index.model().data(index, Qt.DisplayRole)
-        editor.setText(text)
-
-    def setModelData(self, editor, model, index):
-        QStyledItemDelegate.setModelData(self, editor, model, index)
+def automap_delegates(df: DF) -> Dict[Any, QStyledItemDelegate]:
+    type2delegate = tuple((
+        ('object', StringDelegate),
+        ('int', IntDelegate)
+    ))
+    return {}

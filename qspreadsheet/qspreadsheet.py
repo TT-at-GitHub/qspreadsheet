@@ -1,7 +1,6 @@
 import operator
 import os
 import sys
-from copy import deepcopy
 from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
@@ -16,7 +15,7 @@ from qspreadsheet import richtextlineedit
 from qspreadsheet import delegates
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet import LEFT
-from qspreadsheet.custom_widgets import LabeledTextEdit, LabeledLineEdit
+from qspreadsheet.custom_widgets import LabeledTextEdit, LabeledLineEdit, ActionButtonBox
 from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
 from qspreadsheet.header import HeaderView, HeaderWidget
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
@@ -35,13 +34,13 @@ class DataFrameModel(QAbstractTableModel):
         self.dirty = False
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self.df.shape[0]
+        return self.df.shape[0] + 1
 
     def columnCount(self, parent: QModelIndex) -> int:
         return self.df.shape[1]
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
-        if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole and index.row() < self.df.shape[0]:
             return str(self.df.iat[index.row(), index.column()])
         return None
 
@@ -52,7 +51,7 @@ class DataFrameModel(QAbstractTableModel):
                             Qt.ItemIsEditable)
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
-        if index.isValid() and 0 <= index.row() < self.rowCount(index):
+        if index.isValid():
             if not value:
                 self.df.iloc[index.row(), index.column()] = np.nan
             else:
@@ -73,11 +72,13 @@ class DataFrameModel(QAbstractTableModel):
         if section < 0:
             print('section: {}'.format(section))
 
-        if orientation == Qt.Horizontal:
-            if role == Qt.DisplayRole:
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
                 return self._header_model.headers[section]
-        if orientation == Qt.Vertical:
-            return str(self.df.index[section])
+            if orientation == Qt.Vertical:
+                if section == self.df.shape[0]:
+                    return '*'
+                return str(self.df.index[section])
 
         return None
 
@@ -94,19 +95,6 @@ class DataFrameModel(QAbstractTableModel):
         pass
 
 
-class ActionButtonBox(QWidgetAction):
-
-    def __init__(self, parent):
-        super(ActionButtonBox, self).__init__(parent)
-
-        btn_box = QDialogButtonBox(parent)
-        btn_box.setStandardButtons(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.accepted = btn_box.accepted
-        self.rejected = btn_box.rejected
-        self.setDefaultWidget(btn_box)
-
-
 class DataFrameView(QTableView):
 
     def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None, parent=None) -> None:
@@ -115,18 +103,18 @@ class DataFrameView(QTableView):
         self.header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self.header_model)
 
-        self.model = DataFrameModel(
+        self._model = DataFrameModel(
             df=df, header_model=self.header_model, parent=self)
         self.header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
 
         self.proxy = DataFrameSortFilterProxy(self)
         self.proxy.set_df(df)
-        self.proxy.setSourceModel(self.model)
+        self.proxy.setSourceModel(self._model)
         self.setModel(self.proxy)
 
-        self.horizontalScrollBar().valueChanged.connect(self.model.on_horizontal_scroll)
-        self.verticalScrollBar().valueChanged.connect(self.model.on_vertical_scroll)
+        self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
+        self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
 
         # TODO: make the delegate generic !
         self.delegate = delegate or delegates.DefaultDataFrameDelegate(self)
@@ -141,13 +129,12 @@ class DataFrameView(QTableView):
 
     @property
     def df(self) -> pd.DataFrame:
-        return self.model.df
+        return self._model.df
 
-    @df.setter
-    def df(self, df: pd.DataFrame):
+    def set_df(self, df: pd.DataFrame):
         if not isinstance(df, pd.DataFrame):
             raise TypeError('Invalid type for `df`. Expected DataFrame')
-        self.model.df = df
+        self._model.df = df
 
     def filter_clicked(self, name: str):
         btn = self.header_model.filter_btn_mapper.mapping(name)
@@ -297,21 +284,4 @@ class DataFrameView(QTableView):
             raise Exception("Unknown icon {}".format(icon_name))
         return self.style().standardIcon(icon)
 
-
-class MainWindow(QMainWindow):
-
-    def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None):
-        super().__init__()
-
-        self.table_view = DataFrameView(df=df, parent=self)
-        delegate = delegate or delegates.GenericDelegate(self)
-        self.table_view.setItemDelegate(delegate)
-        central_widget = QWidget(self)
-        h_layout = QHBoxLayout()
-        central_widget.setLayout(h_layout)
-        h_layout.addWidget(self.table_view)
-
-        self.setCentralWidget(central_widget)
-        self.setMinimumSize(QSize(960, 640))
-        self.setWindowTitle("Table View")
 

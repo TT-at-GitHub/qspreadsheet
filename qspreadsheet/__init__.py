@@ -16,5 +16,7 @@ plugin_path = os.path.join(os.path.dirname(
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
 from . import resources_rc
-from .qspreadsheet import *
+from .custom_widgets import *
+from .sort_filter_proxy import *
 from .delegates import *
+from .qspreadsheet import *
