@@ -4,7 +4,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
-
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *

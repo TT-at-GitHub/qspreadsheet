@@ -14,6 +14,7 @@ from PySide2.QtWidgets import *
 from qspreadsheet import resources_rc
 from qspreadsheet import richtextlineedit
 from qspreadsheet import delegates
+from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet import LEFT
 from qspreadsheet.custom_widgets import LabeledTextEdit, LabeledLineEdit
 from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
