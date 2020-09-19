@@ -210,6 +210,24 @@ class RichTextDelegate(QStyledItemDelegate):
 def automap_delegates(df: DF) -> Dict[Any, QStyledItemDelegate]:
     type2delegate = tuple((
         ('object', StringDelegate),
-        ('int', IntDelegate)
+        ('int', IntDelegate),
+        ('float', FloatDelegate),
+        ('datetime', DateDelegate),
+        ('bool', BoolDelegate),
     ))
-    return {}
+
+    dtypes = df.dtypes.astype(str)
+
+    delegates = {}
+    for columnname, dtype in dtypes.items():
+        for key, delegate_class in type2delegate:
+            if key in dtypes:
+                delegate = delegate_class()
+                delegate.setObjectName(str(columnname))
+                break
+        else:
+            delegate = StringDelegate()
+
+        delegates[columnname] = delegate
+
+    return delegates

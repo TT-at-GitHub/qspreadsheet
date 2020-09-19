@@ -117,7 +117,7 @@ class DataFrameView(QTableView):
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
 
         # TODO: make the delegate generic !
-        self.delegate = delegate or delegates.DefaultDataFrameDelegate(self)
+        self.delegate = delegate or delegates.StringDelegate(self)
         self.setItemDelegate(self.delegate)
         self.set_column_widths()
 
