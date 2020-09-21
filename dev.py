@@ -64,6 +64,3 @@ df = mock_df()
 window = MainWindow(df)
 window.show()
 sys.exit(app.exec_())
-
-
-# %%

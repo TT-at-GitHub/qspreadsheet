@@ -103,4 +103,6 @@ pd.options.display.max_rows = 10
 pd.options.display.max_columns = 15
 pd.options.display.float_format = '{:,.2f}'.format
 #In[0]
-
+np.iinfo(np.intp).max
+#In[0]
+np.iinfo(np.intp).min

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd 
 
 
+MAX_INT = 2147483647
 LEFT, ABOVE = range(2)
 
 DF = TypeVar('DF', bound=pd.DataFrame)

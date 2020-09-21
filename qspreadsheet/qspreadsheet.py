@@ -57,7 +57,7 @@ class DataFrameModel(QAbstractTableModel):
         if role == Qt.EditRole:
             return self.df.iloc[index.row(), index.column()]
         if role == Qt.TextAlignmentRole:
-            return self.delegate.alignment(index)
+            return int(self.delegate.alignment(index))
         if role == Qt.BackgroundRole:
             return self.delegate.backgroundBrush(index)
         if role == Qt.ForegroundRole:

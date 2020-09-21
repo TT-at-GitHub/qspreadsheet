@@ -13,7 +13,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet import DF
+from qspreadsheet import DF, MAX_INT
 from qspreadsheet.custom_widgets import RichTextLineEdit
 
 
@@ -22,12 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 class ColumnDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None, nullable=True) -> None:
+        super(ColumnDelegate, self).__init__(parent)
+        self.nullable = nullable
 
     def displayData(self, index: QModelIndex, value: Any) -> str:
         return str(value)
 
-    def alignment(self, index: QModelIndex) -> int:
-        return int(Qt.AlignLeft | Qt.AlignVCenter)
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignLeft | Qt.AlignVCenter
 
     def backgroundBrush(self, index: QModelIndex) -> QBrush:
         return None
@@ -42,7 +45,7 @@ class ColumnDelegate(QStyledItemDelegate):
 class GenericDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
-        super(GenericDelegate, self).__init__(parent)
+        super(GenericDelegate, self).__init__(parent=parent, nullable=False)
         self.delegates: Dict[int, ColumnDelegate] = {}
 
     def addColumnDelegate(self, column_index: int, delegate: ColumnDelegate):
@@ -91,7 +94,7 @@ class GenericDelegate(ColumnDelegate):
         else:
             return super().displayData(index, value)
 
-    def alignment(self, index: QModelIndex) -> int:
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.alignment(index)
@@ -118,11 +121,11 @@ class GenericDelegate(ColumnDelegate):
 
 class IntDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, 
+    def __init__(self, parent=None, nullable=True,
                  minimum: Optional[int] = None, maximum: Optional[int] = None):
-        super(IntDelegate, self).__init__(parent)
-        self.minimum = minimum or -sys.maxsize - 1
-        self.maximum = maximum or sys.maxsize
+        super(IntDelegate, self).__init__(parent, nullable=nullable)
+        self.minimum = minimum or -MAX_INT
+        self.maximum = maximum or MAX_INT
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QSpinBox(parent)
@@ -131,46 +134,59 @@ class IntDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QSpinBox, index: QModelIndex):
-        value = int(index.model().data(index, Qt.DisplayRole))
+        value = index.model().data(index, Qt.EditRole)
         editor.setValue(value)
 
     def setModelData(self, editor: QSpinBox, model: QAbstractItemModel, index: QModelIndex):
         editor.interpretText()
         model.setData(index, editor.value())
 
-    def alignment(self, index: QModelIndex) -> int:
-        return int(Qt.AlignRight | Qt.AlignVCenter)
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignRight | Qt.AlignVCenter
 
 
 class FloatDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, 
-                 minimum: Optional[float] = None, maximum: Optional[float] = None):
-        super(FloatDelegate, self).__init__(parent)
+    def __init__(self, parent=None, nullable=True,
+                 minimum: Optional[float] = None, 
+                 maximum: Optional[float] = None,
+                 edit_precision: int = 4,
+                 display_precision: int = 2):
+        super(FloatDelegate, self).__init__(parent, nullable=nullable)
         self.minimum = minimum or sys.float_info.min
-        self.maximum = maximum or sys.float_info.min
+        self.maximum = maximum or sys.float_info.max
+        self.edit_precision = edit_precision
+        self.display_precision = display_precision
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QDoubleSpinBox(parent)
+        editor.setRange(self.minimum, self.maximum)
+        editor.setDecimals(self.edit_precision)
         editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         return editor
 
     def setEditorData(self, editor: QDoubleSpinBox, index: QModelIndex):
-        value = float(index.model().data(index, Qt.DisplayRole))
+        value = index.model().data(index, Qt.EditRole)
         editor.setValue(value)
 
     def setModelData(self, editor: QDoubleSpinBox, model: QAbstractItemModel, index: QModelIndex):
         editor.interpretText()
-        model.setData(index, editor.value())
+        value = editor.value()
+        model.setData(index, value)
 
-    def alignment(self, index: QModelIndex) -> int:
-        return int(Qt.AlignRight | Qt.AlignVCenter)
+    def displayData(self, index: QModelIndex, value: Any) -> str:
+        if pd.isnull(value):
+            return 'NaN'
+        return str(round(value, ndigits=self.display_precision))
+
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignRight | Qt.AlignVCenter
 
 
 class BoolDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None):
-        super(BoolDelegate, self).__init__(parent)
+    def __init__(self, parent=None, nullable=True) -> None:
+        super(BoolDelegate, self).__init__(parent, nullable=nullable)
         self.choices = [True, False]
         self.str_choices = list(map(str, self.choices))
 
@@ -179,7 +195,7 @@ class BoolDelegate(ColumnDelegate):
         editor.addItems(self.str_choices)
         editor.setEditable(True)
         editor.lineEdit().setReadOnly(True)
-        editor.lineEdit().setAlignment(Qt.AlignVCenter)
+        editor.lineEdit().setAlignment(self.alignment(index))
         return editor
 
     def setEditorData(self, editor: QComboBox, index: QModelIndex):
@@ -188,22 +204,21 @@ class BoolDelegate(ColumnDelegate):
 
     def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):
         value = self.choices[editor.currentIndex()]
-        model.setData(index, editor.value())
+        model.setData(index, value)
 
-    def alignment(self, index: QModelIndex) -> int:
-        return int(Qt.AlignCenter)
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignCenter
 
 
 class DateDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None,
+    def __init__(self, parent=None, nullable=True,
                  minimum: Optional[DateLike] = None, maximum: Optional[DateLike] = None,
-                 date_format='yyyy-MM-dd', nullable=True):
-        super(DateDelegate, self).__init__(parent)
+                 date_format='yyyy-MM-dd'):
+        super(DateDelegate, self).__init__(parent, nullable=nullable)
         self.minimum = as_qdate(minimum) if minimum else QDate(1970, 1, 1)
         self.maximum = as_qdate(maximum) if maximum else QDate(9999, 1, 1)
         self.date_format = date_format
-        self.nullable = nullable
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         logger.debug('createEditor')
@@ -233,14 +248,14 @@ class DateDelegate(ColumnDelegate):
         result = as_qdate(value).toString(self.date_format)
         return result
 
-    def alignment(self, index: QModelIndex) -> int:
-        return int(Qt.AlignRight | Qt.AlignVCenter)
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignRight | Qt.AlignVCenter
 
 
 class StringDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None):
-        super(StringDelegate, self).__init__(parent)
+    def __init__(self, parent=None, nullable=True) -> None:
+        super(StringDelegate, self).__init__(parent, nullable=nullable)
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QLineEdit(parent)
@@ -259,7 +274,7 @@ class StringDelegate(ColumnDelegate):
 class RichTextDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
-        super(RichTextDelegate, self).__init__(parent)
+        super(RichTextDelegate, self).__init__(parent, nullable=False)
 
     def paint(self, painter, option, index: QModelIndex):
         text = index.model().data(index, Qt.DisplayRole)
