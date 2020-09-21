@@ -102,3 +102,5 @@ df.to_pickle('./.ignore/data/df-nulls.pkl')
 pd.options.display.max_rows = 10
 pd.options.display.max_columns = 15
 pd.options.display.float_format = '{:,.2f}'.format
+#In[0]
+

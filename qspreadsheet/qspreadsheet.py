@@ -1,8 +1,11 @@
+from logging import Logger
 import operator
 import os
+from qspreadsheet.delegates import ColumnDelegate, GenericDelegate, automap_delegates
 import sys
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+import logging
 
 import numpy as np
 import pandas as pd
@@ -20,15 +23,20 @@ from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
 from qspreadsheet.header import HeaderView, HeaderWidget
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 
+Logger = logging.getLogger(__name__)
+
 
 class DataFrameModel(QAbstractTableModel):
 
-    def __init__(self, df: pd.DataFrame, header_model: HeaderView, parent=None) -> None:
+    def __init__(self, df: pd.DataFrame, header_model: HeaderView,
+                 delegate: ColumnDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
         self._header_model = header_model
         self._header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
+        self.delegate = delegate
+
         self.filter_values_mapper = QSignalMapper(self)
         self.logical = None
         self.dirty = False
@@ -40,8 +48,23 @@ class DataFrameModel(QAbstractTableModel):
         return self.df.shape[1]
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
-        if role == Qt.DisplayRole and index.row() < self.df.shape[0]:
-            return str(self.df.iat[index.row(), index.column()])
+        if index.row() == self.df.shape[0]:
+            return None
+        
+        if role == Qt.DisplayRole:
+            return self.delegate.displayData(index, 
+                self.df.iloc[index.row(), index.column()])
+        if role == Qt.EditRole:
+            return self.df.iloc[index.row(), index.column()]
+        if role == Qt.TextAlignmentRole:
+            return self.delegate.alignment(index)
+        if role == Qt.BackgroundRole:
+            return self.delegate.backgroundBrush(index)
+        if role == Qt.ForegroundRole:
+            return self.delegate.foregroundBrush(index)
+        if role == Qt.FontRole:
+            return self.delegate.font(index)
+
         return None
 
     def flags(self, index):
@@ -51,22 +74,12 @@ class DataFrameModel(QAbstractTableModel):
                             Qt.ItemIsEditable)
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
-        if index.isValid():
-            if not value:
-                self.df.iloc[index.row(), index.column()] = np.nan
-            else:
-                try:
-                    number = pd.to_numeric(value)
-                except:
-                    self.df.iloc[index.row(), index.column()] = str(value)
-                else:
-                    self.df.iloc[index.row(), index.column()] = number
-
-            self.dirty = True
-
-            self.dataChanged.emit(index, index)
-            return True
-        return False
+        if not index.isValid():
+            return False
+        self.df.iloc[index.row(), index.column()] = value
+        self.dirty = True
+        self.dataChanged.emit(index, index)
+        return True
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
         if section < 0:
@@ -97,17 +110,20 @@ class DataFrameModel(QAbstractTableModel):
 
 class DataFrameView(QTableView):
 
-    def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None, parent=None) -> None:
+    def __init__(self, df: pd.DataFrame, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
 
         self.header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self.header_model)
-
-        self._model = DataFrameModel(
-            df=df, header_model=self.header_model, parent=self)
         self.header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
 
+        self.delegate = GenericDelegate(self)
+        self._model = DataFrameModel(df=df, header_model=self.header_model,
+                                     delegate=self.delegate, parent=self)
+
+        delegates = delegates or automap_delegates(df)
+        self.setColumnDelegates(delegates)
         self.proxy = DataFrameSortFilterProxy(self)
         self.proxy.set_df(df)
         self.proxy.setSourceModel(self._model)
@@ -115,11 +131,19 @@ class DataFrameView(QTableView):
 
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
-
-        # TODO: make the delegate generic !
-        self.delegate = delegate or delegates.StringDelegate(self)
-        self.setItemDelegate(self.delegate)
         self.set_column_widths()
+
+    def setColumnDelegates(self, delegates: Optional[Mapping[Any, ColumnDelegate]]):
+        current = self.itemDelegate()
+        if current is not None:
+            current.deleteLater()
+
+        for column, column_delegate in delegates.items():
+            icolumn = self.df.columns.get_loc(column)
+            self.delegate.addColumnDelegate(icolumn, column_delegate)
+
+        self.setItemDelegate(self.delegate)
+        del current
 
     def set_column_widths(self):
         header = self.horizontalHeader()

@@ -1,6 +1,13 @@
 import os
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import (Any, Callable, Dict, Iterable, List, Mapping,
+                    Optional, Sequence, Type, TypeVar, Union)
+import logging
+from datetime import datetime
+from functools import wraps
+
+import numpy as np
+import pandas as pd
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -10,19 +17,43 @@ from qspreadsheet import DF
 from qspreadsheet.custom_widgets import RichTextLineEdit
 
 
-class GenericDelegate(QStyledItemDelegate):
+DateLike = Union[str, datetime, pd.Timestamp, QDate]
+logger = logging.getLogger(__name__)
+
+
+class ColumnDelegate(QStyledItemDelegate):
+
+    def displayData(self, index: QModelIndex, value: Any) -> str:
+        return str(value)
+
+    def alignment(self, index: QModelIndex) -> int:
+        return int(Qt.AlignLeft | Qt.AlignVCenter)
+
+    def backgroundBrush(self, index: QModelIndex) -> QBrush:
+        return None
+
+    def foregroundBrush(self, index: QModelIndex) -> QBrush:
+        return None
+
+    def font(self, index: QModelIndex) -> QFont:
+        return None
+
+
+class GenericDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(GenericDelegate, self).__init__(parent)
-        self.delegates = {}
+        self.delegates: Dict[int, ColumnDelegate] = {}
 
-    def insertColumnDelegate(self, column, delegate):
+    def addColumnDelegate(self, column_index: int, delegate: ColumnDelegate):
         delegate.setParent(self)
-        self.delegates[column] = delegate
+        self.delegates[column_index] = delegate
 
-    def removeColumnDelegate(self, column):
-        if column in self.delegates:
-            del self.delegates[column]
+    def removeColumnDelegate(self, column_index: int):
+        delegate = self.delegates.pop(column_index, None)
+        if delegate is not None:
+            delegate.deleteLater()
+            del delegate
 
     def paint(self, painter, option, index):
         delegate = self.delegates.get(index.column())
@@ -53,13 +84,45 @@ class GenericDelegate(QStyledItemDelegate):
         else:
             QStyledItemDelegate.setModelData(self, editor, model, index)
 
+    def displayData(self, index: QModelIndex, value: Any) -> str:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.displayData(index, value)
+        else:
+            return super().displayData(index, value)
 
-class IntDelegate(QStyledItemDelegate):
+    def alignment(self, index: QModelIndex) -> int:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.alignment(index)
+        return super().alignment(index)
 
-    def __init__(self, minimum=0, maximum=100, parent=None):
+    def backgroundBrush(self, index: QModelIndex) -> QBrush:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.backgroundBrush(index)
+        return super().backgroundBrush(index)
+
+    def foregroundBrush(self, index: QModelIndex) -> QBrush:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.foregroundBrush(index)
+        return super().foregroundBrush(index)
+
+    def font(self, index: QModelIndex) -> QFont:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.font(index)
+        return super().font(index)
+
+
+class IntDelegate(ColumnDelegate):
+
+    def __init__(self, parent=None, 
+                 minimum: Optional[int] = None, maximum: Optional[int] = None):
         super(IntDelegate, self).__init__(parent)
-        self.minimum = minimum
-        self.maximum = maximum
+        self.minimum = minimum or -sys.maxsize - 1
+        self.maximum = maximum or sys.maxsize
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QSpinBox(parent)
@@ -75,11 +138,17 @@ class IntDelegate(QStyledItemDelegate):
         editor.interpretText()
         model.setData(index, editor.value())
 
+    def alignment(self, index: QModelIndex) -> int:
+        return int(Qt.AlignRight | Qt.AlignVCenter)
 
-class FloatDelegate(QStyledItemDelegate):
 
-    def __init__(self, parent=None):
+class FloatDelegate(ColumnDelegate):
+
+    def __init__(self, parent=None, 
+                 minimum: Optional[float] = None, maximum: Optional[float] = None):
         super(FloatDelegate, self).__init__(parent)
+        self.minimum = minimum or sys.float_info.min
+        self.maximum = maximum or sys.float_info.min
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QDoubleSpinBox(parent)
@@ -94,8 +163,11 @@ class FloatDelegate(QStyledItemDelegate):
         editor.interpretText()
         model.setData(index, editor.value())
 
+    def alignment(self, index: QModelIndex) -> int:
+        return int(Qt.AlignRight | Qt.AlignVCenter)
 
-class BoolDelegate(QStyledItemDelegate):
+
+class BoolDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(BoolDelegate, self).__init__(parent)
@@ -118,34 +190,54 @@ class BoolDelegate(QStyledItemDelegate):
         value = self.choices[editor.currentIndex()]
         model.setData(index, editor.value())
 
+    def alignment(self, index: QModelIndex) -> int:
+        return int(Qt.AlignCenter)
 
-class DateDelegate(QStyledItemDelegate):
 
-    def __init__(self, minimum=QDate(),
-                 maximum=QDate.currentDate(),
-                 format="yyyy-MM-dd", parent=None):
+class DateDelegate(ColumnDelegate):
+
+    def __init__(self, parent=None,
+                 minimum: Optional[DateLike] = None, maximum: Optional[DateLike] = None,
+                 date_format='yyyy-MM-dd', nullable=True):
         super(DateDelegate, self).__init__(parent)
-        self.minimum = minimum
-        self.maximum = maximum
-        self.format = format
+        self.minimum = as_qdate(minimum) if minimum else QDate(1970, 1, 1)
+        self.maximum = as_qdate(maximum) if maximum else QDate(9999, 1, 1)
+        self.date_format = date_format
+        self.nullable = nullable
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        logger.debug('createEditor')
         editor = QDateEdit(parent)
         editor.setDateRange(self.minimum, self.maximum)
         editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        editor.setDisplayFormat(self.format)
+        editor.setDisplayFormat(self.date_format)
         editor.setCalendarPopup(True)
         return editor
 
     def setEditorData(self, editor: QDateEdit, index: QModelIndex):
-        value = index.model().data(index, Qt.DisplayRole)
+        logger.debug('setEditorData')
+        model_value = index.model().data(index, Qt.EditRole)
+        if pd.isnull(model_value):
+            value = QDate.currentDate()
+        else:        
+            value = as_qdate(model_value)
         editor.setDate(value)
 
     def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
-        model.setData(index, editor.date())
+        logger.debug('setModelData')
+        model.setData(index, pd.to_datetime(editor.date().toPython()))
+
+    def displayData(self, index: QModelIndex, value: pd.Timestamp) -> Any:
+        if pd.isnull(value):
+            return 'NaT'
+        result = as_qdate(value).toString(self.date_format)
+        return result
+
+    def alignment(self, index: QModelIndex) -> int:
+        return int(Qt.AlignRight | Qt.AlignVCenter)
 
 
-class StringDelegate(QStyledItemDelegate):
+class StringDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(StringDelegate, self).__init__(parent)
@@ -155,14 +247,16 @@ class StringDelegate(QStyledItemDelegate):
         return editor
 
     def setEditorData(self, editor: QLineEdit, index: QModelIndex):
-        value = index.model().data(index, Qt.DisplayRole)
-        editor.setText(value)
+        model_value = index.model().data(index, Qt.EditRole)
+        if pd.isnull(model_value):
+            model_value = ''
+        editor.setText(model_value)
 
     def setModelData(self, editor: QLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.text())
 
 
-class RichTextDelegate(QStyledItemDelegate):
+class RichTextDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(RichTextDelegate, self).__init__(parent)
@@ -200,14 +294,16 @@ class RichTextDelegate(QStyledItemDelegate):
         return editor
 
     def setEditorData(self, editor: RichTextLineEdit, index: QModelIndex):
-        value = index.model().data(index, Qt.DisplayRole)
-        editor.setHtml(value)
+        model_value = index.model().data(index, Qt.EditRole)
+        if pd.isnull(model_value):
+            model_value = ''
+        editor.setHtml(model_value)
 
     def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.toSimpleHtml())
 
 
-def automap_delegates(df: DF) -> Dict[Any, QStyledItemDelegate]:
+def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:
     type2delegate = tuple((
         ('object', StringDelegate),
         ('int', IntDelegate),
@@ -221,7 +317,7 @@ def automap_delegates(df: DF) -> Dict[Any, QStyledItemDelegate]:
     delegates = {}
     for columnname, dtype in dtypes.items():
         for key, delegate_class in type2delegate:
-            if key in dtypes:
+            if key in dtype:
                 delegate = delegate_class()
                 delegate.setObjectName(str(columnname))
                 break
@@ -231,3 +327,21 @@ def automap_delegates(df: DF) -> Dict[Any, QStyledItemDelegate]:
         delegates[columnname] = delegate
 
     return delegates
+
+
+def as_qdate(datelike: DateLike, format: Optional[str] = None) -> QDate:
+    '''Converts date-like value to QDate
+    
+        Parameters
+        ----------
+        dt: {str, datetime, pd.Timestamp, QDate}: value to convert
+
+        format: {str}: default=None. Format must be provided if dt is `str`.
+
+        Returns
+        -------
+        `QDate`
+    '''    
+    if isinstance(datelike, str):
+        datelike = datetime.strptime(datelike, format)
+    return datelike if isinstance(datelike, QDate) else QDate(datelike.year, datelike.month, datelike.day)

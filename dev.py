@@ -15,6 +15,10 @@ from fx import fx
 from qspreadsheet import DataFrameView, DataFrameModel, delegates
 
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+
 def mock_df():
     area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
     population = pd.Series(
@@ -41,11 +45,9 @@ def mock_df():
 class MainWindow(QMainWindow):
 
     def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None):
-        super().__init__()
+        super(MainWindow, self).__init__()
 
         self.table_view = DataFrameView(df=df, parent=self)
-        delegate = delegate or delegates.GenericDelegate(self)
-        self.table_view.setItemDelegate(delegate)
         central_widget = QWidget(self)
         h_layout = QHBoxLayout()
         central_widget.setLayout(h_layout)
@@ -63,3 +65,5 @@ window = MainWindow(df)
 window.show()
 sys.exit(app.exec_())
 
+
+# %%
