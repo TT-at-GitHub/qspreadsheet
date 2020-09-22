@@ -188,11 +188,10 @@ class BoolDelegate(ColumnDelegate):
     def __init__(self, parent=None, nullable=True) -> None:
         super(BoolDelegate, self).__init__(parent, nullable=nullable)
         self.choices = [True, False]
-        self.str_choices = list(map(str, self.choices))
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QComboBox(parent)
-        editor.addItems(self.str_choices)
+        editor.addItems(list(map(str, self.choices)))
         editor.setEditable(True)
         editor.lineEdit().setReadOnly(True)
         editor.lineEdit().setAlignment(self.alignment(index))
@@ -200,7 +199,7 @@ class BoolDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: QComboBox, index: QModelIndex):
         value = index.model().data(index, Qt.EditRole)
-        editor.setCurrentIndex(self.str_choices.index(value))
+        editor.setCurrentIndex(self.choices.index(value))
 
     def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):
         value = self.choices[editor.currentIndex()]
