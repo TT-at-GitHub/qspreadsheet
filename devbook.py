@@ -120,3 +120,7 @@ pd.options.display.float_format = '{:,.2f}'.format
 value = 56.743435
 i = 2
 '{0:.{1}f}'.format(value, i)
+#In[0]
+path = '.ignore/qspreadsheet.txt'
+for fd in os.listdir(path):
+    os.rename(os.path.join(path, fd), os.path.join(path, fd, '.txt'))

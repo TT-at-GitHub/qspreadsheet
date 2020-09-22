@@ -1,4 +1,3 @@
-#In[0]
 from qspreadsheet.delegates import DateDelegate, IntDelegate, NullableColumnDelegate, automap_delegates
 import sys, os
 from typing import Optional
