@@ -1,5 +1,5 @@
 #In[0]
-from qspreadsheet.delegates import NullableDateDelegate
+from qspreadsheet.delegates import DateDelegate, NullableColumnDelegate, automap_delegates
 import sys, os
 from typing import Optional
 
@@ -45,14 +45,13 @@ def mock_df():
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, df: pd.DataFrame, delegate: Optional[QStyledItemDelegate] = None):
+    def __init__(self, table_view: DataFrameView):
         super(MainWindow, self).__init__()
 
-        self.table_view = DataFrameView(df=df, parent=self)
         central_widget = QWidget(self)
         h_layout = QHBoxLayout()
         central_widget.setLayout(h_layout)
-        h_layout.addWidget(self.table_view)
+        h_layout.addWidget(table_view)
 
         self.setCentralWidget(central_widget)
         self.setMinimumSize(QSize(960, 640))
@@ -63,9 +62,12 @@ app = QApplication(sys.argv)
 df = mock_df()
 pd.options.display.precision = 4
 
-window = MainWindow(df)
-nulldates = NullableDateDelegate()
-window.table_view.set_column_delegate_for('dates', nulldates)
+delegates = automap_delegates(df)
+nullable_delegates = {column : delegate.to_nullable() 
+                      for column, delegate in delegates.items()}
+
+table_view = DataFrameView(df=df, delegates=nullable_delegates)
+window = MainWindow(table_view=table_view)
 
 window.show()
 sys.exit(app.exec_())

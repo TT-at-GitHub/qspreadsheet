@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import (Any, Callable, Dict, Iterable, List, Mapping,
+from typing import (Any, Callable, ClassVar, Dict, Iterable, List, Mapping,
                     Optional, Sequence, Type, TypeVar, Union)
 import logging
 from datetime import datetime
@@ -12,6 +12,7 @@ import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from pandas.core.dtypes.missing import isnull
 from pandas.core.reshape.melt import wide_to_long
 
 from qspreadsheet import DF, MAX_INT
@@ -23,34 +24,95 @@ logger = logging.getLogger(__name__)
 
 
 class ColumnDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None, nullable=True) -> None:
+    def __init__(self, parent=None) -> None:
         super(ColumnDelegate, self).__init__(parent)
-        self.nullable = nullable
 
-    def displayData(self, index: QModelIndex, value: Any) -> str:
+    def display_data(self, index: QModelIndex, value: Any) -> str:
         return str(value)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignLeft | Qt.AlignVCenter
 
-    def backgroundBrush(self, index: QModelIndex) -> QBrush:
+    def background_brush(self, index: QModelIndex) -> QBrush:
         return None
 
-    def foregroundBrush(self, index: QModelIndex) -> QBrush:
+    def foreground_brush(self, index: QModelIndex) -> QBrush:
         return None
 
     def font(self, index: QModelIndex) -> QFont:
         return None
 
+    def null_value(self):
+        return None
+
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return NullableColumnDelegate(self)
+
+
+class NullableColumnDelegate(ColumnDelegate):
+
+    def __init__(self, column_delegate: ColumnDelegate):
+        super(NullableColumnDelegate, self).__init__(column_delegate.parent())
+        self._delegate = column_delegate
+        self.isnull = False
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        logger.debug('createEditor')
+        nullable_editor = QWidget(parent)
+        nullable_editor.setAutoFillBackground(True)
+   
+        checkbox = QCheckBox('')
+        checkbox.stateChanged.connect(self.on_checkboxStateChanged)
+        self.checkbox = checkbox
+
+        editor = self._delegate.createEditor(parent, option, index)
+        editor.setSizePolicy(QSizePolicy.Preferred, 
+                             QSizePolicy.MinimumExpanding)
+        self._editor = editor
+
+        layout = QHBoxLayout()
+        layout.addWidget(self.checkbox)
+        layout.addWidget(editor)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(3)
+        nullable_editor.setLayout(layout)
+        return nullable_editor
+
+    def on_checkboxStateChanged(self, state: int):
+        logger.debug('on_checkboxStateChanged(state={})'.format(state))
+        self.isnull = (state == 0)
+        self._editor.setEnabled(not self.isnull)
+        
+    def setEditorData(self, editor: QWidget, index: QModelIndex):
+        logger.debug('setEditorData')
+        model_value = index.model().data(index, Qt.EditRole)
+        self.isnull = pd.isnull(model_value)
+        self.checkbox.setChecked(not self.isnull)
+        # force update check state
+        self.on_checkboxStateChanged(self.checkbox.checkState())
+        self._delegate.setEditorData(self._editor, index)
+
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
+        logger.debug('setModelData')
+        if self.isnull:
+            model.setData(index, self._delegate.null_value())
+        else:
+            self._delegate.setModelData(self._editor, model, index)
+
+    def display_data(self, index: QModelIndex, value: Any) -> Any:
+        return self._delegate.display_data(index, value)
+
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return self._delegate.alignment(index)
+
 
 class GenericDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
-        super(GenericDelegate, self).__init__(parent=parent, nullable=False)
+        super(GenericDelegate, self).__init__(parent=parent)
         self.delegates: Dict[int, ColumnDelegate] = {}
 
     def add_column_delegate(self, column_index: int, delegate: ColumnDelegate):
-
         delegate.setParent(self)
         self.delegates[column_index] = delegate
 
@@ -89,12 +151,12 @@ class GenericDelegate(ColumnDelegate):
         else:
             QStyledItemDelegate.setModelData(self, editor, model, index)
 
-    def displayData(self, index: QModelIndex, value: Any) -> str:
+    def display_data(self, index: QModelIndex, value: Any) -> str:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
-            return delegate.displayData(index, value)
+            return delegate.display_data(index, value)
         else:
-            return super().displayData(index, value)
+            return super().display_data(index, value)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         delegate = self.delegates.get(index.column())
@@ -102,17 +164,17 @@ class GenericDelegate(ColumnDelegate):
             return delegate.alignment(index)
         return super().alignment(index)
 
-    def backgroundBrush(self, index: QModelIndex) -> QBrush:
+    def background_brush(self, index: QModelIndex) -> QBrush:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
-            return delegate.backgroundBrush(index)
-        return super().backgroundBrush(index)
+            return delegate.background_brush(index)
+        return super().background_brush(index)
 
-    def foregroundBrush(self, index: QModelIndex) -> QBrush:
+    def foreground_brush(self, index: QModelIndex) -> QBrush:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
-            return delegate.foregroundBrush(index)
-        return super().foregroundBrush(index)
+            return delegate.foreground_brush(index)
+        return super().foreground_brush(index)
 
     def font(self, index: QModelIndex) -> QFont:
         delegate = self.delegates.get(index.column())
@@ -123,9 +185,9 @@ class GenericDelegate(ColumnDelegate):
 
 class IntDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, nullable=True,
+    def __init__(self, parent=None,
                  minimum: Optional[int] = None, maximum: Optional[int] = None):
-        super(IntDelegate, self).__init__(parent, nullable=nullable)
+        super(IntDelegate, self).__init__(parent)
         self.minimum = minimum or -MAX_INT
         self.maximum = maximum or MAX_INT
 
@@ -149,12 +211,12 @@ class IntDelegate(ColumnDelegate):
 
 class FloatDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, nullable=True,
+    def __init__(self, parent=None,
                  minimum: Optional[float] = None, 
                  maximum: Optional[float] = None,
                  edit_precision: int = 4,
                  display_precision: int = 2):
-        super(FloatDelegate, self).__init__(parent, nullable=nullable)
+        super(FloatDelegate, self).__init__(parent)
         self.minimum = minimum or sys.float_info.min
         self.maximum = maximum or sys.float_info.max
         self.edit_precision = edit_precision
@@ -176,7 +238,7 @@ class FloatDelegate(ColumnDelegate):
         value = editor.value()
         model.setData(index, value)
 
-    def displayData(self, index: QModelIndex, value: Any) -> str:
+    def display_data(self, index: QModelIndex, value: Any) -> str:
         if pd.isnull(value):
             return 'NaN'
         return '{0:.{1}f}'.format(value, self.display_precision)
@@ -187,8 +249,8 @@ class FloatDelegate(ColumnDelegate):
 
 class BoolDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, nullable=True) -> None:
-        super(BoolDelegate, self).__init__(parent, nullable=nullable)
+    def __init__(self, parent=None) -> None:
+        super(BoolDelegate, self).__init__(parent)
         self.choices = [True, False]
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
@@ -213,14 +275,13 @@ class BoolDelegate(ColumnDelegate):
 
 class DateDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, nullable=True,
+    def __init__(self, parent=None,
                  minimum: Optional[DateLike] = None, maximum: Optional[DateLike] = None,
                  date_format='yyyy-MM-dd'):
-        super(DateDelegate, self).__init__(parent, nullable=nullable)
+        super(DateDelegate, self).__init__(parent)
         self.minimum = as_qdate(minimum) if minimum else QDate(1970, 1, 1)
         self.maximum = as_qdate(maximum) if maximum else QDate(9999, 1, 1)
         self.date_format = date_format
-        self.editor = None
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         logger.debug('createEditor')
@@ -244,75 +305,7 @@ class DateDelegate(ColumnDelegate):
         logger.debug('setModelData')
         model.setData(index, pd.to_datetime(editor.date().toPython()))
 
-    def displayData(self, index: QModelIndex, value: pd.Timestamp) -> Any:
-        if pd.isnull(value):
-            return 'NaT'
-        result = as_qdate(value).toString(self.date_format)
-        return result
-
-    def alignment(self, index: QModelIndex) -> Qt.Alignment:
-        return Qt.AlignRight | Qt.AlignVCenter
-
-
-class NullableDateDelegate(DateDelegate):
-
-    def __init__(self, parent=None, nullable=True,
-                 minimum: Optional[DateLike] = None, maximum: Optional[DateLike] = None,
-                 date_format='yyyy-MM-dd'):
-        super(NullableDateDelegate, self).__init__(parent, nullable, minimum, maximum, date_format)
-
-    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        logger.debug('createEditor')
-        editor = QWidget(parent)
-        editor.setAutoFillBackground(True)
-                
-        
-        check = QCheckBox('')
-        check.stateChanged.connect(self.enableDateEdit)
-        self.check = check
-
-        date_edit = QDateEdit(parent)
-        date_edit.setDateRange(self.minimum, self.maximum)
-        date_edit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        date_edit.setDisplayFormat(self.date_format)
-        date_edit.setCalendarPopup(True)
-        date_edit.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.date_edit = date_edit
-        
-        layout = QHBoxLayout()
-        layout.addWidget(self.check)
-        layout.addStretch()
-        layout.addWidget(self.date_edit)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        editor.setLayout(layout)
-        return editor
-
-    def enableDateEdit(self, state: int):
-        logger.debug('enableDateEdit(state={})'.format(state))
-        self.date_edit.setEnabled(state != 0)
-        
-    def setEditorData(self, editor: QDateEdit, index: QModelIndex):
-        logger.debug('setEditorData')
-        model_value = index.model().data(index, Qt.EditRole)
-        if pd.isnull(model_value):
-            value = QDate.currentDate()
-            self.check.setChecked(False)
-        else:        
-            self.check.setChecked(True)
-            value = as_qdate(model_value)
-        self.date_edit.setDate(value)
-        self.enableDateEdit(self.check.checkState())
-
-    def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
-        logger.debug('setModelData')
-        if self.check.isChecked():
-            value = pd.to_datetime(self.date_edit.date().toPython())
-        else:
-            value = pd.NaT
-        model.setData(index, value)
-
-    def displayData(self, index: QModelIndex, value: pd.Timestamp) -> Any:
+    def display_data(self, index: QModelIndex, value: pd.Timestamp) -> Any:
         if pd.isnull(value):
             return 'NaT'
         result = as_qdate(value).toString(self.date_format)
@@ -324,8 +317,8 @@ class NullableDateDelegate(DateDelegate):
 
 class StringDelegate(ColumnDelegate):
 
-    def __init__(self, parent=None, nullable=True) -> None:
-        super(StringDelegate, self).__init__(parent, nullable=nullable)
+    def __init__(self, parent=None) -> None:
+        super(StringDelegate, self).__init__(parent)
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QLineEdit(parent)
@@ -344,7 +337,7 @@ class StringDelegate(ColumnDelegate):
 class RichTextDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
-        super(RichTextDelegate, self).__init__(parent, nullable=False)
+        super(RichTextDelegate, self).__init__(parent)
 
     def paint(self, painter, option, index: QModelIndex):
         text = index.model().data(index, Qt.DisplayRole)
@@ -386,6 +379,9 @@ class RichTextDelegate(ColumnDelegate):
 
     def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.toSimpleHtml())
+
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return self
 
 
 def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:

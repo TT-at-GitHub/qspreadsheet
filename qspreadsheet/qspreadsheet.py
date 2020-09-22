@@ -52,16 +52,16 @@ class DataFrameModel(QAbstractTableModel):
             return None
         
         if role == Qt.DisplayRole:
-            return self.delegate.displayData(index, 
+            return self.delegate.display_data(index, 
                 self.df.iloc[index.row(), index.column()])
         if role == Qt.EditRole:
             return self.df.iloc[index.row(), index.column()]
         if role == Qt.TextAlignmentRole:
             return int(self.delegate.alignment(index))
         if role == Qt.BackgroundRole:
-            return self.delegate.backgroundBrush(index)
+            return self.delegate.background_brush(index)
         if role == Qt.ForegroundRole:
-            return self.delegate.foregroundBrush(index)
+            return self.delegate.foreground_brush(index)
         if role == Qt.FontRole:
             return self.delegate.font(index)
 
