@@ -22,15 +22,25 @@ def mock_df():
     df['bools'] = (df.index % 2 == 1)
     df['multip'] = df.population * 3.42 * df['bools']
     df['div'] = df.population / 2.3 * (~df['bools'])
-    df['multip'] = (df['multip'] + df['div']).astype(float)
+    df['multip'] = (df['multip'] + df['div']).astype('float64')
     df['div'] = df['div'].astype('int32')
-    # df.iloc[1, 0] = np.nan
-    # df.iloc[2, 0] = np.nan
-    # df.iloc[2, 1] = np.nan
-    # df.iloc[1, 3] = np.nan
+    df.iloc[1, 0] = np.nan
+    df.iloc[4, 4] = pd.NA
+    df.iloc[2, 0] = np.nan
+    df.iloc[2, 1] = np.nan
+    df.iloc[1, 3] = pd.NaT
+    df.iloc[2, 6] = pd.NA
     return df
 df = mock_df()
-df
+from IPython.display import display
+display(df)
+df.dtypes
+#In[0]
+s = df['div']
+[type(v) for v in s]
+s.isna().any()
+#In[0]
+df['dates'].iloc[2]
 #In[0]
 df.iat[2, 5]
 #In[0]

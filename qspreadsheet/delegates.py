@@ -28,6 +28,8 @@ class ColumnDelegate(QStyledItemDelegate):
         super(ColumnDelegate, self).__init__(parent)
 
     def display_data(self, index: QModelIndex, value: Any) -> str:
+        if pd.isnull(value):
+            return '.NA'
         return str(value)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
@@ -42,8 +44,11 @@ class ColumnDelegate(QStyledItemDelegate):
     def font(self, index: QModelIndex) -> QFont:
         return None
 
-    def null_value(self):
+    def null_value(self) -> Any:
         return None
+
+    def set_default(self, editor: QWidget):
+        pass
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return NullableColumnDelegate(self)
@@ -57,7 +62,7 @@ class NullableColumnDelegate(ColumnDelegate):
         self.isnull = False
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        logger.debug('createEditor')
+        # logger.debug('createEditor')
         nullable_editor = QWidget(parent)
         nullable_editor.setAutoFillBackground(True)
    
@@ -66,7 +71,7 @@ class NullableColumnDelegate(ColumnDelegate):
         self.checkbox = checkbox
 
         editor = self._delegate.createEditor(parent, option, index)
-        editor.setSizePolicy(QSizePolicy.Preferred, 
+        editor.setSizePolicy(QSizePolicy.MinimumExpanding, 
                              QSizePolicy.MinimumExpanding)
         self._editor = editor
 
@@ -79,21 +84,26 @@ class NullableColumnDelegate(ColumnDelegate):
         return nullable_editor
 
     def on_checkboxStateChanged(self, state: int):
-        logger.debug('on_checkboxStateChanged(state={})'.format(state))
+        # logger.debug('on_checkboxStateChanged(state={})'.format(state))
         self.isnull = (state == 0)
         self._editor.setEnabled(not self.isnull)
         
     def setEditorData(self, editor: QWidget, index: QModelIndex):
-        logger.debug('setEditorData')
+        # logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
         self.isnull = pd.isnull(model_value)
         self.checkbox.setChecked(not self.isnull)
-        # force update check state
+
+        if self.isnull:
+            self._delegate.set_default(self._editor)
+        else:
+            self._delegate.setEditorData(self._editor, index)
+            
+        # force update checkbox state
         self.on_checkboxStateChanged(self.checkbox.checkState())
-        self._delegate.setEditorData(self._editor, index)
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
-        logger.debug('setModelData')
+        # logger.debug('setModelData')
         if self.isnull:
             model.setData(index, self._delegate.null_value())
         else:
@@ -208,6 +218,12 @@ class IntDelegate(ColumnDelegate):
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
 
+    def set_default(self, editor: QSpinBox):
+        editor.setValue(0)
+
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return self
+
 
 class FloatDelegate(ColumnDelegate):
 
@@ -240,11 +256,14 @@ class FloatDelegate(ColumnDelegate):
 
     def display_data(self, index: QModelIndex, value: Any) -> str:
         if pd.isnull(value):
-            return 'NaN'
+            return super().display_data(index, value)
         return '{0:.{1}f}'.format(value, self.display_precision)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
+
+    def set_default(self, editor: QDoubleSpinBox):
+        editor.setValue(0)
 
 
 class BoolDelegate(ColumnDelegate):
@@ -272,6 +291,12 @@ class BoolDelegate(ColumnDelegate):
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignCenter
 
+    def set_default(self, editor: QComboBox):
+        editor.setCurrentIndex(self.choices.index(False))
+
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return self
+
 
 class DateDelegate(ColumnDelegate):
 
@@ -295,10 +320,7 @@ class DateDelegate(ColumnDelegate):
     def setEditorData(self, editor: QDateEdit, index: QModelIndex):
         logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
-        if pd.isnull(model_value):
-            value = QDate.currentDate()
-        else:        
-            value = as_qdate(model_value)
+        value = as_qdate(model_value)
         editor.setDate(value)
 
     def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
@@ -307,13 +329,16 @@ class DateDelegate(ColumnDelegate):
 
     def display_data(self, index: QModelIndex, value: pd.Timestamp) -> Any:
         if pd.isnull(value):
-            return 'NaT'
+            return '.NaT'
         result = as_qdate(value).toString(self.date_format)
         return result
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
 
+    def set_default(self, editor: QDateEdit):
+        editor.setDate(QDate.currentDate())
+        
 
 class StringDelegate(ColumnDelegate):
 
@@ -326,13 +351,14 @@ class StringDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: QLineEdit, index: QModelIndex):
         model_value = index.model().data(index, Qt.EditRole)
-        if pd.isnull(model_value):
-            model_value = ''
-        editor.setText(model_value)
+        editor.setText(str(model_value))
 
     def setModelData(self, editor: QLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.text())
 
+    def set_default(self, editor: QLineEdit):
+        editor.setText('')
+        
 
 class RichTextDelegate(ColumnDelegate):
 
@@ -373,8 +399,6 @@ class RichTextDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: RichTextLineEdit, index: QModelIndex):
         model_value = index.model().data(index, Qt.EditRole)
-        if pd.isnull(model_value):
-            model_value = ''
         editor.setHtml(model_value)
 
     def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
@@ -382,6 +406,10 @@ class RichTextDelegate(ColumnDelegate):
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
+
+    def set_default(self, editor: RichTextLineEdit):
+        editor.setHtml('')
+
 
 
 def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:

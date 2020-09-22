@@ -1,5 +1,5 @@
 #In[0]
-from qspreadsheet.delegates import DateDelegate, NullableColumnDelegate, automap_delegates
+from qspreadsheet.delegates import DateDelegate, IntDelegate, NullableColumnDelegate, automap_delegates
 import sys, os
 from typing import Optional
 
@@ -37,9 +37,11 @@ def mock_df():
     df['multip'] = (df['multip'] + df['div']).astype('float64')
     df['div'] = df['div'].astype('int32')
     df.iloc[1, 0] = np.nan
+    df.iloc[4, 4] = pd.NA
     df.iloc[2, 0] = np.nan
     df.iloc[2, 1] = np.nan
-    df.iloc[1, 3] = np.nan
+    df.iloc[1, 3] = pd.NaT
+    df.iloc[2, 6] = np.nan
     return df
 
 
@@ -63,6 +65,7 @@ df = mock_df()
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df)
+
 nullable_delegates = {column : delegate.to_nullable() 
                       for column, delegate in delegates.items()}
 
