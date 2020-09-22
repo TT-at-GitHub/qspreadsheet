@@ -12,6 +12,7 @@ import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from pandas.core.reshape.melt import wide_to_long
 
 from qspreadsheet import DF, MAX_INT
 from qspreadsheet.custom_widgets import RichTextLineEdit
@@ -48,11 +49,12 @@ class GenericDelegate(ColumnDelegate):
         super(GenericDelegate, self).__init__(parent=parent, nullable=False)
         self.delegates: Dict[int, ColumnDelegate] = {}
 
-    def addColumnDelegate(self, column_index: int, delegate: ColumnDelegate):
+    def add_column_delegate(self, column_index: int, delegate: ColumnDelegate):
+
         delegate.setParent(self)
         self.delegates[column_index] = delegate
 
-    def removeColumnDelegate(self, column_index: int):
+    def remove_column_delegate(self, column_index: int):
         delegate = self.delegates.pop(column_index, None)
         if delegate is not None:
             delegate.deleteLater()
@@ -218,6 +220,7 @@ class DateDelegate(ColumnDelegate):
         self.minimum = as_qdate(minimum) if minimum else QDate(1970, 1, 1)
         self.maximum = as_qdate(maximum) if maximum else QDate(9999, 1, 1)
         self.date_format = date_format
+        self.editor = None
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         logger.debug('createEditor')
@@ -240,6 +243,74 @@ class DateDelegate(ColumnDelegate):
     def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
         logger.debug('setModelData')
         model.setData(index, pd.to_datetime(editor.date().toPython()))
+
+    def displayData(self, index: QModelIndex, value: pd.Timestamp) -> Any:
+        if pd.isnull(value):
+            return 'NaT'
+        result = as_qdate(value).toString(self.date_format)
+        return result
+
+    def alignment(self, index: QModelIndex) -> Qt.Alignment:
+        return Qt.AlignRight | Qt.AlignVCenter
+
+
+class NullableDateDelegate(DateDelegate):
+
+    def __init__(self, parent=None, nullable=True,
+                 minimum: Optional[DateLike] = None, maximum: Optional[DateLike] = None,
+                 date_format='yyyy-MM-dd'):
+        super(NullableDateDelegate, self).__init__(parent, nullable, minimum, maximum, date_format)
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        logger.debug('createEditor')
+        editor = QWidget(parent)
+        editor.setAutoFillBackground(True)
+                
+        
+        check = QCheckBox('')
+        check.stateChanged.connect(self.enableDateEdit)
+        self.check = check
+
+        date_edit = QDateEdit(parent)
+        date_edit.setDateRange(self.minimum, self.maximum)
+        date_edit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        date_edit.setDisplayFormat(self.date_format)
+        date_edit.setCalendarPopup(True)
+        date_edit.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.date_edit = date_edit
+        
+        layout = QHBoxLayout()
+        layout.addWidget(self.check)
+        layout.addStretch()
+        layout.addWidget(self.date_edit)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        editor.setLayout(layout)
+        return editor
+
+    def enableDateEdit(self, state: int):
+        logger.debug('enableDateEdit(state={})'.format(state))
+        self.date_edit.setEnabled(state != 0)
+        
+    def setEditorData(self, editor: QDateEdit, index: QModelIndex):
+        logger.debug('setEditorData')
+        model_value = index.model().data(index, Qt.EditRole)
+        if pd.isnull(model_value):
+            value = QDate.currentDate()
+            self.check.setChecked(False)
+        else:        
+            self.check.setChecked(True)
+            value = as_qdate(model_value)
+        self.date_edit.setDate(value)
+        self.enableDateEdit(self.check.checkState())
+
+    def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
+        logger.debug('setModelData')
+        if self.check.isChecked():
+            value = pd.to_datetime(self.date_edit.date().toPython())
+        else:
+            value = pd.NaT
+        model.setData(index, value)
 
     def displayData(self, index: QModelIndex, value: pd.Timestamp) -> Any:
         if pd.isnull(value):

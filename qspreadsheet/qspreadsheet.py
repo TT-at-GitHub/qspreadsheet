@@ -118,12 +118,12 @@ class DataFrameView(QTableView):
         self.header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
 
-        self.delegate = GenericDelegate(self)
+        self._main_delegate = GenericDelegate(self)
         self._model = DataFrameModel(df=df, header_model=self.header_model,
-                                     delegate=self.delegate, parent=self)
+                                     delegate=self._main_delegate, parent=self)
 
         delegates = delegates or automap_delegates(df)
-        self.setColumnDelegates(delegates)
+        self.set_column_delegates(delegates)
         self.proxy = DataFrameSortFilterProxy(self)
         self.proxy.set_df(df)
         self.proxy.setSourceModel(self._model)
@@ -133,16 +133,20 @@ class DataFrameView(QTableView):
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
 
-    def setColumnDelegates(self, delegates: Optional[Mapping[Any, ColumnDelegate]]):
+    def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
+        icolumn = self.df.columns.get_loc(column)
+        self._main_delegate.add_column_delegate(icolumn, delegate)
+
+    def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
         current = self.itemDelegate()
         if current is not None:
             current.deleteLater()
 
         for column, column_delegate in delegates.items():
             icolumn = self.df.columns.get_loc(column)
-            self.delegate.addColumnDelegate(icolumn, column_delegate)
+            self._main_delegate.add_column_delegate(icolumn, column_delegate)
 
-        self.setItemDelegate(self.delegate)
+        self.setItemDelegate(self._main_delegate)
         del current
 
     def set_column_widths(self):

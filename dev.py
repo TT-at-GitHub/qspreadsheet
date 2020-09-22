@@ -1,4 +1,5 @@
 #In[0]
+from qspreadsheet.delegates import NullableDateDelegate
 import sys, os
 from typing import Optional
 
@@ -63,5 +64,8 @@ df = mock_df()
 pd.options.display.precision = 4
 
 window = MainWindow(df)
+nulldates = NullableDateDelegate()
+window.table_view.set_column_delegate_for('dates', nulldates)
+
 window.show()
 sys.exit(app.exec_())
