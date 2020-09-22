@@ -22,7 +22,7 @@ def mock_df():
     df['bools'] = (df.index % 2 == 1)
     df['multip'] = df.population * 3.42 * df['bools']
     df['div'] = df.population / 2.3 * (~df['bools'])
-    df['multip'] = (df['multip'] + df['div']).astype('float32')
+    df['multip'] = (df['multip'] + df['div']).astype('float64')
     df['div'] = df['div'].astype('int32')
     # df.iloc[1, 0] = np.nan
     # df.iloc[2, 0] = np.nan

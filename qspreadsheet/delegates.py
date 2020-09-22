@@ -177,7 +177,7 @@ class FloatDelegate(ColumnDelegate):
     def displayData(self, index: QModelIndex, value: Any) -> str:
         if pd.isnull(value):
             return 'NaN'
-        return str(round(value, ndigits=self.display_precision))
+        return '{0:.{1}f}'.format(value, self.display_precision)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
@@ -199,7 +199,7 @@ class BoolDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QComboBox, index: QModelIndex):
-        value = index.model().data(index, Qt.DisplayRole)
+        value = index.model().data(index, Qt.EditRole)
         editor.setCurrentIndex(self.str_choices.index(value))
 
     def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):

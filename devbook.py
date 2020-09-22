@@ -22,7 +22,7 @@ def mock_df():
     df['bools'] = (df.index % 2 == 1)
     df['multip'] = df.population * 3.42 * df['bools']
     df['div'] = df.population / 2.3 * (~df['bools'])
-    df['multip'] = (df['multip'] + df['div']).astype('float32')
+    df['multip'] = (df['multip'] + df['div']).astype(float)
     df['div'] = df['div'].astype('int32')
     # df.iloc[1, 0] = np.nan
     # df.iloc[2, 0] = np.nan
@@ -32,7 +32,11 @@ def mock_df():
 df = mock_df()
 df
 #In[0]
+df.iat[2, 5]
+#In[0]
 
+df.iloc[2, 5] = 8543968.09765
+#In[0]
 import random
 import time
 
@@ -102,3 +106,7 @@ df.to_pickle('./.ignore/data/df-nulls.pkl')
 pd.options.display.max_rows = 10
 pd.options.display.max_columns = 15
 pd.options.display.float_format = '{:,.2f}'.format
+#In[0]
+value = 56.743435
+i = 2
+'{0:.{1}f}'.format(value, i)
