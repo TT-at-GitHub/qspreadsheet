@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -8,6 +9,9 @@ from PySide2.QtWidgets import *
 
 from qspreadsheet.custom_widgets import LabeledLineEdit
 from qspreadsheet import LEFT
+from qspreadsheet import resources_rc
+
+logger = logging.getLogger(__name__)
 
 
 class LineEditMenuAction(QWidgetAction):

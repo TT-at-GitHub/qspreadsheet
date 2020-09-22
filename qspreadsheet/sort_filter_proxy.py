@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -8,6 +9,12 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from qspreadsheet import resources_rc
+from qspreadsheet import DF
+
+logger = logging.getLogger(__name__)
+
+
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
@@ -17,7 +24,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted_mask = pd.Series()
         self._masks_cache = []
 
-    def set_df(self, df: pd.DataFrame):
+    def set_df(self, df: DF):
         self._df = df
         self.accepted_mask = self._alltrues()
 

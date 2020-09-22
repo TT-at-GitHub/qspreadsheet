@@ -1,10 +1,9 @@
 import os
 import sys
-from typing import (Any, Callable, ClassVar, Dict, Iterable, List, Mapping,
+from typing import (Any, Callable, Dict, Iterable, List, Mapping,
                     Optional, Sequence, Type, TypeVar, Union)
 import logging
 from datetime import datetime
-from functools import wraps
 
 import numpy as np
 import pandas as pd
@@ -12,8 +11,6 @@ import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-from pandas.core.dtypes.missing import isnull
-from pandas.core.reshape.melt import wide_to_long
 
 from qspreadsheet import DF, MAX_INT
 from qspreadsheet.custom_widgets import RichTextLineEdit

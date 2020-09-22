@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -5,6 +6,10 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+from qspreadsheet import resources_rc
+
+logger = logging.getLogger(__name__)
 
 
 class HeaderWidget(QWidget):
@@ -40,7 +45,7 @@ class HeaderWidget(QWidget):
 
     def _setup_button(self):
         self.button.setFixedSize(QSize(25, 20))
-        icon = QIcon(":/down-arrow")
+        icon = QIcon(":/down-arrow-thin")
         self.button.setIcon(icon)
         self.button.setIconSize(QSize(12, 12))
 

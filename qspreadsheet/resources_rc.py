@@ -1,6 +1,10 @@
-# Resource object code (Python 3)
-# Created by: object code
-# Created by: The Resource Compiler for Qt version 5.15.0
+# -*- coding: utf-8 -*-
+
+# Resource object code
+#
+# Created: Tue Sep 22 17:15:29 2020
+#      by: The Resource Compiler for PySide2 (Qt v5.13.0)
+#
 # WARNING! All changes made in this file will be lost!
 
 from PySide2 import QtCore
@@ -394,23 +398,21 @@ PI\xc1g1\x88\xd7VR\xfeo8\xf7o\x00\x00\
 "
 
 qt_resource_name = b"\
-\x00\x0a\
-\x015\xf4\xa7\
+\x00\x0f\
+\x0a\xc2\x10~\
 \x00d\
-\x00o\x00w\x00n\x00-\x00a\x00r\x00r\x00o\x00w\
+\x00o\x00w\x00n\x00-\x00a\x00r\x00r\x00o\x00w\x00-\x00t\x00h\x00i\x00n\
 "
 
 qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\
-\x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
-\x00\x00\x01t0\xd8g\x0b\
 "
 
 def qInitResources():
-    QtCore.qRegisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
+    QtCore.qRegisterResourceData(0x01, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 def qCleanupResources():
-    QtCore.qUnregisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
+    QtCore.qUnregisterResourceData(0x01, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 qInitResources()

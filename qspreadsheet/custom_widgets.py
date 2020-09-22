@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import platform
@@ -8,6 +9,8 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from qspreadsheet import LEFT
+
+logger = logging.getLogger(__name__)
 
 
 class LabeledLineEdit(QWidget):
@@ -27,16 +30,16 @@ class LabeledLineEdit(QWidget):
 
 class LabeledTextEdit(QWidget):
 
-    def __init__(self, labelText="", position=LEFT,
+    def __init__(self, label_text='', position=LEFT,
                  parent=None):
         super(LabeledTextEdit, self).__init__(parent)
-        self.label = QLabel(labelText, self)
-        self.textEdit = QTextEdit(self)
-        self.label.setBuddy(self.textEdit)
+        self.label = QLabel(label_text, self)
+        self.text_edit = QTextEdit(self)
+        self.label.setBuddy(self.text_edit)
         layout = QBoxLayout(QBoxLayout.LeftToRight
                             if position == LEFT else QBoxLayout.TopToBottom)
         layout.addWidget(self.label)
-        layout.addWidget(self.textEdit)
+        layout.addWidget(self.text_edit)
         self.setLayout(layout)
 
 
