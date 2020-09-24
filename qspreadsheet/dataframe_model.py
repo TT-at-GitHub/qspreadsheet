@@ -1,8 +1,7 @@
-from logging import Logger
-import operator
+import logging
+import sys
 import os
 from qspreadsheet.delegates import ColumnDelegate, GenericDelegate, automap_delegates
-import sys
 from functools import partial
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 import logging
@@ -13,17 +12,10 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from qspreadsheet.header import HeaderView
 from qspreadsheet import resources_rc
-from qspreadsheet import richtextlineedit
-from qspreadsheet import delegates
-from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
-from qspreadsheet import LEFT
-from qspreadsheet.custom_widgets import LabeledTextEdit, LabeledLineEdit, ActionButtonBox
-from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
-from qspreadsheet.header import HeaderView, HeaderWidget
-from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 
-Logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DataFrameModel(QAbstractTableModel):
