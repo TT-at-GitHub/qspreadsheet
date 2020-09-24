@@ -1,6 +1,4 @@
-from qspreadsheet.delegates import DateDelegate, IntDelegate, NullableColumnDelegate, automap_delegates
 import sys, os
-from typing import Optional
 
 import numpy as np
 import pandas as pd 
@@ -9,10 +7,8 @@ from PySide2.QtCore import *
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 
-
-from datetime import datetime, timedelta
 from fx import fx
-from qspreadsheet import DataFrameView, DataFrameModel, delegates
+from qspreadsheet import DataFrameView, automap_delegates
 
 
 import logging

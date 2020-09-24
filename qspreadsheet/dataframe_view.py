@@ -22,6 +22,7 @@ from qspreadsheet.custom_widgets import LabeledTextEdit, LabeledLineEdit, Action
 from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
 from qspreadsheet.header import HeaderView, HeaderWidget
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
+from qspreadsheet.dataframe_model import DataFrameModel
 
 Logger = logging.getLogger(__name__)
 
