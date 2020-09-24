@@ -3,6 +3,9 @@ import os
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
+import numpy as np
+import pandas as pd
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -29,7 +32,7 @@ class LineEditMenuAction(QWidgetAction):
 class FilterListMenuWidget(QWidgetAction):
     '''Checkboxed list filter menu'''
 
-    def __init__(self, parent, menu, col_ndx):
+    def __init__(self, parent, menu: QMenu, col_ndx: int) -> None:
         '''Checkbox list filter menu
 
             Arguments
@@ -51,6 +54,7 @@ class FilterListMenuWidget(QWidgetAction):
 
         # State
         self.menu = menu
+        self.col_ndx = col_ndx
 
         # Build Widgets
         widget = QWidget()
@@ -71,45 +75,51 @@ class FilterListMenuWidget(QWidgetAction):
         # Signals/slots
         self.list.itemChanged.connect(self.on_listitem_changed)
         self.parent().proxy.layoutChanged.connect(self.populate_list)
-
         self.populate_list(initial=True)
 
     def populate_list(self, initial=False):
         self.list.clear()
-        unq_list = self.parent().proxy.unique_values()
-        try:
-            unq_list = sorted(unq_list)
-        except:
-            pass
-
+        
+        df = self.parent().df
+        mask = self.parent().proxy.accepted_mask
+        col = df.columns[self.col_ndx]
+        full_col = df[col]
+        disp_col = df.loc[mask, col]
+        
         def _build_item(val, state=None) -> QListWidgetItem:
             item = QListWidgetItem(str(val))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             if state is None:
-                if val in unq_list:
+                if val in disp_col.values:
                     state = Qt.Checked
                 else:
                     state = Qt.Unchecked
             item.setCheckState(state)
-            self.list.addItem(item)
             return item
 
         # Add a (Select All)
+        if mask.all():
+            select_all_state = Qt.Checked
+        else:
+            select_all_state = Qt.Unchecked
+
         self._action_select_all = _build_item(
-            '(Select All)', state=Qt.Unchecked)
+            '(Select All)', state=select_all_state)
         self.list.addItem(self._action_select_all)
 
         # Add filter items
-        num_checked = 0
+        if initial:
+            unq_list = full_col.unique()
+        else:
+            unq_list = disp_col.unique()
+            
+        try:
+            unq_list = np.sort(unq_list)
+        except:
+            pass
+        
         for val in unq_list:
-            item = _build_item(val)
-            if item.checkState() == Qt.Checked:
-                num_checked += 1
-
-        state = Qt.Checked if num_checked == len(unq_list) else Qt.Unchecked
-        self.list.blockSignals(True)
-        self._action_select_all.setCheckState(state)
-        self.list.blockSignals(False)
+            self.list.addItem(_build_item(val))
 
     def on_listitem_changed(self, item: QListWidgetItem):
 
