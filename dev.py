@@ -69,6 +69,7 @@ nullable_delegates = {column : delegate.to_nullable()
                       for column, delegate in delegates.items()}
 
 table_view = DataFrameView(df=df, delegates=nullable_delegates)
+table_view.set_editable_columns(df.columns.tolist())
 window = MainWindow(table_view=table_view)
 
 window.show()

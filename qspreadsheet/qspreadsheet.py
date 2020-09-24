@@ -32,6 +32,7 @@ class DataFrameModel(QAbstractTableModel):
                  delegate: ColumnDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
+        self.editable_column_indices: List[int] = []
         self._header_model = header_model
         self._header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
@@ -59,7 +60,9 @@ class DataFrameModel(QAbstractTableModel):
         if role == Qt.TextAlignmentRole:
             return int(self.delegate.alignment(index))
         if role == Qt.BackgroundRole:
-            return self.delegate.background_brush(index)
+            if self.flags(index) & Qt.ItemIsEditable:
+                return self.delegate.background_brush(index)
+            return QApplication.palette().alternateBase()
         if role == Qt.ForegroundRole:
             return self.delegate.foreground_brush(index)
         if role == Qt.FontRole:
@@ -70,8 +73,10 @@ class DataFrameModel(QAbstractTableModel):
     def flags(self, index):
         if not index.isValid():
             return Qt.ItemIsEnabled
-        return Qt.ItemFlags(QAbstractTableModel.flags(self, index) |
-                            Qt.ItemIsEditable)
+        flag = QAbstractTableModel.flags(self, index)
+        if index.column() in self.editable_column_indices:
+            flag |= Qt.ItemIsEditable
+        return flag
 
     def setData(self, index: QModelIndex, value, role=Qt.EditRole):
         if not index.isValid():
@@ -132,6 +137,11 @@ class DataFrameView(QTableView):
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
+
+    def set_editable_columns(self, columns: Iterable[Any]) -> None:
+        column_indices = [self.df.columns.get_loc(column)
+                          for column in columns]
+        self._model.editable_column_indices = column_indices
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         icolumn = self.df.columns.get_loc(column)
@@ -311,5 +321,3 @@ class DataFrameView(QTableView):
         if icon is None:
             raise Exception("Unknown icon {}".format(icon_name))
         return self.style().standardIcon(icon)
-
-
