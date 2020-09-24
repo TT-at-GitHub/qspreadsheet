@@ -1,10 +1,12 @@
 import logging
 import os
+from sys import exc_info
+from types import TracebackType
+from qspreadsheet.worker import Worker
 import sys
 from qspreadsheet.delegates import ColumnDelegate, GenericDelegate, automap_delegates
 from functools import partial
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
-import logging
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -27,7 +29,7 @@ class DataFrameView(QTableView):
 
     def __init__(self, df: pd.DataFrame, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
-
+        self.threadpool = QThreadPool(self)
         self.header_model = HeaderView(columns=df.columns.tolist())
         self.setHorizontalHeader(self.header_model)
         self.header_model.filter_btn_mapper.mapped[str].connect(
@@ -47,7 +49,7 @@ class DataFrameView(QTableView):
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
-
+        
     def set_editable_columns(self, columns: Iterable[Any]) -> None:
         column_indices = [self.df.columns.get_loc(column)
                           for column in columns]
@@ -124,7 +126,7 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Open in Excel
-        menu.addAction("Open in Excel...", self._to_excel)
+        menu.addAction("Open in Excel...", self.to_excel)
 
         return menu
 
@@ -208,14 +210,26 @@ class DataFrameView(QTableView):
         menu.addAction(action_btn_box)
 
         return menu
+    
+    def to_excel(self):
+        worker = Worker(self._to_excel)
+        worker.signals.error.connect(self.on_error)
+        self.threadpool.start(worker)
 
-    def _to_excel(self):
+    def _to_excel(self, *args, **kwargs):
+        logger.info('Exporting to Excel Started...')
         from subprocess import Popen
         rows = self.proxy.accepted_mask
         columns = self._get_visible_column_names()
         fname = 'temp.xlsx'
+        logger.info('Writing to Excel file...')
         self.df.loc[rows, columns].to_excel(fname, 'Output')
+        logger.info('Opening Excel...')
         Popen(fname, shell=True)
+        logger.info('Exporting to Excel Finished')
+
+    def on_error(self, exc_info: Tuple[Type[BaseException], BaseException, TracebackType]) -> None:
+        logger.error(msg='ERROR.', exc_info=exc_info, stack_info=__debug__)
 
     def _get_visible_column_names(self) -> list:
         return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]

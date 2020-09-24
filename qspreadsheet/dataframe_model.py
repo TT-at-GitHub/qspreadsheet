@@ -1,10 +1,8 @@
 import logging
 import sys
 import os
-from qspreadsheet.delegates import ColumnDelegate, GenericDelegate, automap_delegates
-from functools import partial
+from qspreadsheet.delegates import ColumnDelegate
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
-import logging
 
 import numpy as np
 import pandas as pd
