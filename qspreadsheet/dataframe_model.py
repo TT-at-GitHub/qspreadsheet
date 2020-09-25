@@ -10,7 +10,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet.header import HeaderView
+from qspreadsheet.header_view import HeaderView
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)

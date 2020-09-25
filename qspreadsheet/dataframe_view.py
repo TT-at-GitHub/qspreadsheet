@@ -18,7 +18,7 @@ from qspreadsheet.custom_widgets import ActionButtonBox
 from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, GenericDelegate,
                                     automap_delegates)
-from qspreadsheet.header import HeaderView
+from qspreadsheet.header_view import HeaderView
 from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
@@ -50,6 +50,31 @@ class DataFrameView(QTableView):
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
+
+    def sizeHint(self) -> QSize:
+        width = 0
+        for i in range(self.df.shape[1]):
+            width += self.columnWidth(i)
+        width += self.verticalHeader().sizeHint().width()
+        width += self.verticalScrollBar().sizeHint().width()
+        width += self.frameWidth() * 2
+
+        return QSize(width, self.height())
+
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        '''Implements right-clicking on cell.
+
+            NOTE: You probably want to overrite make_cell_context_menu, not this
+            function, when subclassing.
+        '''
+        row_ndx = self.rowAt(event.y())
+        col_ndx = self.columnAt(event.x())
+
+        if row_ndx < 0 or col_ndx < 0:
+            return  # out of bounds
+
+        menu = self.make_cell_context_menu(row_ndx, col_ndx)
+        menu.exec_(self.mapToGlobal(event.pos()))
         
     def set_editable_columns(self, columns: Iterable[Any]) -> None:
         column_indices = [self.df.columns.get_loc(column)
@@ -134,31 +159,6 @@ class DataFrameView(QTableView):
         menu.addAction("Open in Excel...", self.to_excel)
 
         return menu
-
-    def sizeHint(self) -> QSize:
-        width = 0
-        for i in range(self.df.shape[1]):
-            width += self.columnWidth(i)
-        width += self.verticalHeader().sizeHint().width()
-        width += self.verticalScrollBar().sizeHint().width()
-        width += self.frameWidth() * 2
-
-        return QSize(width, self.height())
-
-    def contextMenuEvent(self, event: QContextMenuEvent):
-        '''Implements right-clicking on cell.
-
-            NOTE: You probably want to overrite make_cell_context_menu, not this
-            function, when subclassing.
-        '''
-        row_ndx = self.rowAt(event.y())
-        col_ndx = self.columnAt(event.x())
-
-        if row_ndx < 0 or col_ndx < 0:
-            return  # out of bounds
-
-        menu = self.make_cell_context_menu(row_ndx, col_ndx)
-        menu.exec_(self.mapToGlobal(event.pos()))
 
     def make_header_menu(self, col_ndx: int) -> QMenu:
         '''Create popup menu used for header'''
