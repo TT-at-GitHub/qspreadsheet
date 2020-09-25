@@ -78,6 +78,10 @@ class DataFrameView(QTableView):
                 i, self.header_model.headers[i].sizeHint().width())
 
     @property
+    def df_model(self):
+        return self._model
+    
+    @property
     def df(self) -> pd.DataFrame:
         return self._model.df
 

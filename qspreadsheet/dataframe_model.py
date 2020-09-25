@@ -30,7 +30,7 @@ class DataFrameModel(QAbstractTableModel):
 
         self.filter_values_mapper = QSignalMapper(self)
         self.logical = None
-        self.dirty = False
+        self.is_dirty = False
 
     def rowCount(self, parent: QModelIndex) -> int:
         return self.df.shape[0] + 1
@@ -72,7 +72,7 @@ class DataFrameModel(QAbstractTableModel):
         if not index.isValid():
             return False
         self.df.iloc[index.row(), index.column()] = value
-        self.dirty = True
+        self.is_dirty = True
         self.dataChanged.emit(index, index)
         return True
 
