@@ -1,12 +1,11 @@
 import logging
 import os
-from sys import exc_info
-from types import TracebackType
-from qspreadsheet.worker import Worker
 import sys
-from qspreadsheet.delegates import ColumnDelegate, GenericDelegate, automap_delegates
+import traceback
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union
+from types import TracebackType
+from typing import (Any, Callable, Dict, Iterable, List, Mapping, Optional,
+                    Sequence, Tuple, Type, Union)
 
 import numpy as np
 import pandas as pd
@@ -14,13 +13,15 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
-from qspreadsheet.custom_widgets import ActionButtonBox
-from qspreadsheet.menus import LineEditMenuAction, FilterListMenuWidget
-from qspreadsheet.header import HeaderView
-from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
-from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet import resources_rc
+from qspreadsheet.custom_widgets import ActionButtonBox
+from qspreadsheet.dataframe_model import DataFrameModel
+from qspreadsheet.delegates import (ColumnDelegate, GenericDelegate,
+                                    automap_delegates)
+from qspreadsheet.header import HeaderView
+from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
+from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
+from qspreadsheet.worker import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,9 @@ class DataFrameView(QTableView):
         logger.info('Exporting to Excel Finished')
 
     def on_error(self, exc_info: Tuple[Type[BaseException], BaseException, TracebackType]) -> None:
-        logger.error(msg='ERROR.', exc_info=exc_info, stack_info=__debug__)
+        logger.error(msg='ERROR.', exc_info=exc_info)
+        formatted = ' '.join(traceback.format_exception(*exc_info, limit=4))
+        QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
 
     def _get_visible_column_names(self) -> list:
         return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]
