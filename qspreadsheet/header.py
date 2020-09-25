@@ -20,7 +20,7 @@ class HeaderWidget(QWidget):
         self.label = QLabel()
         self.button = QPushButton('')
         self.margins = margins or QMargins(2, 2, 2, 2)
-        
+
         self._setup_label()
         self._setup_button()
 
@@ -30,7 +30,7 @@ class HeaderWidget(QWidget):
         layout.setSpacing(1)
         layout.setContentsMargins(QMargins(2, 1, 2, 1))
         self.setLayout(layout)
-        
+
     def text(self):
         return self._text
 
@@ -40,7 +40,8 @@ class HeaderWidget(QWidget):
             font: bold 12px ; ''')  # 'Consolas'
         self.label.setWordWrap(True)
         fm = QFontMetrics(self.label.font())
-        elided_text = fm.elidedText(self._text, Qt.ElideRight, self.label.width())
+        elided_text = fm.elidedText(
+            self._text, Qt.ElideRight, self.label.width())
         self.label.setText(elided_text)
 
     def _setup_button(self):
@@ -56,8 +57,9 @@ class HeaderWidget(QWidget):
 
     def resizeEvent(self, event: QResizeEvent):
         fm = QFontMetrics(self.label.font())
-        elided_text = fm.elidedText(self._text, Qt.ElideRight, self.label.width())
-        self.label.setText(elided_text)        
+        elided_text = fm.elidedText(
+            self._text, Qt.ElideRight, self.label.width())
+        self.label.setText(elided_text)
 
 
 class HeaderView(QHeaderView):
@@ -88,9 +90,6 @@ class HeaderView(QHeaderView):
                 padding-left: 4px;
                 padding-right: 4px;
                 border: 1px solid #21618c; }''')
-        
-    def filter_clicked(self, name: str):
-        btn = self.filter_btn_mapper.mapping(name)
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
@@ -111,9 +110,10 @@ class HeaderView(QHeaderView):
 
     def _set_item_geometry(self, item: HeaderWidget, logical: int):
         item.setGeometry(
-            self.sectionViewportPosition(logical) + item.margins.left(), 
+            self.sectionViewportPosition(logical) + item.margins.left(),
             item.margins.top(),
-            self.sectionSize(logical) - item.margins.left() - item.margins.right() - 1,
+            self.sectionSize(logical) - item.margins.left() -
+            item.margins.right() - 1,
             self.height() + item.margins.top() + item.margins.bottom() - 1)
 
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
@@ -128,3 +128,5 @@ class HeaderView(QHeaderView):
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
 
+    def filter_clicked(self, name: str):
+        logger.debug('TODO: Change filter icon here!!')
