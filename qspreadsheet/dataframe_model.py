@@ -1,7 +1,6 @@
 import logging
 import sys
 import os
-from qspreadsheet.delegates import ColumnDelegate
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
@@ -10,6 +9,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from qspreadsheet.common import DF, SER
+from qspreadsheet.delegates import ColumnDelegate
 from qspreadsheet.header_view import HeaderView
 from qspreadsheet import resources_rc
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class DataFrameModel(QAbstractTableModel):
 
-    def __init__(self, df: pd.DataFrame, header_model: HeaderView,
+    def __init__(self, df: DF, header_model: HeaderView,
                  delegate: ColumnDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
@@ -29,7 +30,8 @@ class DataFrameModel(QAbstractTableModel):
         self.delegate = delegate
 
         self.filter_values_mapper = QSignalMapper(self)
-        self.logical = None
+        self.new_row: Optional[SER] = None
+        self.new_row_in_progress = False
         self.is_dirty = False
 
     def rowCount(self, parent: QModelIndex) -> int:
@@ -68,26 +70,56 @@ class DataFrameModel(QAbstractTableModel):
             flag |= Qt.ItemIsEditable
         return flag
 
-    def setData(self, index: QModelIndex, value, role=Qt.EditRole):
+    def insertRows(self, row: int, count: int, parent: QModelIndex) -> bool:
+        self.beginInsertRows(parent, row, row + count - 1)
+        
+        if not self.new_rows is None:
+            pass
+
+        self.endInsertRows()
+        return True
+        
+    def new_row_setData(self, index: QModelIndex, value: Any):
+        if self.new_row_in_progress:
+            self.new_row.iloc[index.column()] = value
+        else:
+            self.new_row_in_progress
+            self.new_row = pd.Series(index=self.df.columns)
+        self.new_row.iloc[index.column()] = value
+        
+    def setData(self, index: QModelIndex, value: Any, role=Qt.EditRole):
         if not index.isValid():
             return False
+
+        if index.row() == self.df.shape[0]:
+            self.update_new_row(index, value)
+
         self.df.iloc[index.row(), index.column()] = value
         self.is_dirty = True
         self.dataChanged.emit(index, index)
         return True
 
+    def new_row_headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
+        if role == Qt.DisplayRole:
+            return '*'
+
+        if role == Qt.ForegroundRole:
+            return None
+        return None
+
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
         if section < 0:
             print('section: {}'.format(section))
 
-        if role == Qt.DisplayRole:
-            if orientation == Qt.Horizontal:
-                return self._header_model.headers[section]
-            if orientation == Qt.Vertical:
-                if section == self.df.shape[0]:
-                    return '*'
+        if orientation == Qt.Vertical:
+            if section == self.df.shape[0]:
+                return self.new_row_headerData(section, orientation, role)
+            if role == Qt.DisplayRole:
                 return str(self.df.index[section])
 
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                return self._header_model.headers[section]
         return None
 
     def on_horizontal_scroll(self, dx: int):
@@ -95,9 +127,6 @@ class DataFrameModel(QAbstractTableModel):
 
     def on_vertical_scroll(self, dy: int):
         pass
-
-    def on_action_all_triggered(self, dx: int):
-        self.logical
 
     def filter_clicked(self, name):
         pass

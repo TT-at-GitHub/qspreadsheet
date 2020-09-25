@@ -32,6 +32,15 @@ class DataFrameView(QTableView):
         super(DataFrameView, self).__init__(parent)
         self.threadpool = QThreadPool(self)
         self.header_model = HeaderView(columns=df.columns.tolist())
+        logger.debug('sectionResizeMode({})'.format(self.header_model.sectionResizeMode(0)))
+        logger.debug('setSectionResizeMode(QHeaderView.Interactive)')
+        self.header_model.setSectionResizeMode(QHeaderView.Interactive)
+        logger.debug('sectionResizeMode({})'.format(self.header_model.sectionResizeMode(0)))
+        # self.header_model.setCascadingSectionResizes(True)
+        logger.debug('sectionResizeMode({})'.format(self.header_model.sectionResizeMode(0)))
+        self.header_model.setSectionsClickable(True)
+        
+
         self.setHorizontalHeader(self.header_model)
         self.header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)

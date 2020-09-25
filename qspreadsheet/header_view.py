@@ -90,6 +90,7 @@ class HeaderView(QHeaderView):
                 padding-left: 4px;
                 padding-right: 4px;
                 border: 1px solid #21618c; }''')
+                
 
     def showEvent(self, e: QShowEvent):
         for i, header in enumerate(self.headers):
