@@ -76,7 +76,6 @@ class HeaderView(QHeaderView):
             header_widget.button.clicked.connect(self.filter_btn_mapper.map)
             self.headers.append(header_widget)
 
-        self.filter_btn_mapper.mapped[str].connect(self.filter_clicked)
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
         self.setStyleSheet('''
@@ -128,6 +127,3 @@ class HeaderView(QHeaderView):
 
     def set_item_margin(self, index: int, margins: QMargins):
         self.headers[index].margins = margins
-
-    def filter_clicked(self, name: str):
-        logger.debug('TODO: Change filter icon here!!')
