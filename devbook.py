@@ -3,7 +3,8 @@
 import os, sys
 from datetime import datetime, timedelta, time as dtime
 import time
-import numpy as np 
+import numpy as np
+from numpy.core.defchararray import center 
 import pandas as pd
 import string
 import random
@@ -117,10 +118,22 @@ pd.options.display.max_rows = 10
 pd.options.display.max_columns = 15
 pd.options.display.float_format = '{:,.2f}'.format
 #In[0]
-value = 56.743435
-i = 2
-'{0:.{1}f}'.format(value, i)
+df = df.append(pd.Series(np.nan, index=df.columns, name=df.index.size))
+df
 #In[0]
-path = '.ignore/qspreadsheet.txt'
-for fd in os.listdir(path):
-    os.rename(os.path.join(path, fd), os.path.join(path, fd, '.txt'))
+df = pd.DataFrame(index=np.arange(df.index.size), 
+            columns=('InProgress', 'Foreground', 'Background'), 
+            data=None)
+df['InProgress'] = False
+df
+#In[0]
+np.arange(df.index.size)
+#In[0]
+edit_columns = pd.Series(index=df.columns, data=True)
+edit_columns
+#In[0]
+edit_columns.loc[['states', 'area']]
+#In[0]
+df
+#In[0]
+df.iloc[5, :]

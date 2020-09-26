@@ -47,6 +47,9 @@ class ColumnDelegate(QStyledItemDelegate):
     def set_default(self, editor: QWidget):
         pass
 
+    def default(self, index: QModelIndex) -> Any:
+        return None
+
     def to_nullable(self) -> 'NullableColumnDelegate':
         return NullableColumnDelegate(self)
 
@@ -111,6 +114,9 @@ class NullableColumnDelegate(ColumnDelegate):
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return self._delegate.alignment(index)
+
+    def default(self, index: QModelIndex) -> Any:
+        return self._delegate.default(index)
 
 
 class GenericDelegate(ColumnDelegate):
@@ -189,6 +195,12 @@ class GenericDelegate(ColumnDelegate):
             return delegate.font(index)
         return super().font(index)
 
+    def default(self, index: QModelIndex) -> Any:
+        delegate = self.delegates.get(index.column())
+        if delegate is not None:
+            return delegate.default(index)
+        return super().default(index)
+
 
 class IntDelegate(ColumnDelegate):
 
@@ -216,7 +228,10 @@ class IntDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QSpinBox):
-        editor.setValue(0)
+        editor.setValue(self.defaultelf.default)
+
+    def default(self, index: QModelIndex) -> Any:
+        return 0
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
@@ -260,7 +275,10 @@ class FloatDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QDoubleSpinBox):
-        editor.setValue(0)
+        editor.setValue(self.default)
+
+    def default(self, index: QModelIndex) -> Any:
+        return 0
 
 
 class BoolDelegate(ColumnDelegate):
@@ -289,7 +307,10 @@ class BoolDelegate(ColumnDelegate):
         return Qt.AlignCenter
 
     def set_default(self, editor: QComboBox):
-        editor.setCurrentIndex(self.choices.index(False))
+        editor.setCurrentIndex(self.default)
+
+    def default(self, index: QModelIndex) -> Any:
+        return self.choices.index(False)
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
@@ -334,8 +355,10 @@ class DateDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QDateEdit):
-        editor.setDate(QDate.currentDate())
+        editor.setDate(self.default)
         
+    def default(self, index: QModelIndex) -> Any: 
+        return QDate.currentDate()       
 
 class StringDelegate(ColumnDelegate):
 
@@ -354,7 +377,10 @@ class StringDelegate(ColumnDelegate):
         model.setData(index, editor.text())
 
     def set_default(self, editor: QLineEdit):
-        editor.setText('')
+        editor.setText(self.default)
+
+    def default(self, index: QModelIndex) -> Any:
+        return ''
         
 
 class RichTextDelegate(ColumnDelegate):
@@ -405,8 +431,10 @@ class RichTextDelegate(ColumnDelegate):
         return self
 
     def set_default(self, editor: RichTextLineEdit):
-        editor.setHtml('')
+        editor.setHtml(self.default)
 
+    def default(self, index: QModelIndex) -> Any:
+        return ''
 
 
 def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:
