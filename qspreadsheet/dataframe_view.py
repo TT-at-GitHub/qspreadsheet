@@ -83,7 +83,11 @@ class DataFrameView(QTableView):
             return  # out of bounds
 
         menu = self.make_cell_context_menu(row_ndx, col_ndx)
-        menu.exec_(self.mapToGlobal(event.pos()))
+
+        pos = self.mapToGlobal(event.pos())
+        menu_pos = QPoint(pos.x() + 20,
+                          pos.y() + menu.height() + 20)
+        menu.exec_(menu_pos)
         
     def set_editable_columns(self, columns: Iterable[Any]) -> None:
         column_indices = [self.df.columns.get_loc(column)
