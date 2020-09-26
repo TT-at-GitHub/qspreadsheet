@@ -92,7 +92,11 @@ class DataFrameView(QTableView):
     def set_editable_columns(self, columns: Iterable[Any]) -> None:
         column_indices = [self.df.columns.get_loc(column)
                           for column in columns]
-        self._model.editable_column_indices = column_indices
+        self._model.edit_columns_i = column_indices
+
+    def set_editable_column(self, column: Any, editable: bool) -> None:
+        ndx = self.df.columns.get_loc(column)
+        self._model.edit_columns_i[ndx] = editable
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         icolumn = self.df.columns.get_loc(column)
