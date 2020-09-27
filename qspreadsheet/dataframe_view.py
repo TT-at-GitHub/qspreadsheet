@@ -3,6 +3,7 @@ import os
 import sys
 import traceback
 from functools import partial
+from itertools import groupby, count
 from types import TracebackType
 from typing import (Any, Callable, Dict, Iterable, List, Mapping, Optional,
                     Sequence, Tuple, Type, Union)
@@ -156,10 +157,14 @@ class DataFrameView(QTableView):
         menu.addAction(self._standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
+        menu.addSeparator()
         menu.addAction("Insert Rows Above",
                        partial(self.insert_rows, 'above'))
         menu.addAction("Insert Rows Below",
                        partial(self.insert_rows, 'below'))
+        menu.addSeparator()
+        menu.addAction("Deleted Selected Rows",
+                       self.remove_rows)                       
         menu.addSeparator()
 
         # Open in Excel
@@ -262,19 +267,53 @@ class DataFrameView(QTableView):
 
     def insert_rows(self, direction: str):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
-        row = 0
-        if direction == 'below':
-            index = indexes[-1]
-            row = index.row() + 1
-        elif direction == 'above':
-            index = indexes[0]
-            row = index.row()
-        else:
-            raise ValueError('Unknown direction: {}'.format(str(direction)))
+        rows, consecutive = _rows_from_index_list(indexes)
+
+        def insert_consecutive(rows: List[int]):
+            row = 0
+            if direction == 'below':
+                row = rows[-1] + 1
+            elif direction == 'above':
+                row = rows[0]
+            else:
+                raise ValueError('Unknown direction: {}'.format(str(direction)))
         
-        # bound row number to table row size
-        row = max(min(row, self.model().rowCount() - 1), 0)
-        count = len(indexes)
+            # bound row number to table row size
+            row = min(row, self._model.dataRowCount())
+            self.model().insertRows(row, len(rows), QModelIndex())
 
-        self.model().insertRows(row, count, QModelIndex())
+        if consecutive:
+            insert_consecutive(rows)
+        else:
+            groups = _consecutive_groups(rows)
+            for rows in reversed(groups):
+                insert_consecutive(rows)
 
+    def remove_rows(self):
+        indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
+        rows, sequential = _rows_from_index_list(indexes)
+        rows = [row for row in rows if row < self._model.dataRowCount()]
+        if not rows:
+            return False
+
+        num_commit_to_delete = len(rows) - self._model.rows_in_progress.iloc[rows].sum()
+        if self._model.commitRowCount() - num_commit_to_delete <= 0:
+            logger.warning('Invalid operation: Table must have at least one data row.')
+            return False
+
+        if sequential:
+            self.model().removeRows(rows[0], len(rows), QModelIndex())
+        else:
+            for row in reversed(rows):
+                self.model().removeRows(row, 1, QModelIndex())
+
+def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
+    rows = sorted(set([index.row() for index in indexes]))
+    consecutive = rows[0] + len(rows) - 1 == rows[-1]
+    return rows, consecutive
+
+def _consecutive_groups(data: List[int]) -> List[List[int]]:
+    groups = []
+    for _, g in groupby(data, lambda n, c=count(): n-next(c)):
+        groups.append(list(g))
+    return groups

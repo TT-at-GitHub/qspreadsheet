@@ -162,3 +162,21 @@ df
 #In[0]
 rows_in_progress.iloc[row : row + count] = True
 rows_in_progress
+#In[0]
+df = df.drop(index=df.index[[1, 2, 3]])
+df
+#In[0]
+df.reset_index(drop=True)
+#In[0]
+rows = sorted([5, 2, 7, 8, 1, 3])
+rows
+#In[0]
+from itertools import groupby, count
+
+data = rows
+print(data)
+
+groups = []
+for _, g in groupby(data, lambda n, c=count(): n-next(c)):
+    groups.append(list(g))
+groups
