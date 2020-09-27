@@ -1,5 +1,6 @@
 import logging
 import os
+from qspreadsheet.dataframe_model import DataFrameModel
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
@@ -9,8 +10,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from qspreadsheet.common import DF, SER
 from qspreadsheet import resources_rc
-from qspreadsheet import DF
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +19,24 @@ logger = logging.getLogger(__name__)
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: Optional[DataFrameModel]=None) -> None:
         super(DataFrameSortFilterProxy, self).__init__(parent)
-        self._df = pd.DataFrame()
-        self.accepted_mask = pd.Series()
+        self._parent = None
+        if parent is not None:
+            self.setParent(parent)
         self._masks_cache = []
 
-    def set_df(self, df: DF):
-        self._df = df
-        self.accepted_mask = self._alltrues()
+    def setParent(self, parent: DataFrameModel):
+        self._parent = parent
+        super().setParent(parent)
+
+    @property
+    def accepted_mask(self):
+        return self._parent.accepted_mask
+
+    @accepted_mask.setter
+    def accepted_mask(self, mask):
+        self._parent.accepted_mask = mask
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         if source_row < self.accepted_mask.size:
@@ -39,7 +49,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         if not text:
             mask = self._alltrues()
         else:
-            mask = self._df[colname].astype(
+            mask = self._parent.df[colname].astype(
                 'str').str.lower().str.contains(text)
 
         self.accepted_mask = mask
@@ -47,7 +57,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def list_filter(self, values):
         colname = self._colname()
-        mask = self._df[colname].apply(str).isin(values)
+        mask = self._parent.df[colname].apply(str).isin(values)
         self.accepted_mask = mask
         self.invalidate()
 
@@ -56,10 +66,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.invalidateFilter()
 
     def _colname(self) -> str:
-        return self._df.columns[self.filterKeyColumn()]
+        return self._parent.df.columns[self.filterKeyColumn()]
 
     def _alltrues(self) -> pd.Series:
-        return pd.Series(data=True, index=self._df.index)
+        return pd.Series(data=True, index=self._parent.df.index)
 
     def unique_values(self) -> List[Any]:
         result = []

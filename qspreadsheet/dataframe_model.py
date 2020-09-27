@@ -25,9 +25,10 @@ class DataFrameModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self.df = df.copy()
         self.add_bottom_row()
-        
-        self.rows_in_progress = pd.Series(
-            index=self.df.index, data=False)
+
+        self.rows_in_progress = pd.Series(data=False, index=self.df.index)
+        self.accepted_mask = pd.Series(data=True, index=self.df.index)
+
         self.editable_columns = pd.Series(index=df.columns, data=True)
         self.delegate = delegate
 
@@ -36,7 +37,7 @@ class DataFrameModel(QAbstractTableModel):
             self.filter_clicked)
 
         self.filter_values_mapper = QSignalMapper(self)
-        
+
         self.rows_mutable = True
         self.is_dirty = False
 
@@ -47,28 +48,28 @@ class DataFrameModel(QAbstractTableModel):
         return self.df.shape[1]
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
-        
+
         if role == Qt.DisplayRole:
             if index.row() == self.rowCount(index) - 1:
-                return ''            
-            return self.delegate.display_data(index, 
-                self.df.iloc[index.row(), index.column()])
-                
+                return ''
+            return self.delegate.display_data(index,
+                                              self.df.iloc[index.row(), index.column()])
+
         if role == Qt.EditRole:
             if index.row() == self.rowCount(index) - 1:
                 return self.delegate.default(index)
-            if self.rows_in_progress.loc[index.row()]:
-                return self.delegate.default(index)
+            # if self.rows_in_progress.loc[index.row()]:
+            #     return self.delegate.default(index)
             return self.df.iloc[index.row(), index.column()]
-            
+
         if role == Qt.TextAlignmentRole:
             return int(self.delegate.alignment(index))
-            
+
         if role == Qt.BackgroundRole:
             if self.flags(index) & Qt.ItemIsEditable:
                 return self.delegate.background_brush(index)
             return QApplication.palette().alternateBase()
-            
+
         if role == Qt.ForegroundRole:
             return self.delegate.foreground_brush(index)
 
@@ -81,13 +82,13 @@ class DataFrameModel(QAbstractTableModel):
         if not index.isValid():
             return False
 
+        if index.row() == self.rowCount(index) - 1:
+            self.insertRow(index.row(), index)
+
         self.df.iloc[index.row(), index.column()] = value
+
         self.is_dirty = True
         self.dataChanged.emit(index, index)
-
-        if index.row() == self.rowCount(index) - 1:
-            self.insertRows(index.row(), 1, index)
-            self.rows_in_progress.loc[index.row()] = True
         return True
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
@@ -102,29 +103,42 @@ class DataFrameModel(QAbstractTableModel):
             if role == Qt.ForegroundRole:
                 if self.rows_in_progress.loc[section]:
                     return QColor(255, 0, 0)
-                return None                
+                return None
             return None
         if orientation == Qt.Horizontal:
             if role == Qt.DisplayRole:
                 return self.header_model.headers[section]
-            return None                
+            return None
         return None
 
     def insertRows(self, row: int, count: int, parent: QModelIndex) -> bool:
-        self.beginInsertRows(parent, row, row + count - 1)
-        
-        if row == self.rowCount(parent) - 1:
-            new_rows = pd.DataFrame(data=np.nan, columns=self.df.columns, 
-                index=range(row + 1, row + count + 1))
-            self.df = self.df.append(new_rows)
-            self.rows_in_progress = self.rows_in_progress.append(
-                pd.Series(data=False, index=new_rows.index))
-        else:
+        self.beginInsertRows(QModelIndex(), row, row + count - 1)
 
-            raise NotImplementedError('insertRows not implemented')
-        
+
+        df_above = self.df.iloc[0: row]
+        new_rows = pd.DataFrame(data=np.nan, columns=self.df.columns,
+                                index=range(row, row + count))
+        df_below = self.df.iloc[row:]
+        df_below.index = df_below.index + count
+        self.df = pd.concat([df_above, new_rows, df_below])
+
+        self.rows_in_progress = self.insert_util_rows(
+            self.rows_in_progress ,row, count, new_rows, True)
+
+        self.accepted_mask = self.insert_util_rows(
+            self.accepted_mask ,row, count, new_rows, True)
+
         self.endInsertRows()
         return True
+
+    def insert_util_rows(self, obj, row: int, count: int, new_rows_df: DF, value: Any):
+        above = obj.iloc[0: row]
+        new_rows = pd.Series(value, new_rows_df.index)
+        below = obj.iloc[row:]
+        below.index = below.index + count
+        obj = pd.concat([
+            above, new_rows, below])
+        return obj
 
     def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:
         logger.debug('removeRows(first:{}, last:{}), num rows: {}'.format(
@@ -133,7 +147,7 @@ class DataFrameModel(QAbstractTableModel):
 
         self.endRemoveRows()
         return True
-        
+
     def flags(self, index):
         if not index.isValid():
             return Qt.ItemIsEnabled
@@ -162,5 +176,6 @@ class DataFrameModel(QAbstractTableModel):
         self.rows_mutable = enable
 
     def add_bottom_row(self):
-        bottom_row = pd.Series(np.nan, index=self.df.columns, name=self.df.index.size)
+        bottom_row = pd.Series(
+            np.nan, index=self.df.columns, name=self.df.index.size)
         self.df = self.df.append(bottom_row)

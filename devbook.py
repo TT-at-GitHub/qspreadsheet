@@ -134,6 +134,31 @@ edit_columns
 #In[0]
 edit_columns.loc[['states', 'area']]
 #In[0]
+df = df.append(pd.Series(np.nan, index=df.columns, name=df.index.size))
 df
 #In[0]
-df.iloc[5, :]
+row = 0
+count = 1
+rows_in_progress = pd.Series(
+            index=df.index, data=False)
+rows_in_progress
+row, count
+#In[0]
+new_rows = pd.DataFrame(data=np.nan, columns=df.columns, 
+    index=range(row, row + count))
+new_rows
+#In[0]
+df_up = df.iloc[0 : row]
+df_down = df.iloc[row :]
+df_down.index = df_down.index + 1
+#In[0]
+dfr = pd.concat([df_up, new_rows, df_down])
+dfr
+#In[0]
+df = df.append(new_rows)
+rows_in_progress = rows_in_progress.append(
+    pd.Series(data=False, index=new_rows.index))
+df
+#In[0]
+rows_in_progress.iloc[row : row + count] = True
+rows_in_progress

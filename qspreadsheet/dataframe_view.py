@@ -12,6 +12,7 @@ import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from pandas.core import indexers
 
 from qspreadsheet import resources_rc
 from qspreadsheet.custom_widgets import ActionButtonBox
@@ -43,8 +44,7 @@ class DataFrameView(QTableView):
 
         delegates = delegates or automap_delegates(df)
         self.set_column_delegates(delegates)
-        self.proxy = DataFrameSortFilterProxy(self)
-        self.proxy.set_df(df)
+        self.proxy = DataFrameSortFilterProxy(self._model)
         self.proxy.setSourceModel(self._model)
         self.setModel(self.proxy)
 
@@ -80,7 +80,7 @@ class DataFrameView(QTableView):
         menu_pos = QPoint(pos.x() + 20,
                           pos.y() + menu.height() + 20)
         menu.exec_(menu_pos)
-        
+
     def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], editable: bool) -> None:
         self._model.editable_columns.loc[columns] = editable
 
@@ -109,7 +109,7 @@ class DataFrameView(QTableView):
     @property
     def df_model(self):
         return self._model
-    
+
     @property
     def df(self) -> pd.DataFrame:
         return self._model.df
@@ -141,7 +141,7 @@ class DataFrameView(QTableView):
             self.proxy.setFilterKeyColumn(col_ndx)
             self.proxy.string_filter(str(cell_val))
 
-        menu.addAction(self._icon('CommandLink'),
+        menu.addAction(self._standard_icon('CommandLink'),
                        "Filter By Value", partial(_quick_filter, cell_val))
 
         # GreaterThan/LessThan filter
@@ -153,9 +153,13 @@ class DataFrameView(QTableView):
         # menu.addAction("Filter Less Than",
         #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.le)))
-        menu.addAction(self._icon('DialogResetButton'),
+        menu.addAction(self._standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
+        menu.addAction("Insert Rows Above",
+                       partial(self.insert_rows, 'above'))
+        menu.addAction("Insert Rows Below",
+                       partial(self.insert_rows, 'below'))
         menu.addSeparator()
 
         # Open in Excel
@@ -176,15 +180,15 @@ class DataFrameView(QTableView):
 
         list_filter = FilterListMenuWidget(self, menu, col_ndx)
         menu.addAction(list_filter)
-        menu.addAction(self._icon('DialogResetButton'),
+        menu.addAction(self._standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
 
         # Sort Ascending/Decending Menu Action
-        menu.addAction(self._icon('TitleBarShadeButton'),
+        menu.addAction(self._standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
                        partial(self.proxy.sort, col_ndx, Qt.AscendingOrder))
-        menu.addAction(self._icon('TitleBarUnshadeButton'),
+        menu.addAction(self._standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
                        partial(self.proxy.sort, col_ndx, Qt.DescendingOrder))
 
@@ -218,7 +222,7 @@ class DataFrameView(QTableView):
         menu.addAction(action_btn_box)
 
         return menu
-    
+
     def to_excel(self):
         worker = Worker(self._to_excel)
         worker.signals.error.connect(self.on_error)
@@ -247,7 +251,7 @@ class DataFrameView(QTableView):
     def _get_hidden_column_indices(self) -> list:
         return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
 
-    def _icon(self, icon_name: str) -> QIcon:
+    def _standard_icon(self, icon_name: str) -> QIcon:
         '''Convenience function to get standard icons from Qt'''
         if not icon_name.startswith('SP_'):
             icon_name = 'SP_' + icon_name
@@ -255,3 +259,22 @@ class DataFrameView(QTableView):
         if icon is None:
             raise Exception("Unknown icon {}".format(icon_name))
         return self.style().standardIcon(icon)
+
+    def insert_rows(self, direction: str):
+        indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
+        row = 0
+        if direction == 'below':
+            index = indexes[-1]
+            row = index.row() + 1
+        elif direction == 'above':
+            index = indexes[0]
+            row = index.row()
+        else:
+            raise ValueError('Unknown direction: {}'.format(str(direction)))
+        
+        # bound row number to table row size
+        row = max(min(row, self.model().rowCount() - 1), 0)
+        count = len(indexes)
+
+        self.model().insertRows(row, count, QModelIndex())
+
