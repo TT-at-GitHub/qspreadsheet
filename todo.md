@@ -14,9 +14,14 @@
   if they are selected individually.
 
 - When double clicking cell in nullable column, editor must take focus 
-(and perhaps a selecting current data should be the default)
+  (and perhaps a selecting current data should be the default)
 
 - Investigate entering edit mode, when user starts typing over cell
 
 - Experiment with 'formula bar' to make multi-cell editing easier
 
+# Known BUGS:
+
+- after column resizing, cursor remains in 'resize' mode, 
+  and not changing the mouse pointer back to the normal arrow
+  
