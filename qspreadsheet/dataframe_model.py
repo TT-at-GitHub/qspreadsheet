@@ -23,6 +23,7 @@ class DataFrameModel(QAbstractTableModel):
     def __init__(self, df: DF, header_model: HeaderView,
                  delegate: ColumnDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
+        self.delegate = delegate
         self.df = df.copy()
         self.add_bottom_row()
 
@@ -30,7 +31,6 @@ class DataFrameModel(QAbstractTableModel):
         self.filter_mask = pd.Series(data=True, index=self.df.index)
 
         self.editable_columns = pd.Series(index=df.columns, data=True)
-        self.delegate = delegate
 
         self.header_model = header_model
         self.header_model.filter_btn_mapper.mapped[str].connect(
@@ -40,9 +40,6 @@ class DataFrameModel(QAbstractTableModel):
 
         self.rows_mutable = 1
         self.is_dirty = False
-
-    def rowCount(self, parent: QModelIndex) -> int:
-        return self.df.shape[0]
 
     def progressRowCount(self) -> int:
         return self.rows_in_progress.sum()
@@ -56,8 +53,15 @@ class DataFrameModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex) -> int:
         return self.df.shape[1]
 
+    def rowCount(self, parent: QModelIndex) -> int:
+        return self.df.shape[0]
+
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         # logger.debug('data({}, {}), role: {}'.format( index.row(), index.column(), role))
+        if index.row() < 0:
+            logger.warning('index.row() < 0')
+            breakpoint()
+        
         if role == Qt.DisplayRole:
             if index.row() == self.dataRowCount():
                 return ''
@@ -101,8 +105,11 @@ class DataFrameModel(QAbstractTableModel):
         return True
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
+
         if section < 0:
-            print('section: {}'.format(section))
+            logger.warning('section: {}'.format(section))
+            breakpoint()
+            return None
 
         if orientation == Qt.Vertical:
             if role == Qt.DisplayRole:
@@ -123,18 +130,15 @@ class DataFrameModel(QAbstractTableModel):
     def insertRows(self, row: int, count: int, parent: QModelIndex) -> bool:
         self.beginInsertRows(parent, row, row + count - 1)
 
-        df_above = self.df.iloc[0: row]
-        new_rows = pd.DataFrame(data=np.nan, columns=self.df.columns,
-                                index=range(row, row + count))
-        df_below = self.df.iloc[row:]
-        df_below.index = df_below.index + count
-        self.df = pd.concat([df_above, new_rows, df_below])
+        new_rows = self.null_rows(start_index=row, count=count)
+        self.df = self.pandas_obj_insert_rows(self.df, row, new_rows)
 
-        self.rows_in_progress = self.insert_series_rows(
-            self.rows_in_progress ,row, count, new_rows, True)
+        new_rows = pd.Series(data=True, index=range(row, row + count))
+        self.rows_in_progress = self.pandas_obj_insert_rows(
+            obj=self.rows_in_progress, at_index=row, new_rows=new_rows)
 
-        self.filter_mask = self.insert_series_rows(
-            self.filter_mask ,row, count, new_rows, True)
+        self.filter_mask = self.pandas_obj_insert_rows(
+            obj=self.filter_mask, at_index=row, new_rows=new_rows)
 
         self.endInsertRows()
         return True
@@ -189,7 +193,7 @@ class DataFrameModel(QAbstractTableModel):
             self.df = self.df.drop(index=self.df.index[-1])
 
     def add_bottom_row(self):
-        bottom_row = self.null_row()
+        bottom_row = self.null_rows(start_index=self.df.index.size, count=1)
         self.df = self.df.append(bottom_row)
 
     def drop_pandas_obj_rows(self, obj: Union[DF, SER], row: int, count: int) -> Union[DF, SER]:
@@ -198,18 +202,18 @@ class DataFrameModel(QAbstractTableModel):
         obj = obj.reset_index(drop=True)
         return obj
 
-    def insert_series_rows(self, obj, row: int, count: int, new_rows_df: DF, value: Any) -> SER:
-        above = obj.iloc[0: row]
-        new_rows = pd.Series(value, new_rows_df.index)
-        below = obj.iloc[row:]
-        below.index = below.index + count
-        obj = pd.concat([
-            above, new_rows, below])
+    def pandas_obj_insert_rows(self, obj: Union[DF, SER], at_index: int, 
+                               new_rows: Union[DF, SER]) -> Union[DF, SER]:
+        above = obj.iloc[0 : at_index]
+        below = obj.iloc[at_index : ]
+        below.index = below.index + new_rows.index.size
+        obj = pd.concat([above, new_rows, below])
         return obj
 
-    def null_row(self) -> SER:
-        nulls_dict = self.delegate.null_value()
-        data = sorted(nulls_dict)
-        null_values = pd.Series(data=data, index=self.df.columns, 
-                                name=self.df.index.size)
-        return null_values
+    def null_rows(self, start_index: int, count: int) -> DF:
+        nulls_row: List = self.delegate.null_value()
+        data = [nulls_row for _ in range(count)]
+
+        nulls_df = pd.DataFrame(data=data, columns=self.df.columns, 
+                                index=range(start_index, start_index + count))
+        return nulls_df

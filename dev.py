@@ -61,12 +61,9 @@ print(df)
 
 pd.options.display.precision = 4
 
-delegates = automap_delegates(df)
+# delegates = automap_delegates(df, nullable=True)
 
-nullable_delegates = {column : delegate.to_nullable() 
-                      for column, delegate in delegates.items()}
-
-table_view = DataFrameView(df=df, delegates=nullable_delegates)
+table_view = DataFrameView(df=df)
 table_view.set_columns_edit_state(df.columns.tolist(), True)
 
 window = MainWindow(table_view=table_view)

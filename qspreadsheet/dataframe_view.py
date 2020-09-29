@@ -24,13 +24,14 @@ from qspreadsheet.header_view import HeaderView
 from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
+from qspreadsheet.common import DF
 
 logger = logging.getLogger(__name__)
 
 
 class DataFrameView(QTableView):
 
-    def __init__(self, df: pd.DataFrame, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
+    def __init__(self, df: DF, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
         self.threadpool = QThreadPool(self)
         self.header_model = HeaderView(columns=df.columns.tolist())
@@ -40,11 +41,12 @@ class DataFrameView(QTableView):
             self.filter_clicked)
 
         self._main_delegate = GenericDelegate(self)
+        column_delegates = delegates or automap_delegates(df, nullable=True)
+        self._set_column_delegates_for_df(column_delegates, df)
+        
         self._model = DataFrameModel(df=df, header_model=self.header_model,
                                      delegate=self._main_delegate, parent=self)
 
-        delegates = delegates or automap_delegates(df)
-        self.set_column_delegates(delegates)
         self.proxy = DataFrameSortFilterProxy(self._model)
         self.proxy.setSourceModel(self._model)
         self.setModel(self.proxy)
@@ -89,17 +91,21 @@ class DataFrameView(QTableView):
         icolumn = self.df.columns.get_loc(column)
         self._main_delegate.add_column_delegate(icolumn, delegate)
 
-    def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
+    def _set_column_delegates_for_df(self, delegates: Mapping[Any, ColumnDelegate], df: DF):
+        '''used to avoid circular reference, when calling self.df'''
         current = self.itemDelegate()
         if current is not None:
             current.deleteLater()
 
         for column, column_delegate in delegates.items():
-            icolumn = self.df.columns.get_loc(column)
+            icolumn = df.columns.get_loc(column)
             self._main_delegate.add_column_delegate(icolumn, column_delegate)
 
         self.setItemDelegate(self._main_delegate)
-        del current
+        del current        
+
+    def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
+        self._set_column_delegates_for_df(delegates, self._model.df)
 
     def set_column_widths(self):
         header = self.horizontalHeader()

@@ -119,6 +119,9 @@ class NullableColumnDelegate(ColumnDelegate):
     def default_value(self, index: QModelIndex) -> Any:
         return self._delegate.default_value(index)
 
+    def null_value(self) -> Any:
+        return self._delegate.null_value()
+
 
 class GenericDelegate(ColumnDelegate):
 
@@ -203,7 +206,7 @@ class GenericDelegate(ColumnDelegate):
         return super().default_value(index)
 
     def null_value(self) -> Any:
-        return {key : delegate.null_value() for key, delegate in self.delegates.items()}
+        return [self.delegates[key].null_value() for key in sorted(self.delegates)]
 
 
 class IntDelegate(ColumnDelegate):
@@ -454,7 +457,7 @@ class RichTextDelegate(ColumnDelegate):
         return ''
 
 
-def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:
+def automap_delegates(df: DF, nullable=True) -> Dict[Any, ColumnDelegate]:
     type2delegate = tuple((
         ('object', StringDelegate),
         ('int', IntDelegate),
@@ -476,6 +479,11 @@ def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:
             delegate = StringDelegate()
 
         delegates[columnname] = delegate
+
+    if nullable:
+        nullable_delegates = {column : delegate.to_nullable() 
+                      for column, delegate in delegates.items()}
+        delegates = nullable_delegates
 
     return delegates
 

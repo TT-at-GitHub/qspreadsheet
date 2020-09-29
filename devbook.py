@@ -9,6 +9,7 @@ import pandas as pd
 import string
 import random
 
+
 def mock_df():
     area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
     population = pd.Series(
@@ -180,3 +181,8 @@ groups = []
 for _, g in groupby(data, lambda n, c=count(): n-next(c)):
     groups.append(list(g))
 groups
+#In[0]
+count = 4
+nulls_row = [None, np.nan, pd.NaT, pd.NA]
+data = [nulls_row for _ in range(count)]
+data
