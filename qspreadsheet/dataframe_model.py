@@ -128,7 +128,7 @@ class DataFrameModel(QAbstractTableModel):
         return None
 
     def insertRows(self, row: int, count: int, parent: QModelIndex) -> bool:
-        self.beginInsertRows(parent, row, row + count - 1)
+        self.beginInsertRows(QModelIndex(), row, row + count - 1)
 
         new_rows = self.null_rows(start_index=row, count=count)
         self.df = self.pandas_obj_insert_rows(self.df, row, new_rows)
