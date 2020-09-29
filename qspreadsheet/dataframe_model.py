@@ -66,7 +66,7 @@ class DataFrameModel(QAbstractTableModel):
 
         if role == Qt.EditRole:
             if index.row() == self.dataRowCount():
-                return self.delegate.default(index)
+                return self.delegate.default_value(index)
             # if self.rows_in_progress.loc[index.row()]:
             #     return self.delegate.default(index)
             return self.df.iloc[index.row(), index.column()]
@@ -189,8 +189,7 @@ class DataFrameModel(QAbstractTableModel):
             self.df = self.df.drop(index=self.df.index[-1])
 
     def add_bottom_row(self):
-        bottom_row = pd.Series(
-            np.nan, index=self.df.columns, name=self.df.index.size)
+        bottom_row = self.null_row()
         self.df = self.df.append(bottom_row)
 
     def drop_pandas_obj_rows(self, obj: Union[DF, SER], row: int, count: int) -> Union[DF, SER]:
@@ -207,3 +206,10 @@ class DataFrameModel(QAbstractTableModel):
         obj = pd.concat([
             above, new_rows, below])
         return obj
+
+    def null_row(self) -> SER:
+        nulls_dict = self.delegate.null_value()
+        data = sorted(nulls_dict)
+        null_values = pd.Series(data=data, index=self.df.columns, 
+                                name=self.df.index.size)
+        return null_values

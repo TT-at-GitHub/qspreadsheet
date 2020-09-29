@@ -57,6 +57,8 @@ class MainWindow(QMainWindow):
 app = QApplication(sys.argv)
 
 df = mock_df()
+print(df)
+
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df)

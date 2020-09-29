@@ -41,13 +41,14 @@ class ColumnDelegate(QStyledItemDelegate):
     def font(self, index: QModelIndex) -> QFont:
         return None
 
+    def assign_default_value(self, editor: QWidget):
+        raise NotImplementedError(
+            f'Calling virtual function in {self.__class__.__name__}')
+
     def null_value(self) -> Any:
         return None
 
-    def set_default(self, editor: QWidget):
-        pass
-
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return None
 
     def to_nullable(self) -> 'NullableColumnDelegate':
@@ -65,13 +66,13 @@ class NullableColumnDelegate(ColumnDelegate):
         # logger.debug('createEditor')
         nullable_editor = QWidget(parent)
         nullable_editor.setAutoFillBackground(True)
-   
+
         checkbox = QCheckBox('')
         checkbox.stateChanged.connect(self.on_checkboxStateChanged)
         self.checkbox = checkbox
 
         editor = self._delegate.createEditor(parent, option, index)
-        editor.setSizePolicy(QSizePolicy.MinimumExpanding, 
+        editor.setSizePolicy(QSizePolicy.MinimumExpanding,
                              QSizePolicy.MinimumExpanding)
         self._editor = editor
 
@@ -87,7 +88,7 @@ class NullableColumnDelegate(ColumnDelegate):
         # logger.debug('on_checkboxStateChanged(state={})'.format(state))
         self.isnull = (state == 0)
         self._editor.setEnabled(not self.isnull)
-        
+
     def setEditorData(self, editor: QWidget, index: QModelIndex):
         # logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
@@ -95,10 +96,10 @@ class NullableColumnDelegate(ColumnDelegate):
         self.checkbox.setChecked(not self.isnull)
 
         if self.isnull:
-            self._delegate.set_default(self._editor)
+            self._delegate.assign_default_value(self._editor)
         else:
             self._delegate.setEditorData(self._editor, index)
-            
+
         # force update checkbox state
         self.on_checkboxStateChanged(self.checkbox.checkState())
 
@@ -115,8 +116,8 @@ class NullableColumnDelegate(ColumnDelegate):
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return self._delegate.alignment(index)
 
-    def default(self, index: QModelIndex) -> Any:
-        return self._delegate.default(index)
+    def default_value(self, index: QModelIndex) -> Any:
+        return self._delegate.default_value(index)
 
 
 class GenericDelegate(ColumnDelegate):
@@ -195,11 +196,14 @@ class GenericDelegate(ColumnDelegate):
             return delegate.font(index)
         return super().font(index)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         delegate = self.delegates.get(index.column())
         if delegate is not None:
-            return delegate.default(index)
-        return super().default(index)
+            return delegate.default_value(index)
+        return super().default_value(index)
+
+    def null_value(self) -> Any:
+        return {key : delegate.null_value() for key, delegate in self.delegates.items()}
 
 
 class IntDelegate(ColumnDelegate):
@@ -230,17 +234,20 @@ class IntDelegate(ColumnDelegate):
     def set_default(self, editor: QSpinBox):
         editor.setValue(self.defaultelf.default)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return 0
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
 
+    def null_value(self) -> Any:
+        return pd.NA
+
 
 class FloatDelegate(ColumnDelegate):
 
     def __init__(self, parent=None,
-                 minimum: Optional[float] = None, 
+                 minimum: Optional[float] = None,
                  maximum: Optional[float] = None,
                  edit_precision: int = 4,
                  display_precision: int = 2):
@@ -277,8 +284,11 @@ class FloatDelegate(ColumnDelegate):
     def set_default(self, editor: QDoubleSpinBox):
         editor.setValue(self.default)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return 0
+
+    def null_value(self) -> Any:
+        return np.nan
 
 
 class BoolDelegate(ColumnDelegate):
@@ -309,11 +319,14 @@ class BoolDelegate(ColumnDelegate):
     def set_default(self, editor: QComboBox):
         editor.setCurrentIndex(self.default)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return self.choices.index(False)
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
+
+    def null_value(self) -> Any:
+        return pd.NA
 
 
 class DateDelegate(ColumnDelegate):
@@ -356,9 +369,13 @@ class DateDelegate(ColumnDelegate):
 
     def set_default(self, editor: QDateEdit):
         editor.setDate(self.default)
-        
-    def default(self, index: QModelIndex) -> Any: 
-        return QDate.currentDate()       
+
+    def default_value(self, index: QModelIndex) -> Any:
+        return QDate.currentDate()
+
+    def null_value(self) -> Any:
+        return pd.NaT
+
 
 class StringDelegate(ColumnDelegate):
 
@@ -379,9 +396,9 @@ class StringDelegate(ColumnDelegate):
     def set_default(self, editor: QLineEdit):
         editor.setText(self.default)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return ''
-        
+
 
 class RichTextDelegate(ColumnDelegate):
 
@@ -433,7 +450,7 @@ class RichTextDelegate(ColumnDelegate):
     def set_default(self, editor: RichTextLineEdit):
         editor.setHtml(self.default)
 
-    def default(self, index: QModelIndex) -> Any:
+    def default_value(self, index: QModelIndex) -> Any:
         return ''
 
 
@@ -465,7 +482,7 @@ def automap_delegates(df: DF) -> Dict[Any, ColumnDelegate]:
 
 def as_qdate(datelike: DateLike, format: Optional[str] = None) -> QDate:
     '''Converts date-like value to QDate
-    
+
         Parameters
         ----------
         dt: {str, datetime, pd.Timestamp, QDate}: value to convert
@@ -475,7 +492,7 @@ def as_qdate(datelike: DateLike, format: Optional[str] = None) -> QDate:
         Returns
         -------
         `QDate`
-    '''    
+    '''
     if isinstance(datelike, str):
         datelike = datetime.strptime(datelike, format)
     return datelike if isinstance(datelike, QDate) else QDate(datelike.year, datelike.month, datelike.day)

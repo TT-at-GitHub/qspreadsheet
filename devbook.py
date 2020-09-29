@@ -25,10 +25,10 @@ def mock_df():
     df['div'] = df.population / 2.3 * (~df['bools'])
     df['multip'] = (df['multip'] + df['div']).astype('float64')
     df['div'] = df['div'].astype('int32')
-    df.iloc[1, 0] = np.nan
+    df.iloc[1, 0] = pd.NA
     df.iloc[4, 4] = pd.NA
-    df.iloc[2, 0] = np.nan
-    df.iloc[2, 1] = np.nan
+    df.iloc[2, 0] = pd.NA
+    df.iloc[2, 1] = pd.NA
     df.iloc[1, 3] = pd.NaT
     df.iloc[2, 6] = pd.NA
     return df
