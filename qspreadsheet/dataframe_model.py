@@ -1,17 +1,16 @@
 import logging
 import sys
 import os
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
-from numpy.core.defchararray import index
 import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from qspreadsheet.common import DF, SER
-from qspreadsheet.delegates import ColumnDelegate
+from qspreadsheet.delegates import MasterDelegate
 from qspreadsheet.header_view import HeaderView
 from qspreadsheet import resources_rc
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 class DataFrameModel(QAbstractTableModel):
 
     def __init__(self, df: DF, header_model: HeaderView,
-                 delegate: ColumnDelegate, parent: Optional[QWidget] = None) -> None:
+                 delegate: MasterDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.delegate = delegate
         self.df = df.copy()
@@ -31,6 +30,7 @@ class DataFrameModel(QAbstractTableModel):
         self.filter_mask = pd.Series(data=True, index=self.df.index)
 
         self.editable_columns = pd.Series(index=df.columns, data=True)
+        self.nullable_columns_indices = self.delegate.nullable_delegates.keys()
 
         self.header_model = header_model
         self.header_model.filter_btn_mapper.mapped[str].connect(
@@ -40,6 +40,7 @@ class DataFrameModel(QAbstractTableModel):
 
         self.rows_mutable = 1
         self.is_dirty = False
+        self.dataChanged.connect(self.on_dataChanged)
 
     def progressRowCount(self) -> int:
         return self.rows_in_progress.sum()
@@ -71,8 +72,6 @@ class DataFrameModel(QAbstractTableModel):
         if role == Qt.EditRole:
             if index.row() == self.dataRowCount():
                 return self.delegate.default_value(index)
-            # if self.rows_in_progress.loc[index.row()]:
-            #     return self.delegate.default(index)
             return self.df.iloc[index.row(), index.column()]
 
         if role == Qt.TextAlignmentRole:
@@ -95,13 +94,16 @@ class DataFrameModel(QAbstractTableModel):
         if not index.isValid():
             return False
 
+        # If user has typed in the last row
         if index.row() == self.dataRowCount():
-            self.insertRow(index.row(), index)
+            self.add_bottom_row()
 
+        old_value = self.df.iloc[index.row(), index.column()]
         self.df.iloc[index.row(), index.column()] = value
 
-        self.is_dirty = True
-        self.dataChanged.emit(index, index)
+        if value != old_value:
+            self.dataChanged.emit(index, index)
+
         return True
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
@@ -133,24 +135,31 @@ class DataFrameModel(QAbstractTableModel):
         new_rows = self.null_rows(start_index=row, count=count)
         self.df = self.pandas_obj_insert_rows(self.df, row, new_rows)
 
-        new_rows = pd.Series(data=True, index=range(row, row + count))
+        # set new row as 'not in progress' by default
+        new_rows = pd.Series(data=False, index=range(row, row + count))
         self.rows_in_progress = self.pandas_obj_insert_rows(
             obj=self.rows_in_progress, at_index=row, new_rows=new_rows)
 
+        # set new row as 'not filtered' by default
+        new_rows = pd.Series(data=True, index=range(row, row + count))
         self.filter_mask = self.pandas_obj_insert_rows(
             obj=self.filter_mask, at_index=row, new_rows=new_rows)
 
         self.endInsertRows()
+        self.dataChanged.emit(self.index(row, 0), 
+                              self.index(row, self.columnCount(QModelIndex()) - 1))
         return True
 
     def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:        
         logger.debug('removeRows(first:{}, last:{}), num rows: {}'.format(
             row, row + count - 1, count))
         self.beginRemoveRows(parent, row, row + count - 1)
-        self.df = self.drop_pandas_obj_rows(self.df, row, count)
-        self.rows_in_progress = self.drop_pandas_obj_rows(self.rows_in_progress, row, count)
-        self.filter_mask = self.drop_pandas_obj_rows(self.filter_mask, row, count)
+        self.df = self.pandas_obj_remove_rows(self.df, row, count)
+        self.rows_in_progress = self.pandas_obj_remove_rows(self.rows_in_progress, row, count)
+        self.filter_mask = self.pandas_obj_remove_rows(self.filter_mask, row, count)
         self.endRemoveRows()
+        self.dataChanged.emit(self.index(row, 0), 
+                              self.index(row, self.columnCount(QModelIndex()) - 1))
         return True
 
     def flags(self, index):
@@ -196,12 +205,6 @@ class DataFrameModel(QAbstractTableModel):
         bottom_row = self.null_rows(start_index=self.df.index.size, count=1)
         self.df = self.df.append(bottom_row)
 
-    def drop_pandas_obj_rows(self, obj: Union[DF, SER], row: int, count: int) -> Union[DF, SER]:
-        index_rows = range(row, row + count)
-        obj = obj.drop(index=obj.index[index_rows])
-        obj = obj.reset_index(drop=True)
-        return obj
-
     def pandas_obj_insert_rows(self, obj: Union[DF, SER], at_index: int, 
                                new_rows: Union[DF, SER]) -> Union[DF, SER]:
         above = obj.iloc[0 : at_index]
@@ -210,10 +213,31 @@ class DataFrameModel(QAbstractTableModel):
         obj = pd.concat([above, new_rows, below])
         return obj
 
-    def null_rows(self, start_index: int, count: int) -> DF:
-        nulls_row: List = self.delegate.null_value()
-        data = [nulls_row for _ in range(count)]
+    def pandas_obj_remove_rows(self, obj: Union[DF, SER], row: int, count: int) -> Union[DF, SER]:
+        index_rows = range(row, row + count)
+        obj = obj.drop(index=obj.index[index_rows])
+        obj = obj.reset_index(drop=True)
+        return obj
 
-        nulls_df = pd.DataFrame(data=data, columns=self.df.columns, 
+    def null_rows(self, start_index: int, count: int) -> DF:
+        nulls_row: Dict[int, Any] = self.delegate.null_value()
+        data = {self.df.columns[ndx] : null_value 
+                for ndx, null_value in nulls_row.items()}
+
+        nulls_df = pd.DataFrame(data=data, 
                                 index=range(start_index, start_index + count))
         return nulls_df
+
+    def on_dataChanged(self, first: QModelIndex, second: QModelIndex):
+        self.is_dirty = True
+
+        # update rows in progress
+        if (self.editable_columns == False).any():
+            rows = range(first.row(), second.row() + 1)
+            self.update_rows_in_progress(rows)
+    
+    def update_rows_in_progress(self, rows: Iterable[int]):
+        if self.rows_in_progress.loc[rows].size == 0:
+            return
+
+    

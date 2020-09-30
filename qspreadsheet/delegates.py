@@ -1,7 +1,6 @@
 import os
 import sys
-from typing import (Any, Callable, Dict, Iterable, List, Mapping,
-                    Optional, Sequence, Type, TypeVar, Union)
+from typing import (Any, Dict, Optional, Union)
 import logging
 from datetime import datetime
 
@@ -123,10 +122,10 @@ class NullableColumnDelegate(ColumnDelegate):
         return self._delegate.null_value()
 
 
-class GenericDelegate(ColumnDelegate):
+class MasterDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
-        super(GenericDelegate, self).__init__(parent=parent)
+        super(MasterDelegate, self).__init__(parent=parent)
         self.delegates: Dict[int, ColumnDelegate] = {}
 
     def add_column_delegate(self, column_index: int, delegate: ColumnDelegate):
@@ -206,7 +205,22 @@ class GenericDelegate(ColumnDelegate):
         return super().default_value(index)
 
     def null_value(self) -> Any:
-        return [self.delegates[key].null_value() for key in sorted(self.delegates)]
+        return {ndx : delegate.null_value() 
+                for ndx, delegate in self.delegates.items()}   
+
+    @property
+    def non_nullable_delegates(self):
+        return {ndx : delegate
+                for ndx, delegate in self.delegates.items()
+                if not isinstance(delegate, NullableColumnDelegate)} 
+
+    @property
+    def nullable_delegates(self):
+        return {ndx : delegate
+                for ndx, delegate in self.delegates.items()
+                if isinstance(delegate, NullableColumnDelegate)} 
+
+#endregion MasterDelegate speciffic
 
 
 class IntDelegate(ColumnDelegate):

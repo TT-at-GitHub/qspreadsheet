@@ -1,13 +1,17 @@
 # dev_data.py
 #In[0]
+from enum import auto
 import os, sys
+from qspreadsheet.delegates import automap_delegates
 from datetime import datetime, timedelta, time as dtime
 import time
+from typing import DefaultDict
 import numpy as np
 from numpy.core.defchararray import center 
 import pandas as pd
 import string
 import random
+import collections
 
 
 def mock_df():
@@ -27,7 +31,7 @@ def mock_df():
     df['multip'] = (df['multip'] + df['div']).astype('float64')
     df['div'] = df['div'].astype('int32')
     df.iloc[1, 0] = pd.NA
-    df.iloc[4, 4] = pd.NA
+    # df.iloc[4, 4] = pd.NA
     df.iloc[2, 0] = pd.NA
     df.iloc[2, 1] = pd.NA
     df.iloc[1, 3] = pd.NaT
@@ -36,7 +40,10 @@ def mock_df():
 df = mock_df()
 from IPython.display import display
 display(df)
-df.dtypes
+df
+#In[0]
+s = pd.Series(df['bools'].loc[ df['bools'].notnull()])
+s.dtype
 #In[0]
 s = df['div']
 [type(v) for v in s]
@@ -172,17 +179,27 @@ df.reset_index(drop=True)
 rows = sorted([5, 2, 7, 8, 1, 3])
 rows
 #In[0]
-from itertools import groupby, count
 
-data = rows
-print(data)
-
-groups = []
-for _, g in groupby(data, lambda n, c=count(): n-next(c)):
-    groups.append(list(g))
-groups
 #In[0]
-count = 4
-nulls_row = [None, np.nan, pd.NaT, pd.NA]
-data = [nulls_row for _ in range(count)]
+delegates = automap_delegates(df)
+delegates
+#In[0]
+delegates['bools'].null_value()
+#In[0]
+data = {i : delegate.null_value() for i, delegate in enumerate(delegates.values())}
 data
+#In[0]
+cdata = {df.columns[i] : null_value for i, null_value in data.items()}
+cdata
+start_index = 5
+count = 5
+#In[0]
+nulls_df = pd.DataFrame(data=cdata, 
+                        index=range(start_index, start_index + count))
+nulls_df
+#In[0]
+
+#In[0]
+od = collections.OrderedDict((k, d[k]) for k in sorted(d))
+#In[0]
+delegates

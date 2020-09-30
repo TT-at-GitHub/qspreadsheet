@@ -5,8 +5,8 @@ import traceback
 from functools import partial
 from itertools import groupby, count
 from types import TracebackType
-from typing import (Any, Callable, Dict, Iterable, List, Mapping, Optional,
-                    Sequence, Tuple, Type, Union)
+from typing import (Any, Iterable, List, Mapping, Optional,
+                    Tuple, Type, Union)
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from pandas.core import indexers
 from qspreadsheet import resources_rc
 from qspreadsheet.custom_widgets import ActionButtonBox
 from qspreadsheet.dataframe_model import DataFrameModel
-from qspreadsheet.delegates import (ColumnDelegate, GenericDelegate,
+from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
                                     automap_delegates)
 from qspreadsheet.header_view import HeaderView
 from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
@@ -40,7 +40,7 @@ class DataFrameView(QTableView):
         self.header_model.filter_btn_mapper.mapped[str].connect(
             self.filter_clicked)
 
-        self._main_delegate = GenericDelegate(self)
+        self._main_delegate = MasterDelegate(self)
         column_delegates = delegates or automap_delegates(df, nullable=True)
         self._set_column_delegates_for_df(column_delegates, df)
         
