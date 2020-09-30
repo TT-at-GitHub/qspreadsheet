@@ -2,17 +2,21 @@
 #In[0]
 from enum import auto
 import os, sys
-from qspreadsheet.delegates import automap_delegates
+from qspreadsheet.delegates import MasterDelegate
+from qspreadsheet import automap_delegates, DF, SER
 from datetime import datetime, timedelta, time as dtime
 import time
-from typing import DefaultDict
+from typing import Any, DefaultDict, Dict
 import numpy as np
 from numpy.core.defchararray import center 
 import pandas as pd
 import string
 import random
 import collections
-
+from IPython.display import display
+pd.options.display.max_rows = 10
+pd.options.display.max_columns = 15
+pd.options.display.float_format = '{:,.2f}'.format
 
 def mock_df():
     area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
@@ -38,168 +42,58 @@ def mock_df():
     df.iloc[2, 6] = pd.NA
     return df
 df = mock_df()
-from IPython.display import display
-display(df)
 df
+# df.to_pickle('./.ignore/data/df-nulls.pkl')
+# df.head(n=15)
 #In[0]
-s = pd.Series(df['bools'].loc[ df['bools'].notnull()])
-s.dtype
-#In[0]
-s = df['div']
-[type(v) for v in s]
-s.isna().any()
-#In[0]
-df['dates'].iloc[2]
-#In[0]
-df.iat[2, 5]
-#In[0]
+def null_rows(df, delegate, start_index: int, count: int) -> DF:
+    nulls_row: Dict[int, Any] = delegate.null_value()
+    data = {df.columns[ndx]: null_value
+            for ndx, null_value in nulls_row.items()}
 
-df.iloc[2, 5] = 8543968.09765
-#In[0]
-import random
-import time
+    nulls_df = pd.DataFrame(data=data,
+                            index=range(start_index, start_index + count))
+    return nulls_df
 
-DATE_FORMAT = r'%m/%d/%Y %I:%M %p'
+delegates = automap_delegates(df)
+delegate = MasterDelegate()
+for column, column_delegate in delegates.items():
+    icolumn = df.columns.get_loc(column)
+    delegate.add_column_delegate(icolumn, column_delegate)
 
-def str_time_prop(start, end, format, prop):
-    """Get a time at a proportion of a range of two formatted times.
-
-    start and end should be strings specifying times formated in the
-    given format (strftime-style), giving an interval [start, end].
-    prop specifies how a proportion of the interval to be taken after
-    start.  The returned time will be in the specified format.
-    """
-
-    stime = time.mktime(time.strptime(start, format))
-    etime = time.mktime(time.strptime(end, format))
-
-    ptime = stime + prop * (etime - stime)
-
-    return time.strftime(format, time.localtime(ptime))
-
-
-def random_date(start, end, prop):
-    return str_time_prop(start, end, DATE_FORMAT, prop)
-
-rnd_strdate = random_date("1/1/2015 1:30 PM", "12/31/2020 4:50 AM", random.random())
-print(datetime.strptime(rnd_strdate, DATE_FORMAT))
-
-#In[0]
-
-def rnd_txt(): return "".join(
-    [random.choice(string.ascii_letters[:26]) for i in range(15)])
-
-def add_nulls(data, j):
-    if j < 6:
-        data[j][j] = np.nan
-    if 5 < j < 11:
-        ndx = j % 6
-        data[j][ndx] = np.nan
-        data[j][ndx + 1] = np.nan
-    if j == 11:
-        data[j] = [np.nan] * 5    
-
-data = []
-for j in range(10000):
-    r = []
-    for k in range(2):
-        r.append(rnd_txt())
-        
-    r.append(random.randint(1, 20))
-    r.append(random.random()*10)
-
-    rnd_strdate = random_date("1/1/2015 1:30 PM", "12/31/2020 4:50 AM", random.random())
-    r.append(datetime.strptime(rnd_strdate, DATE_FORMAT))
-    
-    r.append(rnd_txt())
-
-    data.append(r)
-    add_nulls(data, j)
-
-df = pd.DataFrame(
-    data, columns=['AAA', 'CCC', 'INT', 'FLOAT', 'DATETIME', 'DDD'])
-df.head(n=15)
-#In[0]
-df.to_pickle('./.ignore/data/df-nulls.pkl')
-#In[0]
-pd.options.display.max_rows = 10
-pd.options.display.max_columns = 15
-pd.options.display.float_format = '{:,.2f}'.format
-#In[0]
-df = df.append(pd.Series(np.nan, index=df.columns, name=df.index.size))
-df
-#In[0]
-df = pd.DataFrame(index=np.arange(df.index.size), 
-            columns=('InProgress', 'Foreground', 'Background'), 
-            data=None)
-df['InProgress'] = False
-df
-#In[0]
-np.arange(df.index.size)
-#In[0]
-edit_columns = pd.Series(index=df.columns, data=True)
-edit_columns
-#In[0]
-edit_columns.loc[['states', 'area']]
-#In[0]
-df = df.append(pd.Series(np.nan, index=df.columns, name=df.index.size))
-df
+editable_columns = pd.Series(index=df.columns, data=True)
+nullable_columns_indices = delegate.nullable_delegates.keys()
+display(editable_columns)
+display(nullable_columns_indices)
 #In[0]
 row = 0
 count = 1
 rows_in_progress = pd.Series(
             index=df.index, data=False)
-rows_in_progress
+display(rows_in_progress)
 row, count
 #In[0]
-new_rows = pd.DataFrame(data=np.nan, columns=df.columns, 
-    index=range(row, row + count))
-new_rows
-#In[0]
+new_rows = null_rows(df, delegate, row, count)
 df_up = df.iloc[0 : row]
 df_down = df.iloc[row :]
 df_down.index = df_down.index + 1
-#In[0]
-dfr = pd.concat([df_up, new_rows, df_down])
-dfr
-#In[0]
-df = df.append(new_rows)
-rows_in_progress = rows_in_progress.append(
-    pd.Series(data=False, index=new_rows.index))
+df = pd.concat([df_up, new_rows, df_down])
 df
+rows_in_progress = pd.Series(data=False, index=df.index)
+rows_in_progress.loc[new_rows.index] = True
+display(df)
+display(rows_in_progress)
 #In[0]
-rows_in_progress.iloc[row : row + count] = True
-rows_in_progress
-#In[0]
-df = df.drop(index=df.index[[1, 2, 3]])
-df
-#In[0]
-df.reset_index(drop=True)
-#In[0]
-rows = sorted([5, 2, 7, 8, 1, 3])
-rows
-#In[0]
+# Get data changed loc from first/second index
 
-#In[0]
-delegates = automap_delegates(df)
-delegates
-#In[0]
-delegates['bools'].null_value()
-#In[0]
-data = {i : delegate.null_value() for i, delegate in enumerate(delegates.values())}
-data
-#In[0]
-cdata = {df.columns[i] : null_value for i, null_value in data.items()}
-cdata
-start_index = 5
-count = 5
-#In[0]
-nulls_df = pd.DataFrame(data=cdata, 
-                        index=range(start_index, start_index + count))
-nulls_df
-#In[0]
+# For all non editable columns, any null values in data changed,
+# gain 'row in progress' status
 
-#In[0]
-od = collections.OrderedDict((k, d[k]) for k in sorted(d))
-#In[0]
-delegates
+# For all non nullable columns with null values in data changed,
+# gain 'row in progress' status
+
+# Find intersection between the data changed and the rows in progress.
+
+
+# All progress rows in data changed, with all non-null values or with null
+# values only in nullable columns, loose the 'row in progress' status
