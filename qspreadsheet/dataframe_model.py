@@ -60,14 +60,14 @@ class DataFrameModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         # logger.debug('data({}, {}), role: {}'.format( index.row(), index.column(), role))
         if index.row() < 0:
-            logger.warning('index.row() < 0')
-            breakpoint()
-        
+            logger.error('index.row() < 0')
+            return None
+
         if role == Qt.DisplayRole:
             if index.row() == self.dataRowCount():
                 return ''
-            return self.delegate.display_data(index,
-                                              self.df.iloc[index.row(), index.column()])
+            return self.delegate.display_data(
+                index, self.df.iloc[index.row(), index.column()])
 
         if role == Qt.EditRole:
             if index.row() == self.dataRowCount():
@@ -109,8 +109,7 @@ class DataFrameModel(QAbstractTableModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
 
         if section < 0:
-            logger.warning('section: {}'.format(section))
-            breakpoint()
+            logger.error('section: {}'.format(section))
             return None
 
         if orientation == Qt.Vertical:
@@ -146,19 +145,21 @@ class DataFrameModel(QAbstractTableModel):
             obj=self.filter_mask, at_index=row, new_rows=new_rows)
 
         self.endInsertRows()
-        self.dataChanged.emit(self.index(row, 0), 
+        self.dataChanged.emit(self.index(row, 0),
                               self.index(row, self.columnCount(QModelIndex()) - 1))
         return True
 
-    def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:        
+    def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:
         logger.debug('removeRows(first:{}, last:{}), num rows: {}'.format(
             row, row + count - 1, count))
         self.beginRemoveRows(parent, row, row + count - 1)
         self.df = self.pandas_obj_remove_rows(self.df, row, count)
-        self.rows_in_progress = self.pandas_obj_remove_rows(self.rows_in_progress, row, count)
-        self.filter_mask = self.pandas_obj_remove_rows(self.filter_mask, row, count)
+        self.rows_in_progress = self.pandas_obj_remove_rows(
+            self.rows_in_progress, row, count)
+        self.filter_mask = self.pandas_obj_remove_rows(
+            self.filter_mask, row, count)
         self.endRemoveRows()
-        self.dataChanged.emit(self.index(row, 0), 
+        self.dataChanged.emit(self.index(row, 0),
                               self.index(row, self.columnCount(QModelIndex()) - 1))
         return True
 
@@ -205,10 +206,10 @@ class DataFrameModel(QAbstractTableModel):
         bottom_row = self.null_rows(start_index=self.df.index.size, count=1)
         self.df = self.df.append(bottom_row)
 
-    def pandas_obj_insert_rows(self, obj: Union[DF, SER], at_index: int, 
+    def pandas_obj_insert_rows(self, obj: Union[DF, SER], at_index: int,
                                new_rows: Union[DF, SER]) -> Union[DF, SER]:
-        above = obj.iloc[0 : at_index]
-        below = obj.iloc[at_index : ]
+        above = obj.iloc[0: at_index]
+        below = obj.iloc[at_index:]
         below.index = below.index + new_rows.index.size
         obj = pd.concat([above, new_rows, below])
         return obj
@@ -221,10 +222,10 @@ class DataFrameModel(QAbstractTableModel):
 
     def null_rows(self, start_index: int, count: int) -> DF:
         nulls_row: Dict[int, Any] = self.delegate.null_value()
-        data = {self.df.columns[ndx] : null_value 
+        data = {self.df.columns[ndx]: null_value
                 for ndx, null_value in nulls_row.items()}
 
-        nulls_df = pd.DataFrame(data=data, 
+        nulls_df = pd.DataFrame(data=data,
                                 index=range(start_index, start_index + count))
         return nulls_df
 
@@ -235,9 +236,7 @@ class DataFrameModel(QAbstractTableModel):
         if (self.editable_columns == False).any():
             rows = range(first.row(), second.row() + 1)
             self.update_rows_in_progress(rows)
-    
+
     def update_rows_in_progress(self, rows: Iterable[int]):
         if self.rows_in_progress.loc[rows].size == 0:
             return
-
-    
