@@ -42,7 +42,7 @@ class ColumnDelegate(QStyledItemDelegate):
 
     def assign_default_value(self, editor: QWidget):
         raise NotImplementedError(
-            f'Calling virtual function in {self.__class__.__name__}')
+            f'Class {self.__class__.__name__} is calling virtual function in ColumnDelegate')
 
     def null_value(self) -> Any:
         return None
@@ -71,8 +71,10 @@ class NullableColumnDelegate(ColumnDelegate):
         self.checkbox = checkbox
 
         editor = self._delegate.createEditor(parent, option, index)
+        editor.setParent(nullable_editor)
         editor.setSizePolicy(QSizePolicy.MinimumExpanding,
                              QSizePolicy.MinimumExpanding)
+        editor.setFocus(Qt.MouseFocusReason)
         self._editor = editor
 
         layout = QHBoxLayout()
@@ -121,32 +123,38 @@ class NullableColumnDelegate(ColumnDelegate):
     def null_value(self) -> Any:
         return self._delegate.null_value()
 
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return self
+
+    def to_nonnullable(self) -> ColumnDelegate:
+        return self._delegate
+
 
 class MasterDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(MasterDelegate, self).__init__(parent=parent)
-        self.delegates: Dict[int, ColumnDelegate] = {}
+        self.column_delegates: Dict[int, ColumnDelegate] = {}
 
     def add_column_delegate(self, column_index: int, delegate: ColumnDelegate):
         delegate.setParent(self)
-        self.delegates[column_index] = delegate
+        self.column_delegates[column_index] = delegate
 
     def remove_column_delegate(self, column_index: int):
-        delegate = self.delegates.pop(column_index, None)
+        delegate = self.column_delegates.pop(column_index, None)
         if delegate is not None:
             delegate.deleteLater()
             del delegate
 
     def paint(self, painter, option, index):
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             delegate.paint(painter, option, index)
         else:
             QStyledItemDelegate.paint(self, painter, option, index)
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.createEditor(parent, option, index)
         else:
@@ -154,72 +162,74 @@ class MasterDelegate(ColumnDelegate):
                                                     index)
 
     def setEditorData(self, editor: QWidget, index: QModelIndex):
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             delegate.setEditorData(editor, index)
         else:
             QStyledItemDelegate.setEditorData(self, editor, index)
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             delegate.setModelData(editor, model, index)
         else:
             QStyledItemDelegate.setModelData(self, editor, model, index)
 
     def display_data(self, index: QModelIndex, value: Any) -> str:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.display_data(index, value)
         else:
             return super().display_data(index, value)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.alignment(index)
         return super().alignment(index)
 
     def background_brush(self, index: QModelIndex) -> QBrush:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.background_brush(index)
         return super().background_brush(index)
 
     def foreground_brush(self, index: QModelIndex) -> QBrush:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.foreground_brush(index)
         return super().foreground_brush(index)
 
     def font(self, index: QModelIndex) -> QFont:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.font(index)
         return super().font(index)
 
     def default_value(self, index: QModelIndex) -> Any:
-        delegate = self.delegates.get(index.column())
+        delegate = self.column_delegates.get(index.column())
         if delegate is not None:
             return delegate.default_value(index)
         return super().default_value(index)
 
     def null_value(self) -> Any:
         return {ndx : delegate.null_value() 
-                for ndx, delegate in self.delegates.items()}   
+                for ndx, delegate in self.column_delegates.items()}   
 
     @property
     def non_nullable_delegates(self):
         return {ndx : delegate
-                for ndx, delegate in self.delegates.items()
+                for ndx, delegate in self.column_delegates.items()
                 if not isinstance(delegate, NullableColumnDelegate)} 
 
     @property
     def nullable_delegates(self):
         return {ndx : delegate
-                for ndx, delegate in self.delegates.items()
+                for ndx, delegate in self.column_delegates.items()
                 if isinstance(delegate, NullableColumnDelegate)} 
 
+    def to_nullable(self) -> 'NullableColumnDelegate':
+        return self
 #endregion MasterDelegate speciffic
 
 
