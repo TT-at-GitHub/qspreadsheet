@@ -1,8 +1,16 @@
 # dev_data.py
 #In[0]
-from enum import auto
 import os, sys
-from qspreadsheet.delegates import MasterDelegate
+
+from PySide2.QtWidgets import QApplication
+from numpy.core.fromnumeric import repeat
+app = QApplication() 
+#In[0]
+
+#In[0]
+from enum import auto
+
+from qspreadsheet.delegates import BoolDelegate, MasterDelegate, NullableColumnDelegate
 from qspreadsheet import automap_delegates, DF, SER
 from datetime import datetime, timedelta, time as dtime
 import time
@@ -60,11 +68,36 @@ delegate = MasterDelegate()
 for column, column_delegate in delegates.items():
     icolumn = df.columns.get_loc(column)
     delegate.add_column_delegate(icolumn, column_delegate)
+#In[0]
+# for i in [4, 6]:
+#     dlg = delegate.column_delegates[i]
+#     dlg = dlg.to_nonnullable()
+#     delegate.column_delegates[i] = dlg
+#In[0]
+is_column_editable = pd.Series(index=df.columns, data=True)
+is_column_editable.iloc[[4, 6]] = False
+is_column_index_editable = is_column_editable.reset_index(drop=True)
+nullable_column_indices = delegate.nullable_delegates.keys()
+non_nullable_column_indices = delegate.non_nullable_delegates.keys()
+#In[0]
+editable_columns = df.columns[is_column_index_editable]
+editable_columns
+non_editable_columns = df.columns[~is_column_index_editable]
+non_editable_column_indeces = df.columns.get_indexer_for(non_editable_columns)
+editable_columns
+non_editable_columns
 
-editable_columns = pd.Series(index=df.columns, data=True)
-nullable_columns_indices = delegate.nullable_delegates.keys()
+#In[0]
+list(range(df.columns.size))
+#In[0]
+print('editable_columns:')
 display(editable_columns)
-display(nullable_columns_indices)
+print('non_editable_columns:')
+display(non_editable_columns)
+print('nullable_columns_indices:')
+display(nullable_column_indices)
+print('non_nullable_columns_indices:')
+display(non_nullable_column_indices)
 #In[0]
 row = 0
 count = 1
@@ -80,23 +113,31 @@ df_down.index = df_down.index + 1
 df = pd.concat([df_up, new_rows, df_down])
 df
 rows_in_progress = pd.Series(data=False, index=df.index)
-rows_in_progress.loc[new_rows.index] = True
+
 display(df)
 display(rows_in_progress)
 #In[0]
 # Get data changed loc from first/second index
-first, second = (row, 0), (row + count - 1, df.columns.size - 1)
-df.iloc[first[0] : second[0] + 1, first[1] : second[1] + 1]
+first, last = row, row + count - 1 # (row, 0), (row + count - 1, df.columns.size - 1)
+rows_inserted = list(range(first , last + 1))
+
+# data_changed = df.iloc[first[0] : last[0] + 1, first[1] : last[1] + 1]
+rows_inserted_df = df.iloc[rows_inserted]
+'rows_inserted', rows_inserted #, 'data_changed', rows_changed
 
 #In[0]
-# For all non editable columns, any null values in data changed,
+# If there are disabled columns, all inserted rows
 # gain 'row in progress' status
 
+
+#In[0]
 
 #In[0]
 # For all non nullable columns with null values in data changed,
 # gain 'row in progress' status
-
+new_ndx = df.columns.tolist() + ['area']
+ddf = df[new_ndx]
+ddf.columns.get_indexer_for(ddf.columns.unique())
 #In[0]
 # Find intersection between the data changed and the rows in progress.
 

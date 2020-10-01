@@ -53,6 +53,9 @@ class ColumnDelegate(QStyledItemDelegate):
     def to_nullable(self) -> 'NullableColumnDelegate':
         return NullableColumnDelegate(self)
 
+    def to_nonnullable(self) -> 'ColumnDelegate':
+        return self
+
 
 class NullableColumnDelegate(ColumnDelegate):
 
@@ -237,7 +240,6 @@ class MasterDelegate(ColumnDelegate):
 
 
 #region Type delegates
-
 class IntDelegate(ColumnDelegate):
 
     def __init__(self, parent=None,
@@ -270,8 +272,8 @@ class IntDelegate(ColumnDelegate):
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
-        return self
+    # def to_nullable(self) -> 'NullableColumnDelegate':
+    #     return self
 
     def null_value(self) -> Any:
         return pd.NA
@@ -490,9 +492,7 @@ class RichTextDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
-
 #endregion Type delegates
-
 
 def automap_delegates(df: DF, nullable=True) -> Dict[Any, ColumnDelegate]:
     type2delegate = tuple((

@@ -85,6 +85,7 @@ class DataFrameView(QTableView):
         menu.exec_(menu_pos)
 
     def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], editable: bool) -> None:
+        logger.warning('changed API, update this function!')
         self._model.editable_columns.loc[columns] = editable
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
