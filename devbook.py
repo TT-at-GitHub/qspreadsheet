@@ -85,15 +85,22 @@ display(df)
 display(rows_in_progress)
 #In[0]
 # Get data changed loc from first/second index
+first, second = (row, 0), (row + count - 1, df.columns.size - 1)
+df.iloc[first[0] : second[0] + 1, first[1] : second[1] + 1]
 
+#In[0]
 # For all non editable columns, any null values in data changed,
 # gain 'row in progress' status
 
+
+#In[0]
 # For all non nullable columns with null values in data changed,
 # gain 'row in progress' status
 
+#In[0]
 # Find intersection between the data changed and the rows in progress.
 
 
+#In[0]
 # All progress rows in data changed, with all non-null values or with null
 # values only in nullable columns, loose the 'row in progress' status
