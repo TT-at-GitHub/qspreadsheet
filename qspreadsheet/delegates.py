@@ -40,7 +40,7 @@ class ColumnDelegate(QStyledItemDelegate):
     def font(self, index: QModelIndex) -> QFont:
         return None
 
-    def assign_default_value(self, editor: QWidget):
+    def set_default(self, editor: QWidget) -> None:
         raise NotImplementedError(
             f'Class {self.__class__.__name__} is calling virtual function in ColumnDelegate')
 
@@ -97,7 +97,7 @@ class NullableColumnDelegate(ColumnDelegate):
         self.checkbox.setChecked(not self.isnull)
 
         if self.isnull:
-            self._delegate.assign_default_value(self._editor)
+            self.set_default(self._editor)
         else:
             self._delegate.setEditorData(self._editor, index)
 
@@ -119,6 +119,9 @@ class NullableColumnDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._delegate.default_value(index)
+
+    def set_default(self, editor: QWidget) -> None:
+        self._delegate.set_default(editor)
 
     def null_value(self) -> Any:
         return self._delegate.null_value()
@@ -211,7 +214,7 @@ class MasterDelegate(ColumnDelegate):
         if delegate is not None:
             return delegate.default_value(index)
         return super().default_value(index)
-
+    
     def null_value(self) -> Any:
         return {ndx : delegate.null_value() 
                 for ndx, delegate in self.column_delegates.items()}   
@@ -233,6 +236,8 @@ class MasterDelegate(ColumnDelegate):
 #endregion MasterDelegate speciffic
 
 
+#region Type delegates
+
 class IntDelegate(ColumnDelegate):
 
     def __init__(self, parent=None,
@@ -240,6 +245,7 @@ class IntDelegate(ColumnDelegate):
         super(IntDelegate, self).__init__(parent)
         self.minimum = minimum or -MAX_INT
         self.maximum = maximum or MAX_INT
+        self._default = 0
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QSpinBox(parent)
@@ -259,10 +265,10 @@ class IntDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QSpinBox):
-        editor.setValue(self.defaultelf.default)
+        editor.setValue(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return 0
+        return self._default
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
@@ -283,6 +289,7 @@ class FloatDelegate(ColumnDelegate):
         self.maximum = maximum or sys.float_info.max
         self.edit_precision = edit_precision
         self.display_precision = display_precision
+        self._default = 0
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QDoubleSpinBox(parent)
@@ -309,11 +316,11 @@ class FloatDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QDoubleSpinBox):
-        editor.setValue(self.default)
+        editor.setValue(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return 0
-
+        return self._default
+    
     def null_value(self) -> Any:
         return np.nan
 
@@ -323,6 +330,7 @@ class BoolDelegate(ColumnDelegate):
     def __init__(self, parent=None) -> None:
         super(BoolDelegate, self).__init__(parent)
         self.choices = [True, False]
+        self._default = False
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QComboBox(parent)
@@ -344,14 +352,14 @@ class BoolDelegate(ColumnDelegate):
         return Qt.AlignCenter
 
     def set_default(self, editor: QComboBox):
-        editor.setCurrentIndex(self.default)
+        editor.setCurrentIndex(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return self.choices.index(False)
+        return self.choices.index(self._default)
 
     def to_nullable(self) -> 'NullableColumnDelegate':
         return self
-
+    
     def null_value(self) -> Any:
         return pd.NA
 
@@ -365,6 +373,7 @@ class DateDelegate(ColumnDelegate):
         self.minimum = as_qdate(minimum) if minimum else QDate(1970, 1, 1)
         self.maximum = as_qdate(maximum) if maximum else QDate(9999, 1, 1)
         self.date_format = date_format
+        self._default = QDate.currentDate()
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         logger.debug('createEditor')
@@ -395,10 +404,10 @@ class DateDelegate(ColumnDelegate):
         return Qt.AlignRight | Qt.AlignVCenter
 
     def set_default(self, editor: QDateEdit):
-        editor.setDate(self.default)
+        editor.setDate(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return QDate.currentDate()
+        return self._default
 
     def null_value(self) -> Any:
         return pd.NaT
@@ -408,6 +417,7 @@ class StringDelegate(ColumnDelegate):
 
     def __init__(self, parent=None) -> None:
         super(StringDelegate, self).__init__(parent)
+        self._default = ''
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         editor = QLineEdit(parent)
@@ -421,16 +431,17 @@ class StringDelegate(ColumnDelegate):
         model.setData(index, editor.text())
 
     def set_default(self, editor: QLineEdit):
-        editor.setText(self.default)
+        editor.setText(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return ''
+        return self._default
 
 
 class RichTextDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(RichTextDelegate, self).__init__(parent)
+        self._default = ''
 
     def paint(self, painter, option, index: QModelIndex):
         text = index.model().data(index, Qt.DisplayRole)
@@ -475,10 +486,12 @@ class RichTextDelegate(ColumnDelegate):
         return self
 
     def set_default(self, editor: RichTextLineEdit):
-        editor.setHtml(self.default)
+        editor.setHtml(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
-        return ''
+        return self._default
+
+#endregion Type delegates
 
 
 def automap_delegates(df: DF, nullable=True) -> Dict[Any, ColumnDelegate]:
