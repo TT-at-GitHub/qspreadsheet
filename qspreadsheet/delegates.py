@@ -50,19 +50,24 @@ class ColumnDelegate(QStyledItemDelegate):
     def default_value(self, index: QModelIndex) -> Any:
         return None
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
-        return NullableColumnDelegate(self)
+    def to_nullable(self) -> 'NullableDelegate':
+        return NullableDelegate(self)
 
-    def to_nonnullable(self) -> 'ColumnDelegate':
+    def to_non_nullable(self) -> 'ColumnDelegate':
         return self
 
 
-class NullableColumnDelegate(ColumnDelegate):
+class NullableDelegate(ColumnDelegate):
 
     def __init__(self, column_delegate: ColumnDelegate):
-        super(NullableColumnDelegate, self).__init__(column_delegate.parent())
+        super(NullableDelegate, self).__init__(column_delegate.parent())
         self._delegate = column_delegate
         self.isnull = False
+
+    def __repr__(self) -> str:
+        managed_name = self._delegate.__class__.__name__
+        return '{}[{}] at {}'.format(
+            self.__class__.__name__, managed_name, hex(id(self)))
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
         # logger.debug('createEditor')
@@ -129,10 +134,10 @@ class NullableColumnDelegate(ColumnDelegate):
     def null_value(self) -> Any:
         return self._delegate.null_value()
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
+    def to_nullable(self) -> 'NullableDelegate':
         return self
 
-    def to_nonnullable(self) -> ColumnDelegate:
+    def to_non_nullable(self) -> ColumnDelegate:
         return self._delegate
 
 
@@ -140,27 +145,27 @@ class MasterDelegate(ColumnDelegate):
 
     def __init__(self, parent=None):
         super(MasterDelegate, self).__init__(parent=parent)
-        self.column_delegates: Dict[int, ColumnDelegate] = {}
+        self.delegates: Dict[int, ColumnDelegate] = {}
 
     def add_column_delegate(self, column_index: int, delegate: ColumnDelegate):
         delegate.setParent(self)
-        self.column_delegates[column_index] = delegate
+        self.delegates[column_index] = delegate
 
     def remove_column_delegate(self, column_index: int):
-        delegate = self.column_delegates.pop(column_index, None)
+        delegate = self.delegates.pop(column_index, None)
         if delegate is not None:
             delegate.deleteLater()
             del delegate
 
     def paint(self, painter, option, index):
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.paint(painter, option, index)
         else:
             QStyledItemDelegate.paint(self, painter, option, index)
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.createEditor(parent, option, index)
         else:
@@ -168,73 +173,73 @@ class MasterDelegate(ColumnDelegate):
                                                     index)
 
     def setEditorData(self, editor: QWidget, index: QModelIndex):
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.setEditorData(editor, index)
         else:
             QStyledItemDelegate.setEditorData(self, editor, index)
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             delegate.setModelData(editor, model, index)
         else:
             QStyledItemDelegate.setModelData(self, editor, model, index)
 
     def display_data(self, index: QModelIndex, value: Any) -> str:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.display_data(index, value)
         else:
             return super().display_data(index, value)
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.alignment(index)
         return super().alignment(index)
 
     def background_brush(self, index: QModelIndex) -> QBrush:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.background_brush(index)
         return super().background_brush(index)
 
     def foreground_brush(self, index: QModelIndex) -> QBrush:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.foreground_brush(index)
         return super().foreground_brush(index)
 
     def font(self, index: QModelIndex) -> QFont:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.font(index)
         return super().font(index)
 
     def default_value(self, index: QModelIndex) -> Any:
-        delegate = self.column_delegates.get(index.column())
+        delegate = self.delegates.get(index.column())
         if delegate is not None:
             return delegate.default_value(index)
         return super().default_value(index)
     
     def null_value(self) -> Any:
         return {ndx : delegate.null_value() 
-                for ndx, delegate in self.column_delegates.items()}   
+                for ndx, delegate in self.delegates.items()}   
 
     @property
     def non_nullable_delegates(self):
         return {ndx : delegate
-                for ndx, delegate in self.column_delegates.items()
-                if not isinstance(delegate, NullableColumnDelegate)} 
+                for ndx, delegate in self.delegates.items()
+                if not isinstance(delegate, NullableDelegate)} 
 
     @property
     def nullable_delegates(self):
         return {ndx : delegate
-                for ndx, delegate in self.column_delegates.items()
-                if isinstance(delegate, NullableColumnDelegate)} 
+                for ndx, delegate in self.delegates.items()
+                if isinstance(delegate, NullableDelegate)} 
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
+    def to_nullable(self) -> 'NullableDelegate':
         return self
 #endregion MasterDelegate speciffic
 
@@ -271,9 +276,6 @@ class IntDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
-
-    # def to_nullable(self) -> 'NullableColumnDelegate':
-    #     return self
 
     def null_value(self) -> Any:
         return pd.NA
@@ -344,6 +346,8 @@ class BoolDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: QComboBox, index: QModelIndex):
         value = index.model().data(index, Qt.EditRole)
+        if pd.isnull(value):
+            value = self._default
         editor.setCurrentIndex(self.choices.index(value))
 
     def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):
@@ -359,7 +363,7 @@ class BoolDelegate(ColumnDelegate):
     def default_value(self, index: QModelIndex) -> Any:
         return self.choices.index(self._default)
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
+    def to_nullable(self) -> 'NullableDelegate':
         return self
     
     def null_value(self) -> Any:
@@ -484,7 +488,7 @@ class RichTextDelegate(ColumnDelegate):
     def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.toSimpleHtml())
 
-    def to_nullable(self) -> 'NullableColumnDelegate':
+    def to_nullable(self) -> 'NullableDelegate':
         return self
 
     def set_default(self, editor: RichTextLineEdit):

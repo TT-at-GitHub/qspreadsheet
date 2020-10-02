@@ -1,3 +1,4 @@
+from qspreadsheet.delegates import IntDelegate
 import sys, os
 
 import numpy as np
@@ -62,7 +63,8 @@ print(df)
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df, nullable=True)
-bools = delegates['bools'].to_nonnullable()
+delegates['div'] = IntDelegate().to_nullable()
+bools = delegates['bools'].to_non_nullable()
 delegates['bools'] = bools
 
 table_view = DataFrameView(df=df, delegates=delegates)

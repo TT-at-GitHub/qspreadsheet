@@ -18,11 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def pandas_obj_insert_rows(obj: Union[DF, SER], at_index: int,
-                            new_rows: Union[DF, SER]) -> Union[DF, SER]:
+                           new_rows: Union[DF, SER]) -> Union[DF, SER]:
     above = obj.iloc[0: at_index]
     below = obj.iloc[at_index:]
     below.index = below.index + new_rows.index.size
     obj = pd.concat([above, new_rows, below])
+
+    # This is needed, because during contatenation, pandas is
+    # coercing pd.NA null values to None
+    obj.iloc[new_rows.index] = new_rows    
     return obj
 
 
@@ -35,18 +39,44 @@ def pandas_obj_remove_rows(obj: Union[DF, SER], row: int, count: int) -> Union[D
 
 class _Ndx():
     def __init__(self, size: pd.Index) -> None:
-        all_false = pd.Series(data=False, index=range(size))
-        self.disabled_mask: SER = all_false
-        self.non_nullable_mask: SER = all_false
-        self.in_progress_mask: SER = all_false
-        self.filter_mask: SER = (~all_false)
-        self.is_mutable = True
+        index = range(size)
+        self.filter_mask: SER = pd.Series(data=True, index=index)
+        self.disabled_mask: SER = pd.Series(data=False, index=index)
+        self.non_nullable_mask: SER = pd.Series(data=False, index=index)
+        self.in_progress_df = self._progress_df(index)
+        self.is_mutable = True   
+
+    @property
+    def in_progress_mask(self) -> SER:
+        return self.in_progress_df['in_progress']
+
+    def set_disabled_in_progress(self, index, count: int):
+        self.in_progress_df.loc[index, 'disabled'] = count
+        self._update_in_progress(index)
+
+    def set_non_nullable_in_progress(self, index, count: int):
+        self.in_progress_df.loc[index, 'non_nullable'] = count
+        self._update_in_progress(index)
+
+    def reduce_disabled_in_progress(self, index):
+        self.in_progress_df.loc[index, 'disabled'] -= 1
+        self._update_in_progress(index)
+
+    def reduce_non_nullable_in_progress(self, index):
+        self.in_progress_df.loc[index, 'non_nullable'] -= 1
+        self._update_in_progress(index)
+
+    def _update_in_progress(self, index):
+        self.in_progress_df.loc[index, 'in_progress'] = (
+            self.in_progress_df.loc[index, 'disabled'] +
+            self.in_progress_df.loc[index, 'non_nullable'] > 0)
 
     def insert(self, at_index: int, count: int):
         # set new index as 'not in progress' by default
-        new_rows = pd.Series(data=False, index=range(at_index, at_index + count))
-        self.in_progress_mask = pandas_obj_insert_rows(
-            obj=self.in_progress_mask, at_index=at_index, new_rows=new_rows)
+        index=range(at_index, at_index + count)
+        new_rows = self._progress_df(index)
+        self.in_progress_df = pandas_obj_insert_rows(
+            obj=self.in_progress_df, at_index=at_index, new_rows=new_rows)
 
         # set new index as 'not filtered' by default
         new_rows = pd.Series(data=True, index=range(at_index, at_index + count))
@@ -56,14 +86,29 @@ class _Ndx():
         # set new index as 'not disabled' by default
         new_rows = pd.Series(data=False, index=range(at_index, at_index + count))
         self.disabled_mask = pandas_obj_insert_rows(
-            obj=self.disabled_mask, at_index=at_index, new_rows=new_rows)            
+            obj=self.disabled_mask, at_index=at_index, new_rows=new_rows)   
+
+        new_rows = pd.Series(data=False, index=range(at_index, at_index + count))
+        self.non_nullable_mask = pandas_obj_insert_rows(
+            obj=self.non_nullable_mask, at_index=at_index, new_rows=new_rows)                        
 
     def remove(self, at_index: int, count: int):
-        self.in_progress_mask = pandas_obj_remove_rows(
-            self.in_progress_mask, at_index, count)
+        self.in_progress_df = pandas_obj_remove_rows(
+            self.in_progress_df, at_index, count)
         self.filter_mask = pandas_obj_remove_rows(
             self.filter_mask, at_index, count)
 
+        self.disabled_mask = pandas_obj_remove_rows(
+            self.disabled_mask, at_index, count)
+
+        self.non_nullable_mask = pandas_obj_remove_rows(
+            self.non_nullable_mask, at_index, count)                        
+
+    def _progress_df(self, index) -> DF:
+        '''Default rows for `progress DataFrame`'''
+        return pd.DataFrame(
+            data={'in_progress' : False, 'non_nullable' : 0, 'disabled' : 0}, 
+            index=index)  
 
 class DataFrameModel(QAbstractTableModel):
     
@@ -110,16 +155,17 @@ class DataFrameModel(QAbstractTableModel):
             logger.error('index.row() < 0')
             return None
 
+        value = self.df.iloc[index.row(), index.column()]            
+
         if role == Qt.DisplayRole:
             if index.row() == self.dataRowCount():
                 return ''
-            return self.delegate.display_data(
-                index, self.df.iloc[index.row(), index.column()])
+            return self.delegate.display_data(index, value)
 
         if role == Qt.EditRole:
             if index.row() == self.dataRowCount():
                 return self.delegate.default_value(index)
-            return self.df.iloc[index.row(), index.column()]
+            return value
 
         if role == Qt.TextAlignmentRole:
             return int(self.delegate.alignment(index))
@@ -130,6 +176,14 @@ class DataFrameModel(QAbstractTableModel):
             return QApplication.palette().alternateBase()
 
         if role == Qt.ForegroundRole:
+            if self.row_ndx.in_progress_mask.iloc[index.row()] \
+                    and self.col_ndx.disabled_mask.iloc[index.column()]:
+                return QColor(255, 0, 0)
+            if self.row_ndx.in_progress_mask.iloc[index.row()] \
+                    and self.col_ndx.non_nullable_mask.iloc[index.column()]:
+                if pd.isnull(value):
+                    return QColor(255, 0, 0)
+                
             return self.delegate.foreground_brush(index)
 
         if role == Qt.FontRole:
@@ -144,14 +198,20 @@ class DataFrameModel(QAbstractTableModel):
         # If user has typed in the last row
         if index.row() == self.dataRowCount():
             self.insertRow(self.dataRowCount(), QModelIndex())
-            # self.add_bottom_row()
 
-        old_value = self.df.iloc[index.row(), index.column()]
         self.df.iloc[index.row(), index.column()] = value
 
-        if value != old_value:
-            self.dataChanged.emit(index, index)
+        # update rows in progress
+        if self.row_ndx.in_progress_mask.iloc[index.row()]:
+            if self.col_ndx.disabled_mask.iloc[index.column()]:
+                self.row_ndx.reduce_disabled_in_progress(index.row())
 
+            if self.col_ndx.non_nullable_mask.iloc[index.column()]:
+                value = self.df.iloc[index.row(), index.column()]
+                if not pd.isnull(value):
+                    self.row_ndx.reduce_non_nullable_in_progress(index.row())    
+
+        self.dataChanged.emit(index, index)
         return True
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> Any:
@@ -185,6 +245,7 @@ class DataFrameModel(QAbstractTableModel):
 
         new_rows = self.null_rows(start_index=row, count=count)
         self.df = pandas_obj_insert_rows(self.df, row, new_rows)
+
         self.endInsertRows()
         return True
 
@@ -253,17 +314,8 @@ class DataFrameModel(QAbstractTableModel):
                                 index=range(start_index, start_index + count))
         return nulls_df
 
-    def on_dataChanged(self, first: QModelIndex, last: QModelIndex):
+    def on_dataChanged(self, first: QModelIndex, last: QModelIndex, roles):
         self.is_dirty = True
-
-        # update rows in progress
-        if self.row_ndx.disabled_mask.any():
-            rows = range(first.row(), last.row() + 1)
-            self.update_rows_in_progress(rows)
-
-    def update_rows_in_progress(self, rows: Iterable[int]):
-        if self.row_ndx.in_progress_mask.any() == False:
-            return
 
     def on_rowsInserted(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True
@@ -274,10 +326,14 @@ class DataFrameModel(QAbstractTableModel):
         # If there are disabled columns, all inserted rows
         # gain 'row in progress' status
         if self.col_ndx.disabled_mask.any():
-            self.row_ndx.in_progress_mask.iloc[rows_inserted] = True
+            self.row_ndx.set_disabled_in_progress(
+                rows_inserted, self.col_ndx.disabled_mask.sum())
 
         if self.col_ndx.non_nullable_mask.any():
-            self.row_ndx.in_progress_mask.iloc[rows_inserted] = True
+            self.row_ndx.set_non_nullable_in_progress(
+                rows_inserted, self.col_ndx.non_nullable_mask.sum())
+
+        print(self.row_ndx.in_progress_df)
 
     def on_rowsRemoved(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True

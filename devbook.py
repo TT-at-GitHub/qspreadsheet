@@ -4,14 +4,13 @@ import os, sys
 
 from PySide2.QtWidgets import QApplication
 from numpy.core.fromnumeric import repeat
+from numpy.core.memmap import memmap
 app = QApplication() 
-#In[0]
 
 #In[0]
 from enum import auto
 
-from qspreadsheet.delegates import BoolDelegate, MasterDelegate, NullableColumnDelegate
-from qspreadsheet import automap_delegates, DF, SER
+from qspreadsheet import *
 from datetime import datetime, timedelta, time as dtime
 import time
 from typing import Any, DefaultDict, Dict
@@ -51,6 +50,7 @@ def mock_df():
     return df
 df = mock_df()
 df
+#In[0]
 # df.to_pickle('./.ignore/data/df-nulls.pkl')
 # df.head(n=15)
 #In[0]
@@ -67,11 +67,25 @@ delegates = automap_delegates(df)
 delegate = MasterDelegate()
 for column, column_delegate in delegates.items():
     icolumn = df.columns.get_loc(column)
-    delegate.add_column_delegate(icolumn, column_delegate)
+    delegate.add_column_delegate(column, icolumn, column_delegate)
+col_num = df.columns.get_loc('div')
+delegate.delegates[col_num] = IntDelegate().to_nullable()
+#In[0]
+for d in delegate.delegates.values():
+    print(repr(d))
+    
+
+#In[0]
+repr(delegate.delegates[4])
+
+#In[0]
+delegate.column_delegates
+#In[0]
+
 #In[0]
 # for i in [4, 6]:
 #     dlg = delegate.column_delegates[i]
-#     dlg = dlg.to_nonnullable()
+#     dlg = dlg.to_non_nullable()
 #     delegate.column_delegates[i] = dlg
 #In[0]
 is_column_editable = pd.Series(index=df.columns, data=True)
@@ -99,27 +113,28 @@ display(nullable_column_indices)
 print('non_nullable_columns_indices:')
 display(non_nullable_column_indices)
 #In[0]
-row = 0
+row = df.index.size
 count = 1
 rows_in_progress = pd.Series(
             index=df.index, data=False)
-display(rows_in_progress)
 row, count
 #In[0]
 new_rows = null_rows(df, delegate, row, count)
+new_rows
+#In[0]
 df_up = df.iloc[0 : row]
 df_down = df.iloc[row :]
 df_down.index = df_down.index + 1
 df = pd.concat([df_up, new_rows, df_down])
-df
-rows_in_progress = pd.Series(data=False, index=df.index)
 
-display(df)
-display(rows_in_progress)
+#In[0]
+rows_inserted = list(range(row , row + count))
+df.iloc[new_rows.index] = new_rows
+df
+#In[0]
 #In[0]
 # Get data changed loc from first/second index
 first, last = row, row + count - 1 # (row, 0), (row + count - 1, df.columns.size - 1)
-rows_inserted = list(range(first , last + 1))
 
 # data_changed = df.iloc[first[0] : last[0] + 1, first[1] : last[1] + 1]
 rows_inserted_df = df.iloc[rows_inserted]
@@ -145,3 +160,5 @@ ddf.columns.get_indexer_for(ddf.columns.unique())
 #In[0]
 # All progress rows in data changed, with all non-null values or with null
 # values only in nullable columns, loose the 'row in progress' status
+#In[0]
+

@@ -1,6 +1,6 @@
 # TODO: 
 
-- Recognize completion of rows in progress
+v - Recognize completion of rows in progress
 
 - Redesign filters - especially FilterListWidget
 
