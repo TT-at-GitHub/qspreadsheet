@@ -84,9 +84,10 @@ class DataFrameView(QTableView):
                           pos.y() + menu.height() + 20)
         menu.exec_(menu_pos)
 
-    def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], editable: bool) -> None:
+    def set_columns_edit_state(self, columns: Iterable[Any], editable: bool) -> None:
         logger.warning('changed API, update this function!')
-        self._model.editable_columns.loc[columns] = editable
+        column_indices = self._model.col_ndx.pd_ndx.get_indexer(columns)
+        self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         icolumn = self.df.columns.get_loc(column)

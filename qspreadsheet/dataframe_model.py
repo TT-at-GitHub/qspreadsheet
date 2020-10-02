@@ -89,7 +89,7 @@ class DataFrameModel(QAbstractTableModel):
         return self.row_ndx.in_progress_mask.sum()
 
     def dataRowCount(self) -> int:
-        return self.df.shape[0] - self.rows_mutable
+        return self.df.shape[0] - 1 if self.row_ndx.is_mutable else 0
 
     def commitRowCount(self) -> int:
         return self.dataRowCount() - self.progressRowCount()
@@ -139,7 +139,8 @@ class DataFrameModel(QAbstractTableModel):
 
         # If user has typed in the last row
         if index.row() == self.dataRowCount():
-            self.add_bottom_row()
+            self.insertRow(self.dataRowCount(), QModelIndex())
+            # self.add_bottom_row()
 
         old_value = self.df.iloc[index.row(), index.column()]
         self.df.iloc[index.row(), index.column()] = value
@@ -161,7 +162,7 @@ class DataFrameModel(QAbstractTableModel):
                     return '*'
                 return str(self.df.index[section])
             if role == Qt.ForegroundRole:
-                if self.row_ndx.in_progress_mask.loc[section]:
+                if self.row_ndx.in_progress_mask.iloc[section]:
                     return QColor(255, 0, 0)
                 return None
             return None
@@ -201,15 +202,13 @@ class DataFrameModel(QAbstractTableModel):
             return Qt.ItemIsEnabled
         flag = QAbstractTableModel.flags(self, index)
 
-        # logger.debug(index.row())
-
-        if self.rows_mutable:
+        if self.row_ndx.is_mutable:
             if index.row() == self.dataRowCount():
                 flag |= Qt.ItemIsEditable
-            elif self.row_ndx.in_progress_mask.loc[index.row()]:
+            elif self.row_ndx.in_progress_mask.iloc[index.row()]:
                 flag |= Qt.ItemIsEditable
 
-        if self.editable_columns.iloc[index.column()]:
+        if not self.col_ndx.disabled_mask.iloc[index.column()]:
             flag |= Qt.ItemIsEditable
         return flag
 
@@ -237,9 +236,10 @@ class DataFrameModel(QAbstractTableModel):
             self.removeRow(self.dataRowCount(), QModelIndex())
 
     def add_bottom_row(self):
-        bottom_row = self.null_rows(start_index=self.df.index.size, count=1)
+        at_index = self.df.index.size
+        bottom_row = self.null_rows(start_index=at_index, count=1)
         self.df = self.df.append(bottom_row)
-        self.row_ndx.insert(self.df.size, 1)
+        self.row_ndx.insert(at_index, 1)
 
     def null_rows(self, start_index: int, count: int) -> DF:
         nulls_row: Dict[int, Any] = self.delegate.null_value()
@@ -254,12 +254,12 @@ class DataFrameModel(QAbstractTableModel):
         self.is_dirty = True
 
         # update rows in progress
-        if (self.editable_columns == False).any():
+        if self.row_ndx.disabled_mask.any():
             rows = range(first.row(), last.row() + 1)
             self.update_rows_in_progress(rows)
 
     def update_rows_in_progress(self, rows: Iterable[int]):
-        if self.row_ndx.in_progress_mask.loc[rows].size == 0:
+        if self.row_ndx.in_progress_mask.any() == False:
             return
 
     def on_rowsInserted(self, parent: QModelIndex, first: int, last: int):

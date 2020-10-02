@@ -32,11 +32,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     @property
     def accepted_mask(self):
-        return self._parent.filter_mask
+        return self._parent.row_ndx.filter_mask
 
     @accepted_mask.setter
     def accepted_mask(self, mask):
-        self._parent.filter_mask = mask
+        self._parent.row_ndx.filter_mask = mask
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         if source_row < self.accepted_mask.size:

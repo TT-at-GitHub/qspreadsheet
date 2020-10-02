@@ -378,7 +378,7 @@ class DateDelegate(ColumnDelegate):
         self._default = QDate.currentDate()
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        logger.debug('createEditor')
+        # logger.debug('createEditor')
         editor = QDateEdit(parent)
         editor.setDateRange(self.minimum, self.maximum)
         editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -387,13 +387,13 @@ class DateDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QDateEdit, index: QModelIndex):
-        logger.debug('setEditorData')
+        # logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
         value = as_qdate(model_value)
         editor.setDate(value)
 
     def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
-        logger.debug('setModelData')
+        # logger.debug('setModelData')
         model.setData(index, pd.to_datetime(editor.date().toPython()))
 
     def display_data(self, index: QModelIndex, value: pd.Timestamp) -> Any:
