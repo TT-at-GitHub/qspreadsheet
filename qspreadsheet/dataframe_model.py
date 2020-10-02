@@ -34,9 +34,8 @@ def pandas_obj_remove_rows(obj: Union[DF, SER], row: int, count: int) -> Union[D
 
 
 class _Ndx():
-    def __init__(self, pd_ndx: pd.Index) -> None:
-        self.pd_ndx = pd_ndx
-        all_false = pd.Series(data=False, index=range(self.pd_ndx.size))
+    def __init__(self, size: pd.Index) -> None:
+        all_false = pd.Series(data=False, index=range(size))
         self.disabled_mask: SER = all_false
         self.non_nullable_mask: SER = all_false
         self.in_progress_mask: SER = all_false
@@ -44,15 +43,20 @@ class _Ndx():
         self.is_mutable = True
 
     def insert(self, at_index: int, count: int):
-        # set new row as 'not in progress' by default
+        # set new index as 'not in progress' by default
         new_rows = pd.Series(data=False, index=range(at_index, at_index + count))
         self.in_progress_mask = pandas_obj_insert_rows(
             obj=self.in_progress_mask, at_index=at_index, new_rows=new_rows)
 
-        # set new at_index as 'not filtered' by default
+        # set new index as 'not filtered' by default
         new_rows = pd.Series(data=True, index=range(at_index, at_index + count))
         self.filter_mask = pandas_obj_insert_rows(
             obj=self.filter_mask, at_index=at_index, new_rows=new_rows)
+
+        # set new index as 'not disabled' by default
+        new_rows = pd.Series(data=False, index=range(at_index, at_index + count))
+        self.disabled_mask = pandas_obj_insert_rows(
+            obj=self.disabled_mask, at_index=at_index, new_rows=new_rows)            
 
     def remove(self, at_index: int, count: int):
         self.in_progress_mask = pandas_obj_remove_rows(
@@ -68,8 +72,8 @@ class DataFrameModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent=parent)
         self.delegate = delegate
         self.df = df.copy()
-        self.row_ndx = _Ndx(self.df.index)
-        self.col_ndx = _Ndx(self.df.columns)
+        self.row_ndx = _Ndx(self.df.index.size)
+        self.col_ndx = _Ndx(self.df.columns.size)
         self.add_bottom_row()
 
         non_nullables = list(self.delegate.non_nullable_delegates.keys())
@@ -181,7 +185,6 @@ class DataFrameModel(QAbstractTableModel):
 
         new_rows = self.null_rows(start_index=row, count=count)
         self.df = pandas_obj_insert_rows(self.df, row, new_rows)
-        self.row_ndx.insert(row, count)
         self.endInsertRows()
         return True
 
@@ -264,19 +267,19 @@ class DataFrameModel(QAbstractTableModel):
 
     def on_rowsInserted(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True
-        self.row_ndx.insert(first, last - first)
+        self.row_ndx.insert(at_index=first, count=last - first + 1)
 
         rows_inserted = list(range(first , last + 1))
         
         # If there are disabled columns, all inserted rows
         # gain 'row in progress' status
-        if self.row_ndx.disabled_mask.any():
+        if self.col_ndx.disabled_mask.any():
             self.row_ndx.in_progress_mask.iloc[rows_inserted] = True
 
-        if self.row_ndx.non_nullable_mask.any():
+        if self.col_ndx.non_nullable_mask.any():
             self.row_ndx.in_progress_mask.iloc[rows_inserted] = True
 
     def on_rowsRemoved(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True
-        self.row_ndx.remove(first, last - first)
+        self.row_ndx.remove(at_index=first, count=last - first + 1)
 

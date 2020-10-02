@@ -86,7 +86,7 @@ class DataFrameView(QTableView):
 
     def set_columns_edit_state(self, columns: Iterable[Any], editable: bool) -> None:
         logger.warning('changed API, update this function!')
-        column_indices = self._model.col_ndx.pd_ndx.get_indexer(columns)
+        column_indices = self._model.df.columns.get_indexer(columns)
         self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
