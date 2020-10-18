@@ -69,7 +69,7 @@ delegates['bools'] = bools
 
 table_view = DataFrameView(df=df, delegates=delegates)
 table_view.set_columns_edit_state(df.columns.tolist(), True)
-table_view.set_columns_edit_state(['div'], False)
+table_view.set_columns_edit_state('div', False)
 
 
 window = MainWindow(table_view=table_view)

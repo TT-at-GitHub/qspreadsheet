@@ -30,6 +30,22 @@ logger = logging.getLogger(__name__)
 
 
 class DataFrameView(QTableView):
+    '''`QTableView` to display and edit `pandas.DataFrame`
+
+        Parameters
+        ----------
+
+        df : `pandas.DataFrame`. The data frame to manage
+        
+        delegates : [ Mapping[column, ColumnDelegate] ].  Default is 'None'.
+
+        Column delegates used to display and edit the data. 
+
+        If no delegates are provided, `automap_delegates(df, nullable=True)` is used
+        to guess the delegates, based on the column type.
+
+        parent : [ QWidget ].  Default is 'None'. Parent for this view.
+    '''
 
     def __init__(self, df: DF, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
@@ -84,17 +100,35 @@ class DataFrameView(QTableView):
                           pos.y() + menu.height() + 20)
         menu.exec_(menu_pos)
 
-    def set_columns_edit_state(self, columns: Iterable[Any], editable: bool) -> None:
-        # logger.warning('changed API, update this function!')
+    def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], editable: bool) -> None:
+        '''Enables/disables column's edit state.
+            NOTE: By default all columns are editable
+
+            Paramenters
+            -----------
+            columns : column or list-like. Columns to enable/disable
+
+            editable : bool. Edit state for the columns
+        '''
+        columns = self.df_model.df.loc[columns].columns
         column_indices = self._model.df.columns.get_indexer(columns)
         self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
+        '''Sets the column delegate for single column
+        
+            Paramenters
+            -----------
+            columns : Any. Column to set delegate for
+
+            editable : ColumnDelegate. The delegate for the column
+        '''
         icolumn = self.df.columns.get_loc(column)
         self._main_delegate.add_column_delegate(icolumn, delegate)
 
     def _set_column_delegates_for_df(self, delegates: Mapping[Any, ColumnDelegate], df: DF):
-        '''used to avoid circular reference, when calling self.df'''
+        '''(Private) Used to avoid circular reference, when calling self.df
+        '''
         current = self.itemDelegate()
         if current is not None:
             current.deleteLater()
@@ -107,6 +141,12 @@ class DataFrameView(QTableView):
         del current        
 
     def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
+        '''Sets the column delegates for multiple columns
+        
+            Paramenters
+            -----------
+            delegates : Mapping[column, ColumnDelegate]. Dict-like, with column name and delegates
+        '''        
         self._set_column_delegates_for_df(delegates, self._model.df)
 
     def set_column_widths(self):
@@ -117,6 +157,12 @@ class DataFrameView(QTableView):
 
     @property
     def df_model(self):
+        '''Returns the model for this view
+
+            Returns
+            -------
+            `DataFrameModel`
+        '''
         return self._model
 
     @property

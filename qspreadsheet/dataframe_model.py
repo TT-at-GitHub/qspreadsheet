@@ -38,12 +38,13 @@ def pandas_obj_remove_rows(obj: Union[DF, SER], row: int, count: int) -> Union[D
 
 
 class _Ndx():
+    
     def __init__(self, size: pd.Index) -> None:
         index = range(size)
         self.filter_mask: SER = pd.Series(data=True, index=index)
         self.disabled_mask: SER = pd.Series(data=False, index=index)
         self.non_nullable_mask: SER = pd.Series(data=False, index=index)
-        self.in_progress_df = self._progress_df(index)
+        self.in_progress_df = self.default_progress_df(index)
         self.is_mutable = True   
 
     @property
@@ -74,7 +75,7 @@ class _Ndx():
     def insert(self, at_index: int, count: int):
         # set new index as 'not in progress' by default
         index=range(at_index, at_index + count)
-        new_rows = self._progress_df(index)
+        new_rows = self.default_progress_df(index)
         self.in_progress_df = pandas_obj_insert_rows(
             obj=self.in_progress_df, at_index=at_index, new_rows=new_rows)
 
@@ -104,11 +105,13 @@ class _Ndx():
         self.non_nullable_mask = pandas_obj_remove_rows(
             self.non_nullable_mask, at_index, count)                        
 
-    def _progress_df(self, index) -> DF:
-        '''Default rows for `progress DataFrame`'''
+    @staticmethod
+    def default_progress_df(index) -> DF:
+        '''Default rows for 'progress' `DataFrame`'''
         return pd.DataFrame(
             data={'in_progress' : False, 'non_nullable' : 0, 'disabled' : 0}, 
             index=index)  
+
 
 class DataFrameModel(QAbstractTableModel):
     
