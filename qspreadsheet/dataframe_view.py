@@ -24,7 +24,7 @@ from qspreadsheet.header_view import HeaderView
 from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
-from qspreadsheet.common import DF
+from qspreadsheet.common import DF, is_iterable
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +110,18 @@ class DataFrameView(QTableView):
 
             editable : bool. Edit state for the columns
         '''
-        columns = self.df_model.df.loc[columns].columns
-        column_indices = self._model.df.columns.get_indexer(columns)
+        
+        if not is_iterable(columns):
+            columns = [columns]
+
+        missing = [column for column in columns 
+                   if column not in self.df.columns]
+        if missing:
+            plural = 's' if len(missing) > 1 else ''
+            raise ValueError('Missing column{}: `{}`.'.format(
+                plural, '`, `'.join(missing)))
+
+        column_indices  = self._model.df.columns.get_indexer(columns)
         self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
@@ -237,7 +247,8 @@ class DataFrameView(QTableView):
         str_filter.textChanged.connect(self.proxy.string_filter)
         menu.addAction(str_filter)
 
-        list_filter = FilterListMenuWidget(self, menu, col_ndx)
+        column = self.df.iloc[:, col_ndx]
+        list_filter = FilterListMenuWidget(self, menu, column, self.proxy.accepted_mask)
         menu.addAction(list_filter)
         menu.addAction(self._standard_icon('DialogResetButton'),
                        "Clear Filter",

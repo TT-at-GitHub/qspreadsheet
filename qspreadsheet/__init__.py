@@ -10,6 +10,6 @@ from .common import *
 from .custom_widgets import *
 from .sort_filter_proxy import *
 from .delegates import *
-from.header_view import *
+from .header_view import *
 from .dataframe_model import *
 from .dataframe_view import *

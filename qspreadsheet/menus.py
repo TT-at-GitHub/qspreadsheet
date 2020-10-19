@@ -11,7 +11,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from qspreadsheet.custom_widgets import LabeledLineEdit
-from qspreadsheet import LEFT
+from qspreadsheet.common import SER, LEFT
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class LineEditMenuAction(QWidgetAction):
 class FilterListMenuWidget(QWidgetAction):
     '''Checkboxed list filter menu'''
 
-    def __init__(self, parent, menu: QMenu, col_ndx: int) -> None:
+    def __init__(self, parent, menu: QMenu, column: SER, column_mask: SER) -> None:
         '''Checkbox list filter menu
 
             Arguments
@@ -54,7 +54,8 @@ class FilterListMenuWidget(QWidgetAction):
 
         # State
         self.menu = menu
-        self.col_ndx = col_ndx
+        self.column = column
+        self.column_mask = column_mask
 
         # Build Widgets
         widget = QWidget()
@@ -74,52 +75,41 @@ class FilterListMenuWidget(QWidgetAction):
 
         # Signals/slots
         self.list.itemChanged.connect(self.on_listitem_changed)
-        self.parent().proxy.layoutChanged.connect(self.populate_list)
-        self.populate_list(initial=True)
+        # self.parent().proxy.layoutChanged.connect(self.populate_list)
+        self.populate_list()
 
-    def populate_list(self, initial=False):
+    def populate_list(self):
+        logger.debug('populate_list()')
+
         self.list.clear()
-        
-        df = self.parent().df
-        mask = self.parent().proxy.accepted_mask
-        col = df.columns[self.col_ndx]
-        full_col = df[col]
-        disp_col = df.loc[mask, col]
-        
-        def _build_item(val, state=None) -> QListWidgetItem:
-            item = QListWidgetItem(str(val))
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            if state is None:
-                if val in disp_col.values:
-                    state = Qt.Checked
-                else:
-                    state = Qt.Unchecked
-            item.setCheckState(state)
-            return item
 
+        visible = self.column.loc[self.column_mask]
+        
         # Add a (Select All)
-        if mask.all():
+        if self.column_mask.all():
             select_all_state = Qt.Checked
         else:
             select_all_state = Qt.Unchecked
 
-        self._action_select_all = _build_item(
-            '(Select All)', state=select_all_state)
-        self.list.addItem(self._action_select_all)
+        item = QListWidgetItem('(Select All)')
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(select_all_state)
+        self.list.addItem(item)
+        self._action_select_all = item
 
-        # Add filter items
-        if initial:
-            unq_list = full_col.unique()
-        else:
-            unq_list = disp_col.unique()
-            
+        # Add filter items       
+        unique = visible.drop_duplicates()
         try:
-            unq_list = np.sort(unq_list)
+            unique.sort_values()
         except:
             pass
-        
-        for val in unq_list:
-            self.list.addItem(_build_item(val))
+
+        for ndx, val in unique.items():
+            state = Qt.Checked if self.column_mask.iloc[ndx] else Qt.Unchecked
+            item = QListWidgetItem(str(val))
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(state)            
+            self.list.addItem(item)
 
     def on_listitem_changed(self, item: QListWidgetItem):
 

@@ -1,4 +1,3 @@
-from qspreadsheet.delegates import IntDelegate
 import sys, os
 
 import numpy as np
@@ -9,8 +8,8 @@ from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 
 from fx import fx
-from qspreadsheet import DataFrameView, automap_delegates
-
+from qspreadsheet import DataFrameView, automap_delegates, IntDelegate
+from qspreadsheet import resources_rc
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -58,7 +57,7 @@ class MainWindow(QMainWindow):
 app = QApplication(sys.argv)
 
 df = mock_df()
-print(df)
+# print(df)
 
 pd.options.display.precision = 4
 
