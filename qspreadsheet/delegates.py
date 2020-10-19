@@ -11,7 +11,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet import DF, MAX_INT
+from qspreadsheet import DF, MAX_INT, MAX_FLOAT
 from qspreadsheet.custom_widgets import RichTextLineEdit
 
 
@@ -289,20 +289,23 @@ class FloatDelegate(ColumnDelegate):
                  edit_precision: int = 4,
                  display_precision: int = 2):
         super(FloatDelegate, self).__init__(parent)
-        self.minimum = minimum or sys.float_info.min
-        self.maximum = maximum or sys.float_info.max
+        self.minimum = minimum or -MAX_FLOAT
+        self.maximum = maximum or MAX_FLOAT
         self.edit_precision = edit_precision
         self.display_precision = display_precision
         self._default = 0
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
+        logger.debug('createEditor()')
         editor = QDoubleSpinBox(parent)
         editor.setRange(self.minimum, self.maximum)
         editor.setDecimals(self.edit_precision)
+        editor.setSingleStep(0.1)
         editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         return editor
 
     def setEditorData(self, editor: QDoubleSpinBox, index: QModelIndex):
+        logger.debug('setEditorData()')
         value = index.model().data(index, Qt.EditRole)
         editor.setValue(value)
 

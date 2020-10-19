@@ -1,11 +1,13 @@
 # dev_data.py
 #In[0]
 import os, sys
-
+import random
+import string
 from PySide2.QtWidgets import QApplication
+from PySide2 import QtWidgets, QtCore, QtGui
 from numpy.core.fromnumeric import repeat
 from numpy.core.memmap import memmap
-app = QApplication() 
+# app = QApplication() 
 
 #In[0]
 from enum import auto
@@ -24,6 +26,9 @@ from IPython.display import display
 pd.options.display.max_rows = 10
 pd.options.display.max_columns = 15
 pd.options.display.float_format = '{:,.2f}'.format
+
+def rnd_txt(num_letters): return "".join(
+    [random.choice(string.ascii_letters[:26]) for i in range(num_letters)])
 
 def mock_df():
     area = pd.Series({0: 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
@@ -58,8 +63,18 @@ unq_list.sort_values()
 for ndx, val in unq_list.items():
     print(ndx, val)
 #In[0]
-df = pd.DataFrame(np.random.randn(10000,20))
-df['B'] = 'foo'
+num_rows = 10000
+df = pd.DataFrame(np.random.randn(num_rows,20))
+rand_lines = [rnd_txt(3) for i in range(num_rows)]
+df['B'] = rand_lines
 df['C'] = pd.Timestamp('20130101')
 df
 #In[0]
+df['B'].nunique(), df['B'].size
+#In[0]
+df.to_pickle('.ignore/data/10000rows.pkl')
+#In[0]
+pd.read_pickle('.ignore/data/10000rows.pkl')
+
+#In[0]
+sys.float_info

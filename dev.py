@@ -56,19 +56,21 @@ class MainWindow(QMainWindow):
 
 app = QApplication(sys.argv)
 
-df = mock_df()
+# df = mock_df()
+df = pd.read_pickle('.ignore/data/10000rows.pkl')
 # print(df)
 
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df, nullable=True)
-delegates['div'] = IntDelegate().to_nullable()
-bools = delegates['bools'].to_non_nullable()
-delegates['bools'] = bools
+# delegates['div'] = IntDelegate().to_nullable()
+# bools = delegates['bools'].to_non_nullable()
+# delegates['bools'] = bools
 
 table_view = DataFrameView(df=df, delegates=delegates)
 table_view.set_columns_edit_state(df.columns.tolist(), True)
-table_view.set_columns_edit_state('div', False)
+# table_view.set_columns_edit_state('div', False)
+table_view.set_columns_edit_state('C', False)
 
 
 window = MainWindow(table_view=table_view)

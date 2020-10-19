@@ -16,7 +16,7 @@ class HeaderWidget(QWidget):
 
     def __init__(self, labelText='', margins: Optional[QMargins] = None, parent=None):
         super(HeaderWidget, self).__init__(parent)
-        self._text = labelText
+        self._text = str(labelText)
         self.label = QLabel()
         self.button = QPushButton('')
         self.margins = margins or QMargins(2, 2, 2, 2)
@@ -31,7 +31,7 @@ class HeaderWidget(QWidget):
         layout.setContentsMargins(QMargins(2, 1, 2, 1))
         self.setLayout(layout)
 
-    def text(self):
+    def text(self) -> str:
         return self._text
 
     def _setup_label(self):
