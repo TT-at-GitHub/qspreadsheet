@@ -26,8 +26,28 @@ class MainWindow(QMainWindow):
         h_layout.addWidget(table_view)
 
         self.setCentralWidget(central_widget)
-        self.setMinimumSize(QSize(960, 640))
+        self.load_window_settings()
         self.setWindowTitle("Table View")
+
+    def closeEvent(self, event: QCloseEvent):
+        self.save_window_settings()
+        event.accept()
+
+    def save_window_settings(self):
+        settings = QSettings(QSettings.IniFormat, QSettings.UserScope, 
+                             'TT', 'qspreadsheet')
+        settings.beginGroup('MainWindow')
+        settings.setValue('size', self.size())
+        settings.setValue('pos', self.pos())
+        settings.endGroup()
+
+    def load_window_settings(self):
+        settings = QSettings(QSettings.IniFormat, QSettings.UserScope, 
+                             'TT', 'qspreadsheet')
+        settings.beginGroup('MainWindow')
+        self.resize(QSize(settings.value('size', QSize(960, 640))))
+        self.move(QPoint(settings.value('pos', QPoint(200, 200))))
+        settings.endGroup()
 
 app = QApplication(sys.argv)
 
