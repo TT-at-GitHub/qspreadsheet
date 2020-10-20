@@ -32,7 +32,7 @@ class LineEditMenuAction(QWidgetAction):
 class FilterListMenuWidget(QWidgetAction):
     '''Checkboxed list filter menu'''
 
-    def __init__(self, parent, menu: QMenu, column: SER, column_mask: SER) -> None:
+    def __init__(self, parent, menu: QMenu) -> None:
         '''Checkbox list filter menu
 
             Arguments
@@ -43,24 +43,15 @@ class FilterListMenuWidget(QWidgetAction):
             
             menu: (QMenu)
                 Menu object this list is located on
-            
-            col_ndx: (int)
-                Column index to filter
-            
-            label: (str)
-                Label in popup menu
         '''
         super(FilterListMenuWidget, self).__init__(parent)
-
-        # State
-        self.menu = menu
-        self.column = column
-        self.column_mask = column_mask
-
+        
         # Build Widgets
         widget = QWidget()
         layout = QVBoxLayout()
+        self._items : List[QListWidgetItem] = []
         self.list = QListWidget()
+        
         self.list.setStyleSheet('''
             QListView::item:selected {
                 background: rgb(195, 225, 250);
@@ -77,18 +68,13 @@ class FilterListMenuWidget(QWidgetAction):
 
         # Signals/slots
         self.list.itemChanged.connect(self.on_listitem_changed)
-        # self.parent().proxy.layoutChanged.connect(self.populate_list)
-        self.populate_list()
 
-    def populate_list(self):
-        logger.debug('populate_list()')
 
-        self.list.clear()
-
-        visible = self.column.loc[self.column_mask]
+    def populate_labels(self, column: SER, mask: SER):
+        visible = column.loc[mask]
         
         # Add a (Select All)
-        if self.column_mask.all():
+        if mask.all():
             select_all_state = Qt.Checked
         else:
             select_all_state = Qt.Unchecked
@@ -107,12 +93,26 @@ class FilterListMenuWidget(QWidgetAction):
             pass
 
         for ndx, val in unique.items():
-            state = Qt.Checked if self.column_mask.iloc[ndx] else Qt.Unchecked
+            state = Qt.Checked if mask.iloc[ndx] else Qt.Unchecked
             item = QListWidgetItem(str(val))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(state)            
+            item.setCheckState(state)
+            self._items.append(item)
+
+    def populate_list(self, initial: bool, **kwargs):
+
+        limit = self._items.count()
+        
+        if initial:
+            self.list.clear()
+            limit = 1000
+
+        for ndx, item in enumerate(self._items):
             self.list.addItem(item)
 
+            if ndx >= limit:
+                break
+            
     def on_listitem_changed(self, item: QListWidgetItem):
 
         self.list.blockSignals(True)
@@ -152,10 +152,3 @@ class FilterListMenuWidget(QWidgetAction):
             if itm.checkState() == Qt.Checked:
                 checked.append(itm.text())
         return checked
-
-    def apply_and_close(self):
-        self.parent().blockSignals(True)
-        self.parent().proxy.list_filter(self.checked_values())
-        self.parent().blockSignals(False)
-        self.menu.close()
-

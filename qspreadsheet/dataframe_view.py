@@ -6,7 +6,7 @@ from functools import partial
 from itertools import groupby, count
 from types import TracebackType
 from typing import (Any, Iterable, List, Mapping, Optional,
-                    Tuple, Type, Union)
+                    Tuple, Type, Union, cast)
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
 from qspreadsheet.common import DF, is_iterable
+import fx
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,10 @@ class DataFrameView(QTableView):
         ----------
 
         df : `pandas.DataFrame`. The data frame to manage
-        
+
         delegates : [ Mapping[column, ColumnDelegate] ].  Default is 'None'.
 
-        Column delegates used to display and edit the data. 
+        Column delegates used to display and edit the data.
 
         If no delegates are provided, `automap_delegates(df, nullable=True)` is used
         to guess the delegates, based on the column type.
@@ -59,7 +60,7 @@ class DataFrameView(QTableView):
         self._main_delegate = MasterDelegate(self)
         column_delegates = delegates or automap_delegates(df, nullable=True)
         self._set_column_delegates_for_df(column_delegates, df)
-        
+
         self._model = DataFrameModel(df=df, header_model=self.header_model,
                                      delegate=self._main_delegate, parent=self)
 
@@ -70,6 +71,7 @@ class DataFrameView(QTableView):
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
+        self.active_col_ndx = 0
 
     def sizeHint(self) -> QSize:
         width = 0
@@ -110,11 +112,11 @@ class DataFrameView(QTableView):
 
             editable : bool. Edit state for the columns
         '''
-        
+
         if not is_iterable(columns):
             columns = [columns]
 
-        missing = [column for column in columns 
+        missing = [column for column in columns
                    if column not in self.df.columns]
         if missing:
             plural = 's' if len(missing) > 1 else ''
@@ -126,7 +128,7 @@ class DataFrameView(QTableView):
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         '''Sets the column delegate for single column
-        
+
             Paramenters
             -----------
             columns : Any. Column to set delegate for
@@ -148,15 +150,15 @@ class DataFrameView(QTableView):
             self._main_delegate.add_column_delegate(icolumn, column_delegate)
 
         self.setItemDelegate(self._main_delegate)
-        del current        
+        del current
 
     def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
         '''Sets the column delegates for multiple columns
-        
+
             Paramenters
             -----------
             delegates : Mapping[column, ColumnDelegate]. Dict-like, with column name and delegates
-        '''        
+        '''
         self._set_column_delegates_for_df(delegates, self._model.df)
 
     def set_column_widths(self):
@@ -185,16 +187,19 @@ class DataFrameView(QTableView):
         self._model.df = df
 
     def filter_clicked(self, name: str):
-        btn = self.header_model.filter_btn_mapper.mapping(name)
 
-        col_ndx = self.df.columns.get_loc(name)
-        self.proxy.setFilterKeyColumn(col_ndx)
+        btn = self.header_model.filter_btn_mapper.mapping(name)
+        self.active_col_ndx = self.df.columns.get_loc(name)
 
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(btn.parent().pos())
-        menu = self.make_header_menu(col_ndx)
+
+        # with fx.timethis(' >>>    make_header_menu'):
+        menu = self.make_header_menu()
+
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
-                          header_pos.y() + btn.height() + 15)
+                        header_pos.y() + btn.height() + 15)
+
         menu.exec_(menu_pos)
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
@@ -203,7 +208,7 @@ class DataFrameView(QTableView):
 
         # By Value Filter
         def _quick_filter(cell_val):
-            self.proxy.setFilterKeyColumn(col_ndx)
+            # self.proxy.setFilterKeyColumn(col_ndx)
             self.proxy.string_filter(str(cell_val))
 
         menu.addAction(self._standard_icon('CommandLink'),
@@ -228,7 +233,7 @@ class DataFrameView(QTableView):
                        partial(self.insert_rows, 'below'))
         menu.addSeparator()
         menu.addAction("Deleted Selected Rows",
-                       self.remove_rows)                       
+                       self.remove_rows)
         menu.addSeparator()
 
         # Open in Excel
@@ -236,7 +241,7 @@ class DataFrameView(QTableView):
 
         return menu
 
-    def make_header_menu(self, col_ndx: int) -> QMenu:
+    def make_header_menu(self) -> QMenu:
         '''Create popup menu used for header'''
 
         menu = QMenu(self)
@@ -247,9 +252,27 @@ class DataFrameView(QTableView):
         str_filter.textChanged.connect(self.proxy.string_filter)
         menu.addAction(str_filter)
 
-        column = self.df.iloc[:, col_ndx]
-        list_filter = FilterListMenuWidget(self, menu, column, self.proxy.accepted_mask)
-        menu.addAction(list_filter)
+        self.list_filter = FilterListMenuWidget(self, menu)
+        self.list_filter.populate_labels(
+            self.df.iloc[:, self.active_col_ndx],
+            self.proxy.accepted)
+            
+        if self.df.index.size >= 1000:
+            def _refill_list():
+                worker = Worker(
+                    self.list_filter.populate_list,
+                    self.df.iloc[1000:, self.active_col_ndx],
+                    self.proxy.accepted.iloc[1000:],
+                    False)
+                worker.signals.error.connect(self.on_error)
+
+                tp = QThreadPool(self)
+                # worker.run()
+                tp.start(worker)            
+            menu.aboutToShow.connect(_refill_list)
+
+
+        menu.addAction(self.list_filter)
         menu.addAction(self._standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
@@ -257,19 +280,19 @@ class DataFrameView(QTableView):
         # Sort Ascending/Decending Menu Action
         menu.addAction(self._standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
-                       partial(self.proxy.sort, col_ndx, Qt.AscendingOrder))
+                       partial(self.proxy.sort, self.active_col_ndx, Qt.AscendingOrder))
         menu.addAction(self._standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
-                       partial(self.proxy.sort, col_ndx, Qt.DescendingOrder))
+                       partial(self.proxy.sort, self.active_col_ndx, Qt.DescendingOrder))
 
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide Column", partial(self.hideColumn, col_ndx))
+        menu.addAction("Hide Column", partial(self.hideColumn, self.active_col_ndx))
 
         # Unhide column to left and right
         for i in (-1, 1):
-            ndx = col_ndx + i
+            ndx = self.active_col_ndx + i
             if self.isColumnHidden(ndx):
                 menu.addAction(f'Unhide {self.df.columns[ndx]}',
                                partial(self.showColumn, ndx))
@@ -287,7 +310,7 @@ class DataFrameView(QTableView):
 
         # Filter Button box
         action_btn_box = ActionButtonBox(menu)
-        action_btn_box.accepted.connect(list_filter.apply_and_close)
+        action_btn_box.accepted.connect(self.apply_and_close)
         action_btn_box.rejected.connect(menu.close)
         menu.addAction(action_btn_box)
 
@@ -301,7 +324,7 @@ class DataFrameView(QTableView):
     def _to_excel(self, *args, **kwargs):
         logger.info('Exporting to Excel Started...')
         from subprocess import Popen
-        rows = self.proxy.accepted_mask
+        rows = self.proxy.accepted
         columns = self._get_visible_column_names()
         fname = 'temp.xlsx'
         logger.info('Writing to Excel file...')
@@ -342,7 +365,7 @@ class DataFrameView(QTableView):
                 row = rows[0]
             else:
                 raise ValueError('Unknown direction: {}'.format(str(direction)))
-        
+
             # bound row number to table row size
             row = min(row, self._model.dataRowCount())
             self.model().insertRows(row, len(rows), QModelIndex())
@@ -371,6 +394,14 @@ class DataFrameView(QTableView):
         else:
             for row in reversed(rows):
                 self.model().removeRows(row, 1, QModelIndex())
+
+    def apply_and_close(self):
+        menu = cast(QMenu, self.sender().parent())
+
+        self.blockSignals(True)
+        self.proxy.list_filter(self.checked_values())
+        self.blockSignals(False)
+        menu.close()
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))

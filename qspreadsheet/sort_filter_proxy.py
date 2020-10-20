@@ -31,16 +31,16 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         super().setParent(parent)
 
     @property
-    def accepted_mask(self):
+    def accepted(self):
         return self._parent.row_ndx.filter_mask
 
-    @accepted_mask.setter
-    def accepted_mask(self, mask):
-        self._parent.row_ndx.filter_mask = mask
+    @accepted.setter
+    def accepted(self, accepted):
+        self._parent.row_ndx.filter_mask = accepted
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if source_row < self.accepted_mask.size:
-            return self.accepted_mask.iloc[source_row]
+        if source_row < self.accepted.size:
+            return self.accepted.iloc[source_row]
         return True
 
     def string_filter(self, text: str):
@@ -52,17 +52,17 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             mask = self._parent.df[colname].astype(
                 'str').str.lower().str.contains(text)
 
-        self.accepted_mask = mask
+        self.accepted = mask
         self.invalidate()
 
     def list_filter(self, values):
         colname = self._colname()
         mask = self._parent.df[colname].apply(str).isin(values)
-        self.accepted_mask = mask
+        self.accepted = mask
         self.invalidate()
 
     def reset_filter(self):
-        self.accepted_mask = self._alltrues()
+        self.accepted = self._alltrues()
         self.invalidateFilter()
 
     def _colname(self) -> str:
