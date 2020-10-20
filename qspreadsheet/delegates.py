@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ColumnDelegate(QStyledItemDelegate):
+    
     def __init__(self, parent=None) -> None:
         super(ColumnDelegate, self).__init__(parent)
 
