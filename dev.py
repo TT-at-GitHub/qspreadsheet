@@ -52,8 +52,8 @@ class MainWindow(QMainWindow):
 app = QApplication(sys.argv)
 
 # df = mock_df()
-df = pd.read_pickle('.ignore/data/100_000rows.pkl')
-
+df = pd.DataFrame(pd.read_pickle('.ignore/data/10_000rows.pkl'))
+df = df.sort_values(by='C').reset_index(drop=True)
 # print(df)
 
 pd.options.display.precision = 4

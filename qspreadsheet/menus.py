@@ -1,7 +1,8 @@
 import logging
 import os
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -12,13 +13,14 @@ from PySide2.QtWidgets import *
 
 from qspreadsheet.custom_widgets import LabeledLineEdit
 from qspreadsheet.common import SER, LEFT
+from qspreadsheet.worker import Worker
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)
 
 
 class LineEditMenuAction(QWidgetAction):
-    '''Labeled Textbox in menu'''
+    """Labeled Textbox in menu"""
 
     def __init__(self, parent, menu, label_text='', position=LEFT):
         super(LineEditMenuAction, self).__init__(parent)
@@ -30,10 +32,12 @@ class LineEditMenuAction(QWidgetAction):
 
 
 class FilterListMenuWidget(QWidgetAction):
-    '''Checkboxed list filter menu'''
+    """Checkboxed list filter menu"""
+
+    INITIAL_LIMIT = 5000
 
     def __init__(self, parent, menu: QMenu) -> None:
-        '''Checkbox list filter menu
+        """Checkbox list filter menu
 
             Arguments
             ----------
@@ -43,36 +47,68 @@ class FilterListMenuWidget(QWidgetAction):
             
             menu: (QMenu)
                 Menu object this list is located on
-        '''
+        """
         super(FilterListMenuWidget, self).__init__(parent)
         
         # Build Widgets
         widget = QWidget()
         layout = QVBoxLayout()
-        self._items : List[QListWidgetItem] = []
         self.list = QListWidget()
         
-        self.list.setStyleSheet('''
+        self.list.setStyleSheet("""
             QListView::item:selected {
                 background: rgb(195, 225, 250);
                 color: rgb(0, 0, 0);
-            } ''')
+            } """)
         self.list.setFixedHeight(150)
         self.list.setLayoutMode(QListView.LayoutMode.Batched)
         self.list.setUniformItemSizes(True)
 
         layout.addWidget(self.list)
-        widget.setLayout(layout)
 
+        # This button in made visible if the number 
+        # of items to show is more than the initial limit
+        btn = QPushButton('Not all items showing')
+        btn.clicked.connect(self._refill_list)
+        btn.setVisible(False)
+        layout.addWidget(btn)
+        self.btn_show_all = btn
+
+        widget.setLayout(layout)
         self.setDefaultWidget(widget)
 
         # Signals/slots
         self.list.itemChanged.connect(self.on_listitem_changed)
 
 
-    def populate_labels(self, column: SER, mask: SER):
-        visible = column.loc[mask]
-        
+    def _refill_list(self):
+        worker = Worker(func=self.add_list_items, 
+            values=self.unique.iloc[self.INITIAL_LIMIT :], 
+            mask=self.mask)
+        worker.signals.error.connect(self.on_error)
+        worker.signals.result.connect(lambda: self.btn_show_all.setVisible(False))
+        worker.signals.about_to_start.connect(lambda: self.btn_show_all.setEnabled(False))
+        worker.signals.finished.connect(lambda: self.btn_show_all.setEnabled(True))
+
+        tp = QThreadPool(self)
+        # worker.run()
+        tp.start(worker)
+
+    def on_error(self, exc_info: Tuple):
+        logger.error(msg='ERROR.', exc_info=exc_info)
+        formatted = ' '.join(traceback.format_exception(*exc_info, limit=4))
+        QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
+    
+    def populate_list(self, column: SER, mask: SER):
+        self.list.clear()
+
+        # Generate filter items       
+        unique = column.drop_duplicates()
+        try:
+            unique = unique.sort_values()
+        except:
+            pass
+
         # Add a (Select All)
         if mask.all():
             select_all_state = Qt.Checked
@@ -85,33 +121,31 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.addItem(item)
         self._action_select_all = item
 
-        # Add filter items       
-        unique = visible.drop_duplicates()
-        try:
-            unique.sort_values()
-        except:
-            pass
+        if unique.size > self.INITIAL_LIMIT:
+            self.unique = unique
+            self.mask = mask
+            sliced_unique = unique.iloc[ : self.INITIAL_LIMIT]
+            self.add_list_items(sliced_unique, mask)
+            self.btn_show_all.setVisible(True)
+        else:
+            self.add_list_items(unique, mask)
 
-        for ndx, val in unique.items():
+
+    def add_list_items(self, values: SER, mask: SER, **kwargs):
+        """
+            values : {pd.Series}: values to add to the list
+            
+            mask : {pd.Series}: bool mask showing if item is visible
+            
+            **kwargs : {dict}: to hold the `progress_callback` from Worker
+        """
+
+        for ndx, val in values.items():
             state = Qt.Checked if mask.iloc[ndx] else Qt.Unchecked
             item = QListWidgetItem(str(val))
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
-            self._items.append(item)
-
-    def populate_list(self, initial: bool, **kwargs):
-
-        limit = self._items.count()
-        
-        if initial:
-            self.list.clear()
-            limit = 1000
-
-        for ndx, item in enumerate(self._items):
             self.list.addItem(item)
-
-            if ndx >= limit:
-                break
             
     def on_listitem_changed(self, item: QListWidgetItem):
 

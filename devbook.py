@@ -31,7 +31,7 @@ def rnd_txt(num_letters): return "".join(
     [random.choice(string.ascii_letters[:26]) for i in range(num_letters)])
 
 #In[0]
-num_rows = 1_000
+num_rows = 10
 df = pd.DataFrame(np.random.randn(num_rows,3))
 rand_lines = [rnd_txt(3) for i in range(num_rows)]
 df['B'] = rand_lines
@@ -41,9 +41,11 @@ df.columns = df.columns.astype(str)
 #In[0]
 df['B'].nunique(), df['B'].size
 #In[0]
-df.to_pickle('.ignore/data/1_000rows.pkl')
+df.to_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 #In[0]
-df = pd.read_pickle('.ignore/data/1_000rows.pkl')
+df = pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 df = pd.DataFrame(df)
-df.columns
+df
 #In[0]
+df.to_excel('book1.xlsx')
+# %%

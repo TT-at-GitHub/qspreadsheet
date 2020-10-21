@@ -25,10 +25,18 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         if parent is not None:
             self.setParent(parent)
         self._masks_cache = []
+        self._filter_key_column = 0
 
     def setParent(self, parent: DataFrameModel):
         self._parent = parent
         super().setParent(parent)
+
+    @property
+    def filter_key_column(self) -> int:
+        return self._filter_key_column
+
+    def set_filter_key_column(self, value: int):
+        self._filter_key_column = value
 
     @property
     def accepted(self):
@@ -45,19 +53,17 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def string_filter(self, text: str):
         text = text.lower()
-        colname = self._colname()
         if not text:
             mask = self._alltrues()
         else:
-            mask = self._parent.df[colname].astype(
+            mask = self._parent.df.iloc[: , self.filter_key_column].astype(
                 'str').str.lower().str.contains(text)
 
         self.accepted = mask
         self.invalidate()
 
     def list_filter(self, values):
-        colname = self._colname()
-        mask = self._parent.df[colname].apply(str).isin(values)
+        mask = self._parent.df.iloc[: , self.filter_key_column].apply(str).isin(values)
         self.accepted = mask
         self.invalidate()
 
@@ -65,16 +71,13 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted = self._alltrues()
         self.invalidateFilter()
 
-    def _colname(self) -> str:
-        return self._parent.df.columns[self.filterKeyColumn()]
-
     def _alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._parent.df.index)
 
     def unique_values(self) -> List[Any]:
         result = []
         for i in range(self.rowCount()):
-            index = self.index(i, self.filterKeyColumn())
+            index = self.index(i, self.filter_key_column)
             val = self.data(index, Qt.DisplayRole)
             result.append(val)
         return result

@@ -9,7 +9,7 @@ from PySide2.QtCore import QObject, QRunnable, Signal
 
 class WorkerSignals(QObject):
     
-    before_start = Signal()
+    about_to_start = Signal()
     result = Signal(object)
     error = Signal(tuple) # Tuple[Type[BaseException], BaseException, TracebackType]
     finished = Signal()
@@ -28,7 +28,7 @@ class Worker(QRunnable):
 
     def run(self) -> None:
         try:
-            self.signals.before_start.emit()
+            self.signals.about_to_start.emit()
             result = self.func(*self.args, **self.kwargs)
         except:
             self.signals.error.emit(sys.exc_info())

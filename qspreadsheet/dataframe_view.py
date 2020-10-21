@@ -71,7 +71,6 @@ class DataFrameView(QTableView):
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
-        self.active_col_ndx = 0
 
     def sizeHint(self) -> QSize:
         width = 0
@@ -189,7 +188,8 @@ class DataFrameView(QTableView):
     def filter_clicked(self, name: str):
 
         btn = self.header_model.filter_btn_mapper.mapping(name)
-        self.active_col_ndx = self.df.columns.get_loc(name)
+        col_ndx = self.df.columns.get_loc(name)
+        self.proxy.set_filter_key_column(col_ndx)
 
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(btn.parent().pos())
@@ -208,7 +208,7 @@ class DataFrameView(QTableView):
 
         # By Value Filter
         def _quick_filter(cell_val):
-            # self.proxy.setFilterKeyColumn(col_ndx)
+            self.proxy.set_filter_key_column(col_ndx)
             self.proxy.string_filter(str(cell_val))
 
         menu.addAction(self._standard_icon('CommandLink'),
@@ -253,23 +253,9 @@ class DataFrameView(QTableView):
         menu.addAction(str_filter)
 
         self.list_filter = FilterListMenuWidget(self, menu)
-        self.list_filter.populate_labels(
-            self.df.iloc[:, self.active_col_ndx],
-            self.proxy.accepted)
-            
-        if self.df.index.size >= 1000:
-            def _refill_list():
-                worker = Worker(
-                    self.list_filter.populate_list,
-                    self.df.iloc[1000:, self.active_col_ndx],
-                    self.proxy.accepted.iloc[1000:],
-                    False)
-                worker.signals.error.connect(self.on_error)
-
-                tp = QThreadPool(self)
-                # worker.run()
-                tp.start(worker)            
-            menu.aboutToShow.connect(_refill_list)
+        self.list_filter.populate_list(
+            column=self.df.iloc[:, self.proxy.filter_key_column],
+            mask=self.proxy.accepted)
 
 
         menu.addAction(self.list_filter)
@@ -280,19 +266,19 @@ class DataFrameView(QTableView):
         # Sort Ascending/Decending Menu Action
         menu.addAction(self._standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
-                       partial(self.proxy.sort, self.active_col_ndx, Qt.AscendingOrder))
+                       partial(self.proxy.sort, self.proxy.filter_key_column, Qt.AscendingOrder))
         menu.addAction(self._standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
-                       partial(self.proxy.sort, self.active_col_ndx, Qt.DescendingOrder))
+                       partial(self.proxy.sort, self.proxy.filter_key_column, Qt.DescendingOrder))
 
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide Column", partial(self.hideColumn, self.active_col_ndx))
+        menu.addAction("Hide Column", partial(self.hideColumn, self.proxy.filter_key_column))
 
         # Unhide column to left and right
         for i in (-1, 1):
-            ndx = self.active_col_ndx + i
+            ndx = self.proxy.filter_key_column + i
             if self.isColumnHidden(ndx):
                 menu.addAction(f'Unhide {self.df.columns[ndx]}',
                                partial(self.showColumn, ndx))
@@ -399,7 +385,7 @@ class DataFrameView(QTableView):
         menu = cast(QMenu, self.sender().parent())
 
         self.blockSignals(True)
-        self.proxy.list_filter(self.checked_values())
+        self.proxy.list_filter(self.list_filter.checked_values())
         self.blockSignals(False)
         menu.close()
 
