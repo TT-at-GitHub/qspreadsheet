@@ -3,6 +3,9 @@
 v - Recognize completion of rows in progress
 
 - Redesign filters - especially FilterListWidget
+v   > Improve performance for large tables
+v   > Use delegate or model's data method to populate the filter list widget
+  > Remove the last 'empty' data row from the filters
 
 - Implement Undo/Redo
 

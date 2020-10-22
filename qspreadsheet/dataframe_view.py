@@ -3,19 +3,19 @@ import os
 import sys
 import traceback
 from functools import partial
-from itertools import groupby, count
+from itertools import count, groupby
 from types import TracebackType
-from typing import (Any, Iterable, List, Mapping, Optional,
-                    Tuple, Type, Union, cast)
+from typing import (Any, Iterable, List, Mapping, Optional, Tuple, Type, Union,
+                    cast)
 
 import numpy as np
 import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-from pandas.core import indexers
 
 from qspreadsheet import resources_rc
+from qspreadsheet.common import DF, is_iterable, standard_icon
 from qspreadsheet.custom_widgets import ActionButtonBox
 from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
@@ -24,8 +24,6 @@ from qspreadsheet.header_view import HeaderView
 from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
-from qspreadsheet.common import DF, is_iterable
-import fx
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +72,7 @@ class DataFrameView(QTableView):
 
     def sizeHint(self) -> QSize:
         width = 0
-        for i in range(self.df.shape[1]):
+        for i in range(self._df.shape[1]):
             width += self.columnWidth(i)
         width += self.verticalHeader().sizeHint().width()
         width += self.verticalScrollBar().sizeHint().width()
@@ -116,13 +114,13 @@ class DataFrameView(QTableView):
             columns = [columns]
 
         missing = [column for column in columns
-                   if column not in self.df.columns]
+                   if column not in self._df.columns]
         if missing:
             plural = 's' if len(missing) > 1 else ''
             raise ValueError('Missing column{}: `{}`.'.format(
                 plural, '`, `'.join(missing)))
 
-        column_indices  = self._model.df.columns.get_indexer(columns)
+        column_indices  = self._model._df.columns.get_indexer(columns)
         self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
@@ -134,11 +132,11 @@ class DataFrameView(QTableView):
 
             editable : ColumnDelegate. The delegate for the column
         '''
-        icolumn = self.df.columns.get_loc(column)
+        icolumn = self._df.columns.get_loc(column)
         self._main_delegate.add_column_delegate(icolumn, delegate)
 
     def _set_column_delegates_for_df(self, delegates: Mapping[Any, ColumnDelegate], df: DF):
-        '''(Private) Used to avoid circular reference, when calling self.df
+        '''(Private) Used to avoid circular reference, when calling self._temp_df
         '''
         current = self.itemDelegate()
         if current is not None:
@@ -149,6 +147,7 @@ class DataFrameView(QTableView):
             self._main_delegate.add_column_delegate(icolumn, column_delegate)
 
         self.setItemDelegate(self._main_delegate)
+        
         del current
 
     def set_column_delegates(self, delegates: Mapping[Any, ColumnDelegate]):
@@ -158,7 +157,7 @@ class DataFrameView(QTableView):
             -----------
             delegates : Mapping[column, ColumnDelegate]. Dict-like, with column name and delegates
         '''
-        self._set_column_delegates_for_df(delegates, self._model.df)
+        self._set_column_delegates_for_df(delegates, self._model._df)
 
     def set_column_widths(self):
         header = self.horizontalHeader()
@@ -178,17 +177,27 @@ class DataFrameView(QTableView):
 
     @property
     def df(self) -> pd.DataFrame:
-        return self._model.df
+        """DataFrameModel's result DataFrame 
+            (WITHOUT the rows and columns in progress)
+        """        
+        return self._model.result_df
+
+    @property
+    def _df(self) -> pd.DataFrame:
+        """DataFrameModel's temp DataFrame 
+            (INCLUDING the rows and columns in progress)
+        """
+        return self._model.temp_df
 
     def set_df(self, df: pd.DataFrame):
         if not isinstance(df, pd.DataFrame):
             raise TypeError('Invalid type for `df`. Expected DataFrame')
-        self._model.df = df
+        self._model.set_df(df)
 
     def filter_clicked(self, name: str):
 
         btn = self.header_model.filter_btn_mapper.mapping(name)
-        col_ndx = self.df.columns.get_loc(name)
+        col_ndx = self._df.columns.get_loc(name)
         self.proxy.set_filter_key_column(col_ndx)
 
         # TODO: look for other ways to position the menu
@@ -204,14 +213,14 @@ class DataFrameView(QTableView):
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
         menu = QMenu(self)
-        cell_val = self.df.iat[row_ndx, col_ndx]
+        cell_val = self._df.iat[row_ndx, col_ndx]
 
         # By Value Filter
         def _quick_filter(cell_val):
             self.proxy.set_filter_key_column(col_ndx)
             self.proxy.string_filter(str(cell_val))
 
-        menu.addAction(self._standard_icon('CommandLink'),
+        menu.addAction(standard_icon('CommandLink'),
                        "Filter By Value", partial(_quick_filter, cell_val))
 
         # GreaterThan/LessThan filter
@@ -223,7 +232,7 @@ class DataFrameView(QTableView):
         # menu.addAction("Filter Less Than",
         #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.le)))
-        menu.addAction(self._standard_icon('DialogResetButton'),
+        menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
         menu.addSeparator()
@@ -251,23 +260,23 @@ class DataFrameView(QTableView):
         str_filter.returnPressed.connect(menu.close)
         str_filter.textChanged.connect(self.proxy.string_filter)
         menu.addAction(str_filter)
-
-        self.list_filter = FilterListMenuWidget(self, menu)
-        self.list_filter.populate_list(
-            column=self.df.iloc[:, self.proxy.filter_key_column],
+        
+        self.list_filter = FilterListMenuWidget(
+            parent=self, model=self._model, 
+            column_index=self.proxy.filter_key_column,
             mask=self.proxy.accepted)
-
+        self.list_filter.populate_list()
 
         menu.addAction(self.list_filter)
-        menu.addAction(self._standard_icon('DialogResetButton'),
+        menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.proxy.reset_filter)
 
         # Sort Ascending/Decending Menu Action
-        menu.addAction(self._standard_icon('TitleBarShadeButton'),
+        menu.addAction(standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
                        partial(self.proxy.sort, self.proxy.filter_key_column, Qt.AscendingOrder))
-        menu.addAction(self._standard_icon('TitleBarUnshadeButton'),
+        menu.addAction(standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
                        partial(self.proxy.sort, self.proxy.filter_key_column, Qt.DescendingOrder))
 
@@ -280,7 +289,7 @@ class DataFrameView(QTableView):
         for i in (-1, 1):
             ndx = self.proxy.filter_key_column + i
             if self.isColumnHidden(ndx):
-                menu.addAction(f'Unhide {self.df.columns[ndx]}',
+                menu.addAction(f'Unhide {self._df.columns[ndx]}',
                                partial(self.showColumn, ndx))
 
         # Unhide all hidden columns
@@ -314,7 +323,7 @@ class DataFrameView(QTableView):
         columns = self._get_visible_column_names()
         fname = 'temp.xlsx'
         logger.info('Writing to Excel file...')
-        self.df.loc[rows, columns].to_excel(fname, 'Output')
+        self._df.loc[rows, columns].to_excel(fname, 'Output')
         logger.info('Opening Excel...')
         Popen(fname, shell=True)
         logger.info('Exporting to Excel Finished')
@@ -325,19 +334,10 @@ class DataFrameView(QTableView):
         QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
 
     def _get_visible_column_names(self) -> list:
-        return [self.df.columns[ndx] for ndx in range(self.df.shape[1]) if not self.isColumnHidden(ndx)]
+        return [self._df.columns[ndx] for ndx in range(self._df.shape[1]) if not self.isColumnHidden(ndx)]
 
     def _get_hidden_column_indices(self) -> list:
-        return [ndx for ndx in range(self.df.shape[1]) if self.isColumnHidden(ndx)]
-
-    def _standard_icon(self, icon_name: str) -> QIcon:
-        '''Convenience function to get standard icons from Qt'''
-        if not icon_name.startswith('SP_'):
-            icon_name = 'SP_' + icon_name
-        icon = getattr(QStyle, icon_name, None)
-        if icon is None:
-            raise Exception("Unknown icon {}".format(icon_name))
-        return self.style().standardIcon(icon)
+        return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
 
     def insert_rows(self, direction: str):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()

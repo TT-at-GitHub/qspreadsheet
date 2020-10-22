@@ -11,13 +11,14 @@ from numpy.core.memmap import memmap
 from enum import auto
 
 from pandas._libs.tslibs import Timestamp
+from six import Iterator
 
 from qspreadsheet import *
 from datetime import datetime, timedelta, time as dtime
 import time
 from typing import Any, DefaultDict, Dict
 import numpy as np
-from numpy.core.defchararray import center 
+from numpy.core.defchararray import center, upper 
 import pandas as pd
 import string
 import random
@@ -49,3 +50,35 @@ df
 #In[0]
 df.to_excel('book1.xlsx')
 # %%
+d = {'hello': True, 'world': False}
+d
+#In[0]
+any([value == True for value in d.values()])
+
+#In[0]
+from typing import Mapping, TypeVar
+
+T = TypeVar('T')
+
+
+class A(Mapping[str, T]):
+    def __init__(self, key = None) -> None:
+        self._key = key
+
+    def __getitem__(self, key):
+        self._key
+        return key.upper()
+
+    def __iter__(self):
+        return self._key
+    
+    def __len__(self) -> int:
+        return 1
+
+a = A()
+a['b']
+#In[0]
+print(isinstance({}, Mapping))
+print(isinstance((), Mapping))
+print(isinstance(a, Mapping))
+print(isinstance((('q',1),), Mapping))

@@ -1,26 +1,24 @@
+import logging
 import os
 import sys
-from typing import (Any, Dict, Optional, Union)
-import logging
 from datetime import datetime
+from typing import Any, Dict, Mapping, Optional, Union
 
 import numpy as np
 import pandas as pd
-
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet import DF, MAX_INT, MAX_FLOAT
+from qspreadsheet.common import DF, MAX_FLOAT, MAX_INT
 from qspreadsheet.custom_widgets import RichTextLineEdit
-
 
 DateLike = Union[str, datetime, pd.Timestamp, QDate]
 logger = logging.getLogger(__name__)
 
 
 class ColumnDelegate(QStyledItemDelegate):
-    
+
     def __init__(self, parent=None) -> None:
         super(ColumnDelegate, self).__init__(parent)
 
@@ -223,29 +221,29 @@ class MasterDelegate(ColumnDelegate):
         if delegate is not None:
             return delegate.default_value(index)
         return super().default_value(index)
-    
+
     def null_value(self) -> Any:
-        return {ndx : delegate.null_value() 
-                for ndx, delegate in self.delegates.items()}   
+        return {ndx: delegate.null_value()
+                for ndx, delegate in self.delegates.items()}
 
     @property
     def non_nullable_delegates(self):
-        return {ndx : delegate
+        return {ndx: delegate
                 for ndx, delegate in self.delegates.items()
-                if not isinstance(delegate, NullableDelegate)} 
+                if not isinstance(delegate, NullableDelegate)}
 
     @property
     def nullable_delegates(self):
-        return {ndx : delegate
+        return {ndx: delegate
                 for ndx, delegate in self.delegates.items()
-                if isinstance(delegate, NullableDelegate)} 
+                if isinstance(delegate, NullableDelegate)}
 
     def to_nullable(self) -> 'NullableDelegate':
         return self
-#endregion MasterDelegate speciffic
+# endregion MasterDelegate speciffic
 
 
-#region Type delegates
+# region Type delegates
 class IntDelegate(ColumnDelegate):
 
     def __init__(self, parent=None,
@@ -328,7 +326,7 @@ class FloatDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
-    
+
     def null_value(self) -> Any:
         return np.nan
 
@@ -369,7 +367,7 @@ class BoolDelegate(ColumnDelegate):
 
     def to_nullable(self) -> 'NullableDelegate':
         return self
-    
+
     def null_value(self) -> Any:
         return pd.NA
 
@@ -500,9 +498,12 @@ class RichTextDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
-#endregion Type delegates
+# endregion Type delegates
 
-def automap_delegates(df: DF, nullable=True) -> Dict[Any, ColumnDelegate]:
+
+def automap_delegates(df: DF,
+                      nullable: Union[bool, Mapping[Any, bool]] = True
+                      ) -> Dict[Any, ColumnDelegate]:
     type2delegate = tuple((
         ('object', StringDelegate),
         ('int', IntDelegate),
@@ -525,10 +526,17 @@ def automap_delegates(df: DF, nullable=True) -> Dict[Any, ColumnDelegate]:
 
         delegates[columnname] = delegate
 
-    if nullable:
-        nullable_delegates = {column : delegate.to_nullable() 
-                      for column, delegate in delegates.items()}
-        delegates = nullable_delegates
+    if isinstance(nullable, bool):
+        if nullable:
+            delegates = {column: delegate.to_nullable()
+                              for column, delegate in delegates.items()}
+    elif isinstance(nullable, Mapping):
+        for columnname, delegate in delegates.items():
+            if nullable.get(columnname, False):
+                delegates[columnname] = delegate.to_nullable()
+    else:
+        raise TypeError('Invalid type for `nullable`.')
+
 
     return delegates
 

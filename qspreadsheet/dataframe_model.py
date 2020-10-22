@@ -44,7 +44,7 @@ class _Ndx():
         self.filter_mask: SER = pd.Series(data=True, index=index)
         self.disabled_mask: SER = pd.Series(data=False, index=index)
         self.non_nullable_mask: SER = pd.Series(data=False, index=index)
-        self.in_progress_df = self.default_progress_df(index)
+        self.in_progress_df = self._default_progress_df(index)
         self.is_mutable = True   
 
     @property
@@ -75,7 +75,7 @@ class _Ndx():
     def insert(self, at_index: int, count: int):
         # set new index as 'not in progress' by default
         index=range(at_index, at_index + count)
-        new_rows = self.default_progress_df(index)
+        new_rows = self._default_progress_df(index)
         self.in_progress_df = pandas_obj_insert_rows(
             obj=self.in_progress_df, at_index=at_index, new_rows=new_rows)
 
@@ -106,8 +106,8 @@ class _Ndx():
             self.non_nullable_mask, at_index, count)                        
 
     @staticmethod
-    def default_progress_df(index) -> DF:
-        '''Default rows for 'progress' `DataFrame`'''
+    def _default_progress_df(index) -> DF:
+        '''Default 'in progress' `DataFrame` to manage the index'''
         return pd.DataFrame(
             data={'in_progress' : False, 'non_nullable' : 0, 'disabled' : 0}, 
             index=index)  
@@ -119,10 +119,7 @@ class DataFrameModel(QAbstractTableModel):
                  delegate: MasterDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.delegate = delegate
-        self.df = df.copy()
-        self.row_ndx = _Ndx(self.df.index.size)
-        self.col_ndx = _Ndx(self.df.columns.size)
-        self.add_bottom_row()
+        self.set_df(df)
 
         non_nullables = list(self.delegate.non_nullable_delegates.keys())
         self.col_ndx.non_nullable_mask.iloc[non_nullables] = True
@@ -137,20 +134,34 @@ class DataFrameModel(QAbstractTableModel):
         self.rowsInserted.connect(self.on_rowsInserted)
         self.rowsRemoved.connect(self.on_rowsRemoved)
 
+    def set_df(self, df: DF):
+        self._df = df.copy()
+        self.row_ndx = _Ndx(self._df.index.size)
+        self.col_ndx = _Ndx(self._df.columns.size)
+        self.add_bottom_row()
+
+    @property
+    def result_df(self):
+        return self._df.loc[self.row_ndx.in_progress_mask, self.col_ndx.in_progress_mask]
+
+    @property
+    def temp_df(self):
+        return self._df
+
     def progressRowCount(self) -> int:
         return self.row_ndx.in_progress_mask.sum()
 
     def dataRowCount(self) -> int:
-        return self.df.shape[0] - 1 if self.row_ndx.is_mutable else 0
+        return self._df.shape[0] - 1 if self.row_ndx.is_mutable else 0
 
     def commitRowCount(self) -> int:
         return self.dataRowCount() - self.progressRowCount()
 
     def columnCount(self, parent: QModelIndex) -> int:
-        return self.df.shape[1]
+        return self._df.shape[1]
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self.df.shape[0]
+        return self._df.shape[0]
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         # logger.debug('data({}, {}), role: {}'.format( index.row(), index.column(), role))
@@ -158,7 +169,7 @@ class DataFrameModel(QAbstractTableModel):
             logger.error('index.row() < 0')
             return None
 
-        value = self.df.iloc[index.row(), index.column()]            
+        value = self._df.iloc[index.row(), index.column()]            
 
         if role == Qt.DisplayRole:
             if index.row() == self.dataRowCount():
@@ -202,7 +213,7 @@ class DataFrameModel(QAbstractTableModel):
         if index.row() == self.dataRowCount():
             self.insertRow(self.dataRowCount(), QModelIndex())
 
-        self.df.iloc[index.row(), index.column()] = value
+        self._df.iloc[index.row(), index.column()] = value
 
         # update rows in progress
         if self.row_ndx.in_progress_mask.iloc[index.row()]:
@@ -210,7 +221,7 @@ class DataFrameModel(QAbstractTableModel):
                 self.row_ndx.reduce_disabled_in_progress(index.row())
 
             if self.col_ndx.non_nullable_mask.iloc[index.column()]:
-                value = self.df.iloc[index.row(), index.column()]
+                value = self._df.iloc[index.row(), index.column()]
                 if not pd.isnull(value):
                     self.row_ndx.reduce_non_nullable_in_progress(index.row())    
 
@@ -227,7 +238,7 @@ class DataFrameModel(QAbstractTableModel):
             if role == Qt.DisplayRole:
                 if section == self.dataRowCount():
                     return '*'
-                return str(self.df.index[section])
+                return str(self._df.index[section])
             if role == Qt.ForegroundRole:
                 if self.row_ndx.in_progress_mask.iloc[section]:
                     return QColor(255, 0, 0)
@@ -247,7 +258,7 @@ class DataFrameModel(QAbstractTableModel):
         self.beginInsertRows(QModelIndex(), row, row + count - 1)
 
         new_rows = self.null_rows(start_index=row, count=count)
-        self.df = pandas_obj_insert_rows(self.df, row, new_rows)
+        self._df = pandas_obj_insert_rows(self._df, row, new_rows)
 
         self.endInsertRows()
         return True
@@ -260,7 +271,7 @@ class DataFrameModel(QAbstractTableModel):
         logger.debug('removeRows(first:{}, last:{}), num rows: {}'.format(
             row, row + count - 1, count))
         self.beginRemoveRows(parent, row, row + count - 1)
-        self.df = pandas_obj_remove_rows(self.df, row, count)
+        self._df = pandas_obj_remove_rows(self._df, row, count)
         self.endRemoveRows()
         return True
 
@@ -303,14 +314,14 @@ class DataFrameModel(QAbstractTableModel):
             self.removeRow(self.dataRowCount(), QModelIndex())
 
     def add_bottom_row(self):
-        at_index = self.df.index.size
+        at_index = self._df.index.size
         bottom_row = self.null_rows(start_index=at_index, count=1)
-        self.df = self.df.append(bottom_row)
+        self._df = self._df.append(bottom_row)
         self.row_ndx.insert(at_index, 1)
 
     def null_rows(self, start_index: int, count: int) -> DF:
         nulls_row: Dict[int, Any] = self.delegate.null_value()
-        data = {self.df.columns[ndx]: null_value
+        data = {self._df.columns[ndx]: null_value
                 for ndx, null_value in nulls_row.items()}
 
         nulls_df = pd.DataFrame(data=data,
