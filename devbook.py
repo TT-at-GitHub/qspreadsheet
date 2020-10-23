@@ -48,37 +48,12 @@ df = pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 df = pd.DataFrame(df)
 df
 #In[0]
-df.to_excel('book1.xlsx')
-# %%
-d = {'hello': True, 'world': False}
-d
+df.loc[9] = np.nan
+df
 #In[0]
-any([value == True for value in d.values()])
-
-#In[0]
-from typing import Mapping, TypeVar
-
-T = TypeVar('T')
-
-
-class A(Mapping[str, T]):
-    def __init__(self, key = None) -> None:
-        self._key = key
-
-    def __getitem__(self, key):
-        self._key
-        return key.upper()
-
-    def __iter__(self):
-        return self._key
-    
-    def __len__(self) -> int:
-        return 1
-
-a = A()
-a['b']
-#In[0]
-print(isinstance({}, Mapping))
-print(isinstance((), Mapping))
-print(isinstance(a, Mapping))
-print(isinstance((('q',1),), Mapping))
+in_progress_rows = df['2'] > 0
+in_progress_cols = df.columns == 'C'
+in_progress_rows
+in_progress_cols
+# In[1]
+df.loc[~in_progress_rows, ~in_progress_cols]

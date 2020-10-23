@@ -166,28 +166,18 @@ class DataFrameView(QTableView):
                 i, self.header_model.headers[i].sizeHint().width())
 
     @property
-    def df_model(self):
-        '''Returns the model for this view
-
-            Returns
-            -------
-            `DataFrameModel`
-        '''
-        return self._model
-
-    @property
     def df(self) -> pd.DataFrame:
         """DataFrameModel's result DataFrame 
             (WITHOUT the rows and columns in progress)
         """        
-        return self._model.result_df
+        return self._model.df
 
     @property
     def _df(self) -> pd.DataFrame:
         """DataFrameModel's temp DataFrame 
             (INCLUDING the rows and columns in progress)
         """
-        return self._model.temp_df
+        return self._model._df
 
     def set_df(self, df: pd.DataFrame):
         if not isinstance(df, pd.DataFrame):
@@ -263,8 +253,7 @@ class DataFrameView(QTableView):
         
         self.list_filter = FilterListMenuWidget(
             parent=self, model=self._model, 
-            column_index=self.proxy.filter_key_column,
-            mask=self.proxy.accepted)
+            column_index=self.proxy.filter_key_column)
         self.list_filter.populate_list()
 
         menu.addAction(self.list_filter)

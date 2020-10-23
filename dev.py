@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
 app = QApplication(sys.argv)
 
 # df = mock_df()
-df = pd.DataFrame(pd.read_pickle('.ignore/data/10_000rows.pkl'))
+df = pd.DataFrame(pd.read_pickle('.ignore/data/10rows.pkl'))
 df = df.sort_values(by='C').reset_index(drop=True)
 # print(df)
 

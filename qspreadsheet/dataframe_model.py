@@ -1,7 +1,7 @@
 import logging
 import sys
 import os
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -141,12 +141,13 @@ class DataFrameModel(QAbstractTableModel):
         self.add_bottom_row()
 
     @property
-    def result_df(self):
-        return self._df.loc[self.row_ndx.in_progress_mask, self.col_ndx.in_progress_mask]
-
-    @property
-    def temp_df(self):
-        return self._df
+    def df(self):
+        not_inprogress_rows = ~self.row_ndx.in_progress_mask
+        # TODO: FIXME: self.col_ndx.in_progress_mask.values
+        # NOTE: this happens because the column index is not numeric, so
+        # maybe be better to make the row and column index datatype agnostic
+        not_inprogress_columns = ~self.col_ndx.in_progress_mask.values
+        return self._df.loc[not_inprogress_rows, not_inprogress_columns]
 
     def progressRowCount(self) -> int:
         return self.row_ndx.in_progress_mask.sum()
@@ -298,6 +299,28 @@ class DataFrameModel(QAbstractTableModel):
 
     def filter_clicked(self, name):
         pass
+
+    def get_filter_values_for(self, column_index: int) -> Tuple[SER, SER]:
+                # Generates filter items for given column index
+        column: SER = self._df.iloc[:, column_index]
+        
+        # dropping the rows in progress from the column and the mask
+        not_inprogress_mask = ~self.row_ndx.in_progress_mask
+        column = column.loc[not_inprogress_mask]
+        filter_mask = self.row_ndx.filter_mask.loc[not_inprogress_mask]
+
+        if self.row_ndx.is_mutable:
+            label = column.index[-1]
+            column = column.drop(label)
+            filter_mask = filter_mask.drop(label)
+
+        unique = column.drop_duplicates()
+        try:
+            unique = unique.sort_values()
+        except:
+            pass
+
+        return unique, filter_mask
 
     def enable_mutable_rows(self, enable: bool):
         logger.warning('`enable_mutable_rows` is Not tested')

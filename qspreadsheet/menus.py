@@ -34,7 +34,7 @@ class FilterListMenuWidget(QWidgetAction):
 
     INITIAL_LIMIT = 5000
 
-    def __init__(self, parent, model: DataFrameModel, column_index: int, mask: SER) -> None:
+    def __init__(self, parent, model: DataFrameModel, column_index: int) -> None:
         """Checkbox list filter menu
 
             Arguments
@@ -49,7 +49,7 @@ class FilterListMenuWidget(QWidgetAction):
         super(FilterListMenuWidget, self).__init__(parent)
         self._model = model
         self.column_index = column_index
-        self.mask = mask
+                
         # Build Widgets
         widget = QWidget()
         layout = QVBoxLayout()
@@ -105,13 +105,7 @@ class FilterListMenuWidget(QWidgetAction):
     def populate_list(self):
         self.list.clear()
 
-        # Generate filter items       
-        column = self._model.result_df.iloc[:, self.column_index]
-        unique = column.drop_duplicates()
-        try:
-            unique = unique.sort_values()
-        except:
-            pass
+        self.unique, self.mask = self._model.get_filter_values_for(self.column_index)
 
         # Add a (Select All)
         if self.mask.all():
@@ -125,14 +119,12 @@ class FilterListMenuWidget(QWidgetAction):
         self.list.addItem(item)
         self._action_select_all = item
 
-        if unique.size > self.INITIAL_LIMIT:
-            self.unique = unique
-            
-            sliced_unique = unique.iloc[ : self.INITIAL_LIMIT]
+        if self.unique.size > self.INITIAL_LIMIT:            
+            sliced_unique = self.unique.iloc[ : self.INITIAL_LIMIT]
             self.add_list_items(sliced_unique)
             self.btn_show_all.setVisible(True)
         else:
-            self.add_list_items(unique)
+            self.add_list_items(self.unique)
 
 
     def add_list_items(self, values: SER, **kwargs):
