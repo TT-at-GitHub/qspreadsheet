@@ -57,3 +57,4 @@ in_progress_rows
 in_progress_cols
 # In[1]
 df.loc[~in_progress_rows, ~in_progress_cols]
+# %%

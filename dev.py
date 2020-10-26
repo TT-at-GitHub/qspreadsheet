@@ -8,7 +8,6 @@ from PySide2.QtCore import *
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
 
-from fx import fx
 from qspreadsheet import DataFrameView, automap_delegates, IntDelegate
 from qspreadsheet import resources_rc
 
