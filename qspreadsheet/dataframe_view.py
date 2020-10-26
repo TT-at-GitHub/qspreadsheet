@@ -384,6 +384,14 @@ class DataFrameView(QTableView):
         self.blockSignals(False)
         menu.close()
 
+    @property
+    def is_dirty(self) -> bool:
+        return self._model.is_dirty
+
+    @property
+    def dataframe_model(self) -> DataFrameModel:
+        return self._model
+
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))
     consecutive = rows[0] + len(rows) - 1 == rows[-1]
