@@ -99,7 +99,7 @@ class DataFrameView(QTableView):
                           pos.y() + menu.height() + 20)
         menu.exec_(menu_pos)
 
-    def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], editable: bool) -> None:
+    def set_columns_edit_state(self, columns: Union[Any, Iterable[Any]], edit_state: bool) -> None:
         '''Enables/disables column's edit state.
             NOTE: By default all columns are editable
 
@@ -121,7 +121,7 @@ class DataFrameView(QTableView):
                 plural, '`, `'.join(missing)))
 
         column_indices  = self._model._df.columns.get_indexer(columns)
-        self._model.col_ndx.disabled_mask.iloc[column_indices] = (not editable)
+        self._model.col_ndx.disabled_mask.iloc[column_indices] = (not edit_state)
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         '''Sets the column delegate for single column
@@ -236,7 +236,7 @@ class DataFrameView(QTableView):
         menu.addSeparator()
 
         # Open in Excel
-        menu.addAction("Open in Excel...", self.to_excel)
+        menu.addAction("Open in Excel...", self.async_to_excel)
 
         return menu
 
@@ -300,12 +300,12 @@ class DataFrameView(QTableView):
 
         return menu
 
-    def to_excel(self):
-        worker = Worker(self._to_excel)
+    def async_to_excel(self):
+        worker = Worker(self.to_excel)
         worker.signals.error.connect(self.on_error)
         self.threadpool.start(worker)
 
-    def _to_excel(self, *args, **kwargs):
+    def to_excel(self, *args, **kwargs):
         logger.info('Exporting to Excel Started...')
         from subprocess import Popen
         rows = self.proxy.accepted
@@ -342,7 +342,7 @@ class DataFrameView(QTableView):
                 raise ValueError('Unknown direction: {}'.format(str(direction)))
 
             # bound row number to table row size
-            row = min(row, self._model.dataRowCount())
+            row = min(row, self._model.editRowCount())
             self.model().insertRows(row, len(rows), QModelIndex())
 
         if consecutive:
@@ -355,13 +355,19 @@ class DataFrameView(QTableView):
     def remove_rows(self):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, sequential = _rows_from_index_list(indexes)
-        rows = [row for row in rows if row < self._model.dataRowCount()]
+        # this should filter out any 'virtual rows' at the bottom, if user selected them too
+        rows = [row for row in rows if row < self._model.editRowCount()]
         if not rows:
             return False
 
-        num_commit_to_delete = len(rows) - self._model.rows_in_progress.iloc[rows].sum()
-        if self._model.commitRowCount() - num_commit_to_delete <= 0:
-            logger.warning('Invalid operation: Table must have at least one data row.')
+        # since we don't care about deleting rows in progress, we check
+        # if at leas one 'committed' row will remain after deleting
+        num_to_delete = len(rows) - self._model.row_ndx.in_progress_mask.iloc[rows].sum()
+        if self._model.committedRowCount() - num_to_delete <= 0:
+            # TODO: REFACTOR ME: Handle messaging with loggers maybe
+            msg = 'Invalid operation: Table must have at least one data row.'
+            logger.error(msg)
+            QMessageBox.critical(self, 'ERROR.', msg, QMessageBox.Ok)
             return False
 
         if sequential:

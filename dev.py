@@ -12,7 +12,9 @@ from qspreadsheet import DataFrameView, automap_delegates, IntDelegate
 from qspreadsheet import resources_rc
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s, %(levelname)-8s [%(name)s:%(lineno)d] %(message)s')
 
 
 class MainWindow(QMainWindow):
