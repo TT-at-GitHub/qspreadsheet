@@ -9,121 +9,13 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from qspreadsheet.common import DF, SER
+from qspreadsheet.common import DF, SER, pandas_obj_insert_rows, pandas_obj_remove_rows
 from qspreadsheet.delegates import MasterDelegate
 from qspreadsheet.header_view import HeaderView
+from qspreadsheet._ndx import _Ndx
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)
-
-
-def pandas_obj_insert_rows(obj: Union[DF, SER], at_index: int,
-                           new_rows: Union[DF, SER]) -> Union[DF, SER]:
-    above = obj.iloc[0: at_index]
-    below = obj.iloc[at_index:]
-    below.index = below.index + new_rows.index.size
-    obj = pd.concat([above, new_rows, below])
-
-    # This is needed, because during contatenation, pandas is
-    # coercing pd.NA null values to None
-    obj.iloc[new_rows.index] = new_rows
-    return obj
-
-
-def pandas_obj_remove_rows(obj: Union[DF, SER], row: int, count: int) -> Union[DF, SER]:
-    index_rows = range(row, row + count)
-    obj = obj.drop(index=obj.index[index_rows])
-    obj = obj.reset_index(drop=True)
-    return obj
-
-
-class _Ndx():
-
-    def __init__(self, size: pd.Index) -> None:
-        index = range(size)
-        self.index_df = self._make_index_df_for(index)
-        self.filter_mask: SER = pd.Series(data=True, index=index)
-        self.is_mutable = True
-
-    @property
-    def count_virtual(self) -> int:
-        """Row count of the `virtual` rows (at the bottom)"""
-        return 1 if self.is_mutable else 0
-
-    @property
-    def count_committed(self) -> int:
-        """Row count of the 'committed' data rows (excluding `virtual` and `in progress` rows)"""
-        return self.index_df.index.size - self.count_in_progress - self.count_virtual
-
-    @property
-    def count(self) -> int:
-        """Row count of `committed` and `in_progress` rows"""
-        return self.index_df.index.size - self.count_virtual
-
-    @property
-    def count_in_progress(self) -> int:
-        """Row count of the `in progress` rows"""
-        return self.in_progress_mask.sum()
-
-    @property
-    def in_progress_mask(self) -> SER:
-        return self.index_df['in_progress']
-
-    @property
-    def disabled_mask(self) -> SER:
-        return self.index_df['disabled']
-
-    @property
-    def non_nullable_mask(self) -> SER:
-        return self.index_df['non_nullable']
-
-    def set_disabled_in_progress(self, index, count: int):
-        self.index_df.loc[index, 'disabled_in_progress_count'] = count
-        self._update_in_progress(index)
-
-    def set_non_nullable_in_progress(self, index, count: int):
-        self.index_df.loc[index, 'non_nullable_in_progress_count'] = count
-        self._update_in_progress(index)
-
-    def reduce_disabled_in_progress(self, index):
-        self.index_df.loc[index, 'disabled_in_progress_count'] -= 1
-        self._update_in_progress(index)
-
-    def reduce_non_nullable_in_progress(self, index):
-        self.index_df.loc[index, 'non_nullable_in_progress_count'] -= 1
-        self._update_in_progress(index)
-
-    def _update_in_progress(self, index):
-        self.index_df.loc[index, 'in_progress'] = (
-            self.index_df.loc[index, 'disabled_in_progress_count'] +
-            self.index_df.loc[index, 'non_nullable_in_progress_count'] > 0)
-
-    def insert(self, at_index: int, count: int):
-        # set new index as 'not in progress' by default
-        index=range(at_index, at_index + count)
-        new_rows = self._make_index_df_for(index)
-        self.index_df = pandas_obj_insert_rows(
-            obj=self.index_df, at_index=at_index, new_rows=new_rows)
-
-        # set new index as 'not filtered' by default
-        new_rows = pd.Series(data=True, index=range(at_index, at_index + count))
-        self.filter_mask = pandas_obj_insert_rows(
-            obj=self.filter_mask, at_index=at_index, new_rows=new_rows)
-
-
-    def remove(self, at_index: int, count: int):
-        self.index_df = pandas_obj_remove_rows(
-            self.index_df, at_index, count)
-        self.filter_mask = pandas_obj_remove_rows(
-            self.filter_mask, at_index, count)
-
-    @staticmethod
-    def _make_index_df_for(index) -> DF:
-        '''Default 'in progress' `DataFrame` to manage the index'''
-        return pd.DataFrame(
-            data={'in_progress' : False, 'disabled': False, 'non_nullable': False,
-                  'non_nullable_in_progress_count' : 0, 'disabled_in_progress_count' : 0},
-            index=index)
 
 
 class DataFrameModel(QAbstractTableModel):
@@ -280,7 +172,8 @@ class DataFrameModel(QAbstractTableModel):
         self._df = pandas_obj_insert_rows(self._df, row, new_rows)
 
         self.endInsertRows()
-        self.dataChanged.emit(self.index(row, 0), self.index(row + count, self.col_ndx.count))
+        self.dataChanged.emit(self.index(row, 0), self.index(
+            row + count, self.col_ndx.count))
         return True
 
     def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:
@@ -293,7 +186,8 @@ class DataFrameModel(QAbstractTableModel):
         self.beginRemoveRows(parent, row, row + count - 1)
         self._df = pandas_obj_remove_rows(self._df, row, count)
         self.endRemoveRows()
-        self.dataChanged.emit(self.index(row, 0), self.index(row, self.col_ndx.count))
+        self.dataChanged.emit(self.index(
+            row, 0), self.index(row, self.col_ndx.count))
         return True
 
     def flags(self, index):
@@ -321,7 +215,7 @@ class DataFrameModel(QAbstractTableModel):
         pass
 
     def get_filter_values_for(self, column_index: int) -> Tuple[SER, SER]:
-                # Generates filter items for given column index
+        # Generates filter items for given column index
         column: SER = self._df.iloc[:, column_index]
 
         # dropping the rows in progress from the column and the mask
@@ -343,18 +237,15 @@ class DataFrameModel(QAbstractTableModel):
         return unique, filter_mask
 
     def enable_mutable_rows(self, enable: bool):
-        logger.warning('`enable_mutable_rows` is Not tested')
+        if self.row_ndx.is_mutable == enable:
+            return
 
         if enable:
-            if self.row_ndx.is_mutable:
-                return
-            self.row_ndx.is_mutable = True
+            self.row_ndx.is_mutable = enable
             self.insertRow(self.editRowCount(), QModelIndex())
         else:
-            if self.row_ndx.is_mutable == False:
-                return
-            self.row_ndx.is_mutable = False
             self.removeRow(self.editRowCount(), QModelIndex())
+            self.row_ndx.is_mutable = enable
 
     def add_bottom_row(self):
         at_index = self._df.index.size
@@ -378,7 +269,7 @@ class DataFrameModel(QAbstractTableModel):
         self.is_dirty = True
         self.row_ndx.insert(at_index=first, count=last - first + 1)
 
-        rows_inserted = list(range(first , last + 1))
+        rows_inserted = list(range(first, last + 1))
 
         # If there are disabled columns, all inserted rows
         # gain 'row in progress' status
@@ -393,4 +284,3 @@ class DataFrameModel(QAbstractTableModel):
     def on_rowsRemoved(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True
         self.row_ndx.remove(at_index=first, count=last - first + 1)
-

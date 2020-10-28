@@ -165,6 +165,11 @@ class DataFrameView(QTableView):
             header.resizeSection(
                 i, self.header_model.headers[i].sizeHint().width())
 
+    def enable_mutable_rows(self, enable: bool):
+        if not isinstance(enable, bool):
+            raise TypeError('Argument `muttable` not a boolean.')
+        self._model.enable_mutable_rows(enable=enable)
+
     @property
     def df(self) -> pd.DataFrame:
         """DataFrameModel's result DataFrame 
@@ -226,13 +231,16 @@ class DataFrameView(QTableView):
                        "Clear Filter",
                        self.proxy.reset_filter)
         menu.addSeparator()
-        menu.addAction("Insert Rows Above",
-                       partial(self.insert_rows, 'above'))
-        menu.addAction("Insert Rows Below",
-                       partial(self.insert_rows, 'below'))
-        menu.addSeparator()
-        menu.addAction("Deleted Selected Rows",
-                       self.remove_rows)
+
+        if self._model.row_ndx.is_mutable:    
+            menu.addAction("Insert Rows Above",
+                        partial(self.insert_rows, 'above'))
+            menu.addAction("Insert Rows Below",
+                        partial(self.insert_rows, 'below'))
+            menu.addSeparator()
+            menu.addAction("Deleted Selected Rows",
+                        self.remove_rows)
+                        
         menu.addSeparator()
 
         # Open in Excel
@@ -329,6 +337,10 @@ class DataFrameView(QTableView):
         return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
 
     def insert_rows(self, direction: str):
+        if not self._model.row_ndx.is_mutable:
+            logger.warning('Calling `insert_rows` on immutable row index')
+            return
+            
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, consecutive = _rows_from_index_list(indexes)
 
@@ -353,6 +365,10 @@ class DataFrameView(QTableView):
                 insert_consecutive(rows)
 
     def remove_rows(self):
+        if not self._model.row_ndx.is_mutable:
+            logger.warning('Calling `remove_rows` on immutable row index')
+            return
+            
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, sequential = _rows_from_index_list(indexes)
         # this should filter out any 'virtual rows' at the bottom, if user selected them too
@@ -388,9 +404,16 @@ class DataFrameView(QTableView):
     def is_dirty(self) -> bool:
         return self._model.is_dirty
 
+    @is_dirty.setter
+    def is_dirty(self, value: bool) -> bool:
+        if not isinstance(value, bool):
+            raise TypeError('`value` is not a bool')
+        self._model.is_dirty = value
+
     @property
     def dataframe_model(self) -> DataFrameModel:
         return self._model
+
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))

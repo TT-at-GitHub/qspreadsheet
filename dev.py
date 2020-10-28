@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         settings.endGroup()
 
     def on_save(self):
-        logging.debug('on_save')
+        logger.debug('Save button enabled: False')
         self.save_button.setEnabled(False)
 
     def on_close(self):
@@ -108,7 +108,7 @@ table_view = DataFrameView(df=df, delegates=delegates)
 table_view.set_columns_edit_state(df.columns.tolist(), True)
 # table_view.set_columns_edit_state('div', False)
 table_view.set_columns_edit_state('C', False)
-
+table_view.enable_mutable_rows(False)
 
 window = MainWindow(table_view=table_view)
 
