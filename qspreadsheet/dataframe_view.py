@@ -49,7 +49,7 @@ class DataFrameView(QTableView):
     def __init__(self, df: DF, delegates: Optional[Mapping[Any, ColumnDelegate]] = None, parent=None) -> None:
         super(DataFrameView, self).__init__(parent)
         self.threadpool = QThreadPool(self)
-        self.header_model = HeaderView(columns=df.columns.tolist())
+        self.header_model = HeaderView(columns=df.columns.astype(str))
         self.header_model.setSectionsClickable(True)
         self.setHorizontalHeader(self.header_model)
         self.header_model.filter_btn_mapper.mapped[str].connect(
@@ -190,9 +190,9 @@ class DataFrameView(QTableView):
         self._model.set_df(df)
 
     def filter_clicked(self, name: str):
-
-        btn = self.header_model.filter_btn_mapper.mapping(name)
-        col_ndx = self._df.columns.get_loc(name)
+        sender: QSignalMapper = self.sender()
+        btn: QPushButton = sender.mapping(name)
+        col_ndx = self.header_model.headers.index(btn.parent())
         self.proxy.set_filter_key_column(col_ndx)
 
         # TODO: look for other ways to position the menu

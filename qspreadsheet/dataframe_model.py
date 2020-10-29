@@ -57,7 +57,6 @@ class DataFrameModel(QAbstractTableModel):
         df.loc[not_inprogress_rows, not_inprogress_columns]
         if self.row_ndx.is_mutable:
             df = df.drop(df.index[-1])
-
         return df
 
     def editRowCount(self) -> int:
@@ -242,7 +241,7 @@ class DataFrameModel(QAbstractTableModel):
 
         if enable:
             self.row_ndx.is_mutable = enable
-            self.insertRow(self.editRowCount(), QModelIndex())
+            self.insertRow(self.editRowCount() + 1, self.index(0, 0).parent())
         else:
             self.removeRow(self.editRowCount(), QModelIndex())
             self.row_ndx.is_mutable = enable

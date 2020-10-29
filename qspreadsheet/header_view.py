@@ -45,6 +45,7 @@ class HeaderWidget(QWidget):
         self.label.setText(elided_text)
 
     def _setup_button(self):
+        self.button.setObjectName(self._text)
         self.button.setFixedSize(QSize(25, 20))
         icon = QIcon(":/down-arrow-thin")
         self.button.setIcon(icon)
@@ -64,13 +65,14 @@ class HeaderWidget(QWidget):
 
 class HeaderView(QHeaderView):
 
-    def __init__(self, columns: list, parent=None):
+    def __init__(self, columns: Iterable[str], parent=None):
         super(HeaderView, self).__init__(Qt.Horizontal, parent)
 
         self.headers: List[HeaderWidget] = []
         self.filter_btn_mapper = QSignalMapper(self)
 
         for name in columns:
+            name = str(name)
             header_widget = HeaderWidget(labelText=name, parent=self)
             self.filter_btn_mapper.setMapping(header_widget.button, name)
             header_widget.button.clicked.connect(self.filter_btn_mapper.map)
