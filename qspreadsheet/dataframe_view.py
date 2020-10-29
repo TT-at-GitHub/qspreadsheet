@@ -21,7 +21,7 @@ from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
                                     automap_delegates)
 from qspreadsheet.header_view import HeaderView
-from qspreadsheet.menus import FilterListMenuWidget, LineEditMenuAction
+from qspreadsheet.menus import LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
 
@@ -62,9 +62,10 @@ class DataFrameView(QTableView):
         self._model = DataFrameModel(df=df, header_model=self.header_model,
                                      delegate=self._main_delegate, parent=self)
 
-        self.proxy = DataFrameSortFilterProxy(self._model)
-        self.proxy.setSourceModel(self._model)
-        self.setModel(self.proxy)
+        self._proxy = DataFrameSortFilterProxy(self)
+        self._proxy.setSourceModel(self._model)
+        self._proxy.setDynamicSortFilter(False)
+        self.setModel(self._proxy)
 
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
@@ -193,13 +194,11 @@ class DataFrameView(QTableView):
         sender: QSignalMapper = self.sender()
         btn: QPushButton = sender.mapping(name)
         col_ndx = self.header_model.headers.index(btn.parent())
-        self.proxy.set_filter_key_column(col_ndx)
+        self._proxy.set_filter_key_column(col_ndx)
 
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(btn.parent().pos())
-
-        # with fx.timethis(' >>>    make_header_menu'):
-        menu = self.make_header_menu()
+        menu = self.make_header_menu(col_ndx)
 
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
                         header_pos.y() + btn.height() + 15)
@@ -212,8 +211,8 @@ class DataFrameView(QTableView):
 
         # By Value Filter
         def _quick_filter(cell_val):
-            self.proxy.set_filter_key_column(col_ndx)
-            self.proxy.string_filter(str(cell_val))
+            self._proxy.set_filter_key_column(col_ndx)
+            self._proxy.string_filter(str(cell_val))
 
         menu.addAction(standard_icon('CommandLink'),
                        "Filter By Value", partial(_quick_filter, cell_val))
@@ -229,7 +228,7 @@ class DataFrameView(QTableView):
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self.proxy.reset_filter)
+                       self._proxy.reset_filter)
         menu.addSeparator()
 
         if self._model.row_ndx.is_mutable:    
@@ -248,7 +247,7 @@ class DataFrameView(QTableView):
 
         return menu
 
-    def make_header_menu(self) -> QMenu:
+    def make_header_menu(self, col_ndx: int) -> QMenu:
         '''Create popup menu used for header'''
 
         menu = QMenu(self)
@@ -256,35 +255,36 @@ class DataFrameView(QTableView):
         # Filter Menu Action
         str_filter = LineEditMenuAction(self, menu, 'Filter')
         str_filter.returnPressed.connect(menu.close)
-        str_filter.textChanged.connect(self.proxy.string_filter)
+        str_filter.textChanged.connect(self._proxy.string_filter)
         menu.addAction(str_filter)
         
-        self.list_filter = FilterListMenuWidget(
-            parent=self, model=self._model, 
-            column_index=self.proxy.filter_key_column)
-        self.list_filter.populate_list()
+        list_filter = self._proxy.list_filter_widget()
+        list_filter.setParent(menu)
 
-        menu.addAction(self.list_filter)
+        self._proxy.set_filter_key_column(col_ndx)
+        self._proxy.populate_list()
+
+        menu.addAction(list_filter)
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self.proxy.reset_filter)
+                       self._proxy.reset_filter)
 
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
-                       partial(self.proxy.sort, self.proxy.filter_key_column, Qt.AscendingOrder))
+                       partial(self._proxy.sort, self._proxy.filter_key_column, Qt.AscendingOrder))
         menu.addAction(standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
-                       partial(self.proxy.sort, self.proxy.filter_key_column, Qt.DescendingOrder))
+                       partial(self._proxy.sort, self._proxy.filter_key_column, Qt.DescendingOrder))
 
         menu.addSeparator()
 
         # Hide
-        menu.addAction("Hide Column", partial(self.hideColumn, self.proxy.filter_key_column))
+        menu.addAction("Hide Column", partial(self.hideColumn, self._proxy.filter_key_column))
 
         # Unhide column to left and right
         for i in (-1, 1):
-            ndx = self.proxy.filter_key_column + i
+            ndx = self._proxy.filter_key_column + i
             if self.isColumnHidden(ndx):
                 menu.addAction(f'Unhide {self._df.columns[ndx]}',
                                partial(self.showColumn, ndx))
@@ -316,7 +316,7 @@ class DataFrameView(QTableView):
     def to_excel(self, *args, **kwargs):
         logger.info('Exporting to Excel Started...')
         from subprocess import Popen
-        rows = self.proxy.accepted
+        rows = self._proxy.accepted
         columns = self._get_visible_column_names()
         fname = 'temp.xlsx'
         logger.info('Writing to Excel file...')
@@ -396,7 +396,7 @@ class DataFrameView(QTableView):
         menu = cast(QMenu, self.sender().parent())
 
         self.blockSignals(True)
-        self.proxy.list_filter(self.list_filter.checked_values())
+        self._proxy.apply_list_filter()
         self.blockSignals(False)
         menu.close()
 
