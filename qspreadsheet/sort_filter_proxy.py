@@ -1,11 +1,12 @@
 import logging
 import os
+import traceback
 from qspreadsheet.worker import Worker
 
 from numpy.core.fromnumeric import alltrue
 from qspreadsheet.dataframe_model import DataFrameModel
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -31,14 +32,15 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._masks_cache = []
         self._column_index = 0
         self._list_filter_widget = None
-
+        self._pool = QThreadPool(self)
+        
         #FIXME: re-design these in to the masks cache...!
         self.mask = pd.Series()
         self.unique = pd.Series()
 
     def list_filter_widget(self):
         self._list_filter_widget = FilterListMenuWidget(self)
-        self._list_filter_widget.btn_show_all.clicked.connect(self._refill_list)
+        self._list_filter_widget.show_all_btn.clicked.connect(self._refill_list)
         return self._list_filter_widget
 
     def setSourceModel(self, model):
@@ -122,7 +124,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         if self.unique.size > INITIAL_FILTER_LIMIT:            
             sliced_unique = self.unique.iloc[ : INITIAL_FILTER_LIMIT]
             self.add_list_items(sliced_unique)
-            self._list_filter_widget.btn_show_all.setVisible(True)
+            self._list_filter_widget.show_all_btn.setVisible(True)
         else:
             self.add_list_items(self.unique)
 
@@ -147,15 +149,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self._list_filter_widget.list.addItem(item)
 
     def _refill_list(self):
+        btn = self.sender()
         worker = Worker(func=self.add_list_items, 
-            values=self.unique.iloc[INITIAL_FILTER_LIMIT :], 
-            column_index=self.column_index,
-            mask=self.mask)
-        worker.signals.error.connect(self.on_error)
-        worker.signals.result.connect(lambda: self.btn_show_all.setVisible(False))
-        worker.signals.about_to_start.connect(lambda: self.btn_show_all.setEnabled(False))
-        worker.signals.finished.connect(lambda: self.btn_show_all.setEnabled(True))
-
-        tp = QThreadPool(self)
+            values=self.unique.iloc[INITIAL_FILTER_LIMIT :])
+        worker.signals.error.connect(self.parent().on_error)
+        worker.signals.result.connect(lambda: btn.setVisible(False))
+        worker.signals.about_to_start.connect(lambda: btn.setEnabled(False))
+        worker.signals.finished.connect(lambda: btn.setEnabled(True))
         # worker.run()
-        tp.start(worker)
+        self._pool.start(worker)

@@ -28,3 +28,6 @@ v   > Use delegate or model's data method to populate the filter list widget
 - after column resizing, cursor remains in 'resize' mode, 
   and not changing the mouse pointer back to the normal arrow
   
+- clicking filter button when filter menu is visible, should close the menu, now it's
+  showing new menu
+

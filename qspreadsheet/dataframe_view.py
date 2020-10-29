@@ -259,7 +259,7 @@ class DataFrameView(QTableView):
         menu.addAction(str_filter)
         
         list_filter = self._proxy.list_filter_widget()
-        list_filter.setParent(menu)
+        list_filter.setParent(self)
 
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.populate_list()

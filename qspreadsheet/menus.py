@@ -1,8 +1,7 @@
 import logging
 import os
 import sys
-import traceback
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import List
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -69,7 +68,7 @@ class FilterListMenuWidget(QWidgetAction):
         btn.setIcon(standard_icon('MessageBoxWarning'))
         btn.setVisible(False)
         layout.addWidget(btn)
-        self.btn_show_all = btn
+        self.show_all_btn = btn
 
         widget.setLayout(layout)
         self.setDefaultWidget(widget)
@@ -77,11 +76,6 @@ class FilterListMenuWidget(QWidgetAction):
         # Signals/slots
         self.list.itemChanged.connect(self.on_listitem_changed)
 
-    def on_error(self, exc_info: Tuple):
-        logger.error(msg='ERROR.', exc_info=exc_info)
-        formatted = ' '.join(traceback.format_exception(*exc_info, limit=4))
-        QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
-  
     def on_listitem_changed(self, item: QListWidgetItem):
 
         self.list.blockSignals(True)
