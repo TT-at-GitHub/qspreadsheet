@@ -36,10 +36,13 @@ class MainWindow(QMainWindow):
         layout.addLayout(table_hlayout)
 
         buttons_hlayout = QHBoxLayout()
-        buttons_hlayout.addStretch()
 
-        for name, slot in (('Save', self.on_save),
-                           ('Close', self.on_close)):
+        for name, slot in (
+                        ('Do something...', self.on_do_something),
+                        ('Save', self.on_save),
+                        ('Close', self.on_close)):
+            if name == 'Save':
+                buttons_hlayout.addStretch()
             btn = QPushButton(name)
             btn.setObjectName(name)
             btn.clicked.connect(slot)
@@ -81,6 +84,10 @@ class MainWindow(QMainWindow):
         logging.debug('on_close')
         self.close()
 
+    def on_do_something(self):
+        current = self.table.mutable_rows
+        self.table.enable_mutable_rows(not current)
+
     def on_data_changed(self, first: QModelIndex, last: QModelIndex):
         if self.table.is_dirty:
             self.save_button.setEnabled(True)
@@ -92,11 +99,16 @@ class MainWindow(QMainWindow):
 
 app = QApplication(sys.argv)
 
-# df = mock_df()
+def make_df():
+    area = pd.Series({0 : 423967, 1: 695662, 2: 141297, 3: 170312, 4: 149995})
+    pop = pd.Series({0 : 38332521, 1: 26448193, 2: 19651127, 3: 19552860, 4: 12882135})
+    states = ['California', 'Texas', 'New York', 'Florida', 'Illinois']
+    df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
+    return df
+
 df = pd.DataFrame(pd.read_pickle('.ignore/data/10rows.pkl'))
 df = df.sort_values(by='C').reset_index(drop=True)
 # print(df)
-
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df, nullable=True)
@@ -107,8 +119,8 @@ delegates = automap_delegates(df, nullable=True)
 table_view = DataFrameView(df=df, delegates=delegates)
 table_view.set_columns_edit_state(df.columns.tolist(), True)
 # table_view.set_columns_edit_state('div', False)
-table_view.set_columns_edit_state('C', False)
-table_view.enable_mutable_rows(False)
+# table_view.set_columns_edit_state('C', False)
+# table_view.enable_mutable_rows(False)
 
 window = MainWindow(table_view=table_view)
 

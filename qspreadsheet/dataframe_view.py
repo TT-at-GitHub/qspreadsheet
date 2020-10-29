@@ -414,6 +414,9 @@ class DataFrameView(QTableView):
     def dataframe_model(self) -> DataFrameModel:
         return self._model
 
+    @property
+    def mutable_rows(self) -> bool:
+        self.dataframe_model.row_ndx.is_mutable
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))
