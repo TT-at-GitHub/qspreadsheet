@@ -7,6 +7,8 @@ v   > Improve performance for large tables
 v   > Use delegate or model's data method to populate the filter list widget
   > Remove the last 'empty' data row from the filters
 
+- Address all FIXME lines
+
 - Implement Undo/Redo
 
 - Implement editing multiple cells at the same time

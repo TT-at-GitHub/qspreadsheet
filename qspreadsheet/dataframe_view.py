@@ -354,7 +354,7 @@ class DataFrameView(QTableView):
                 raise ValueError('Unknown direction: {}'.format(str(direction)))
 
             # bound row number to table row size
-            row = min(row, self._model.editRowCount())
+            row = min(row, self._model.row_ndx.count_real)
             self.model().insertRows(row, len(rows), QModelIndex())
 
         if consecutive:
@@ -372,14 +372,15 @@ class DataFrameView(QTableView):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, sequential = _rows_from_index_list(indexes)
         # this should filter out any 'virtual rows' at the bottom, if user selected them too
-        rows = [row for row in rows if row < self._model.editRowCount()]
+        rows = [row for row in rows if row < self._model.row_ndx.count_real]
         if not rows:
             return False
 
+        # FIXME: allow user to delete all 'real' rows
         # since we don't care about deleting rows in progress, we check
         # if at leas one 'committed' row will remain after deleting
         num_to_delete = len(rows) - self._model.row_ndx.in_progress_mask.iloc[rows].sum()
-        if self._model.committedRowCount() - num_to_delete <= 0:
+        if self._model.row_ndx.count_committed - num_to_delete <= 0:
             # TODO: REFACTOR ME: Handle messaging with loggers maybe
             msg = 'Invalid operation: Table must have at least one data row.'
             logger.error(msg)

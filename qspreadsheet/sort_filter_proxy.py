@@ -27,7 +27,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def __init__(self, parent: Optional[QWidget]=None) -> None:
         super(DataFrameSortFilterProxy, self).__init__(parent)
-        self._model = None
+        self._model: Optional[DataFrameModel] = None
 
         self._masks_cache = []
         self._column_index = 0
@@ -35,7 +35,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._pool = QThreadPool(self)
         
         #FIXME: re-design these in to the masks cache...!
-        self.mask = pd.Series()
         self.unique = pd.Series()
 
     def list_filter_widget(self):
@@ -43,7 +42,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._list_filter_widget.show_all_btn.clicked.connect(self._refill_list)
         return self._list_filter_widget
 
-    def setSourceModel(self, model):
+    def setSourceModel(self, model: DataFrameModel):
         self._model = model
         super().setSourceModel(model)
 
@@ -63,8 +62,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._model.row_ndx.filter_mask = accepted
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if source_row < self.accepted.size:
-            return self.accepted.iloc[source_row]
+        if source_row < self._model.row_ndx.filter_mask.size:
+            return self._model.row_ndx.filter_mask.iloc[source_row]
         return True
 
     def string_filter(self, text: str):
@@ -107,10 +106,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def populate_list(self):
         self._list_filter_widget.list.clear()
 
-        self.unique, self.mask = self._model.get_filter_values_for(self._column_index)
+        self.unique = self.get_filter_values()
+        mask = self._model.row_ndx.filter_mask_committed
 
         # Add a (Select All)
-        if self.mask.all():
+        if mask.all():
             select_all_state = Qt.Checked
         else:
             select_all_state = Qt.Unchecked
@@ -136,12 +136,15 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             
             **kwargs : {dict}: to hold the `progress_callback` from Worker
         """
+        mask = self._model.row_ndx.filter_mask_committed
 
         for row_ndx, val in values.items():
             
             index = self._model.createIndex(row_ndx, self._column_index)
             value = self._model.delegate.display_data(index, val)
-            state = Qt.Checked if self.mask.iloc[row_ndx] else Qt.Unchecked
+
+            
+            state = Qt.Checked if mask.iloc[row_ndx] else Qt.Unchecked
             
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
@@ -158,3 +161,20 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         worker.signals.finished.connect(lambda: btn.setEnabled(True))
         # worker.run()
         self._pool.start(worker)
+
+    def get_filter_values(self) -> SER:
+        # Generates filter items for given column index
+        column: SER = self._model._df.iloc[:, self._column_index]
+
+        # dropping the rows in progress from the column and the mask
+        not_inprogress_mask = ~self._model.row_ndx.in_progress_mask
+        column = column.loc[not_inprogress_mask]
+        column = column.iloc[: self._model.row_ndx.count_real]
+
+        unique = column.drop_duplicates()
+        try:
+            unique = unique.sort_values()
+        except:
+            pass
+
+        return unique        

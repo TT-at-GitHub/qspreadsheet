@@ -12,7 +12,7 @@ from PySide2.QtWidgets import *
 from qspreadsheet.common import DF, SER, pandas_obj_insert_rows, pandas_obj_remove_rows
 from qspreadsheet.delegates import MasterDelegate
 from qspreadsheet.header_view import HeaderView
-from qspreadsheet._ndx import _Ndx
+from qspreadsheet._ndx import Ndx
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)
@@ -40,10 +40,12 @@ class DataFrameModel(QAbstractTableModel):
         self.rowsRemoved.connect(self.on_rowsRemoved)
 
     def set_df(self, df: DF):
+        # self.beginResetModel()
         self._df = df.copy()
-        self.row_ndx = _Ndx(self._df.index.size)
-        self.col_ndx = _Ndx(self._df.columns.size)
+        self.row_ndx = Ndx(self._df.index)
+        self.col_ndx = Ndx(self._df.columns)
         self.add_bottom_row()
+        # self.endResetModel()
 
     @property
     def df(self):
@@ -59,19 +61,11 @@ class DataFrameModel(QAbstractTableModel):
             df = df.drop(df.index[-1])
         return df
 
-    def editRowCount(self) -> int:
-        """Row count, excluding any `virtual` rows at the bottom"""
-        return self.row_ndx.count
-
-    def committedRowCount(self) -> int:
-        """Row count of all `committed` rows"""
-        return self.row_ndx.count_committed
-
     def columnCount(self, parent: QModelIndex) -> int:
-        return self._df.shape[1]
+        return self.col_ndx.size
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self._df.shape[0]
+        return self.row_ndx.size
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         # logger.debug('data({}, {}), role: {}'.format( index.row(), index.column(), role))
@@ -82,12 +76,12 @@ class DataFrameModel(QAbstractTableModel):
         value = self._df.iloc[index.row(), index.column()]
 
         if role == Qt.DisplayRole:
-            if index.row() == self.editRowCount():
+            if index.row() == self.row_ndx.count_real:
                 return ''
             return self.delegate.display_data(index, value)
 
         if role == Qt.EditRole:
-            if index.row() == self.editRowCount():
+            if index.row() == self.row_ndx.count_real:
                 return self.delegate.default_value(index)
             return value
 
@@ -120,8 +114,8 @@ class DataFrameModel(QAbstractTableModel):
             return False
 
         # If user has typed in the last row
-        if index.row() == self.editRowCount():
-            self.insertRow(self.editRowCount(), QModelIndex())
+        if index.row() == self.row_ndx.count_real:
+            self.insertRow(self.row_ndx.count_real, QModelIndex())
 
         self._df.iloc[index.row(), index.column()] = value
 
@@ -146,7 +140,7 @@ class DataFrameModel(QAbstractTableModel):
 
         if orientation == Qt.Vertical:
             if role == Qt.DisplayRole:
-                if section == self.editRowCount():
+                if section == self.row_ndx.count_real:
                     return '*'
                 return str(self._df.index[section])
             if role == Qt.ForegroundRole:
@@ -172,7 +166,7 @@ class DataFrameModel(QAbstractTableModel):
 
         self.endInsertRows()
         self.dataChanged.emit(self.index(row, 0), self.index(
-            row + count, self.col_ndx.count))
+            row + count, self.col_ndx.size))
         return True
 
     def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:
@@ -186,7 +180,7 @@ class DataFrameModel(QAbstractTableModel):
         self._df = pandas_obj_remove_rows(self._df, row, count)
         self.endRemoveRows()
         self.dataChanged.emit(self.index(
-            row, 0), self.index(row, self.col_ndx.count))
+            row, 0), self.index(row, self.col_ndx.size))
         return True
 
     def flags(self, index):
@@ -195,7 +189,7 @@ class DataFrameModel(QAbstractTableModel):
         flag = QAbstractTableModel.flags(self, index)
 
         if self.row_ndx.is_mutable:
-            if index.row() == self.editRowCount():
+            if index.row() == self.row_ndx.count_real:
                 flag |= Qt.ItemIsEditable
             elif self.row_ndx.in_progress_mask.iloc[index.row()]:
                 flag |= Qt.ItemIsEditable
@@ -213,37 +207,15 @@ class DataFrameModel(QAbstractTableModel):
     def filter_clicked(self, name):
         pass
 
-    def get_filter_values_for(self, column_index: int) -> Tuple[SER, SER]:
-        # Generates filter items for given column index
-        column: SER = self._df.iloc[:, column_index]
-
-        # dropping the rows in progress from the column and the mask
-        not_inprogress_mask = ~self.row_ndx.in_progress_mask
-        column = column.loc[not_inprogress_mask]
-        filter_mask = self.row_ndx.filter_mask.loc[not_inprogress_mask]
-
-        if self.row_ndx.is_mutable:
-            label = column.index[-1]
-            column = column.drop(label)
-            filter_mask = filter_mask.drop(label)
-
-        unique = column.drop_duplicates()
-        try:
-            unique = unique.sort_values()
-        except:
-            pass
-
-        return unique, filter_mask
-
     def enable_mutable_rows(self, enable: bool):
         if self.row_ndx.is_mutable == enable:
             return
-
+        # FIXME: make this dynamic
         if enable:
             self.row_ndx.is_mutable = enable
-            self.insertRow(self.editRowCount() + 1, self.index(0, 0).parent())
+            self.insertRow(self.row_ndx.count_real + 1, self.index(0, 0).parent())
         else:
-            self.removeRow(self.editRowCount(), QModelIndex())
+            self.removeRow(self.row_ndx.count_real, QModelIndex())
             self.row_ndx.is_mutable = enable
 
     def add_bottom_row(self):
