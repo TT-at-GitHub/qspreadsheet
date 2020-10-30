@@ -35,11 +35,14 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._pool = QThreadPool(self)
         
         #FIXME: re-design these in to the masks cache...!
-        self.unique = pd.Series()
+        self._display_values: Optional[SER] = None
+        self._filter_values: Optional[SER] = None
+        self._over_limit_values: Optional[SER] = None
 
     def list_filter_widget(self):
         self._list_filter_widget = FilterListMenuWidget(self)
-        self._list_filter_widget.show_all_btn.clicked.connect(self._refill_list)
+        self._list_filter_widget.show_all_btn.clicked.connect(
+            self.show_all_filter_values)
         return self._list_filter_widget
 
     def setSourceModel(self, model: DataFrameModel):
@@ -78,10 +81,15 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.invalidate()
 
     def apply_list_filter(self):
-        values = self._list_filter_widget.checked_values()
-        mask = self._model._df.iloc[: , self.filter_key_column].apply(str).isin(values)
+        print(self._display_values)
+        checked_values = self._list_filter_widget.checked_values()
+        filter_values = self._display_values.loc[checked_values]
+        print(filter_values)
+
+        mask = self.accepted
+        mask.loc[filter_values.index] = True
         self.set_accepted(mask)
-        self.invalidate()
+        self.invalidateFilter()
 
     def reset_filter(self):
         # Nothing to reset
@@ -89,24 +97,37 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             return
             
         self.set_accepted(self._alltrues())
-        self.invalidate()
+        self.invalidateFilter()
         # self.invalidateFilter()
 
     def _alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._model._df.index)
 
-    def unique_values(self) -> List[Any]:
-        result = []
-        for i in range(self.rowCount()):
-            index = self.index(i, self.filter_key_column)
-            val = self.data(index, Qt.DisplayRole)
-            result.append(val)
-        return result
-    
+    def refill_list(self, *args, **kwargs):
+        """ Adds to the filter list all remaining values, 
+            over the initial filter limit
+
+            NOTE: *args, **kwargs signature is required by Worker
+        """
+        display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+            for ndx, value in self._over_limit_values.items()})
+        self._display_values = self._display_values.add(display_values)
+        self._filter_values = self._filter_values.add(display_values.drop_duplicates())
+        self.add_list_items(self._filter_values)
+
     def populate_list(self):
         self._list_filter_widget.list.clear()
 
-        self.unique = self.get_filter_values()
+        unique = self.get_unique_model_values()
+        if unique.size > INITIAL_FILTER_LIMIT:
+            unique = unique.iloc[ : INITIAL_FILTER_LIMIT]
+            self._over_limit_values = unique.iloc[ INITIAL_FILTER_LIMIT :]
+            self._list_filter_widget.show_all_btn.setVisible(True)
+
+        self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+            for ndx, value in unique.items()})
+        self._filter_values = self._display_values.drop_duplicates()
+
         mask = self._model.row_ndx.filter_mask_committed
 
         # Add a (Select All)
@@ -120,41 +141,25 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         item.setCheckState(select_all_state)
         self._list_filter_widget.list.addItem(item)
         self._list_filter_widget._action_select_all = item
+        self.add_list_items(self._filter_values)
 
-        if self.unique.size > INITIAL_FILTER_LIMIT:            
-            sliced_unique = self.unique.iloc[ : INITIAL_FILTER_LIMIT]
-            self.add_list_items(sliced_unique)
-            self._list_filter_widget.show_all_btn.setVisible(True)
-        else:
-            self.add_list_items(self.unique)
-
-    def add_list_items(self, values: SER, **kwargs):
+    def add_list_items(self, values: SER):
+        """values : {pd.Series}: values to add to the list
         """
-            values : {pd.Series}: values to add to the list
-            
-            mask : {pd.Series}: bool mask showing if item is visible
-            
-            **kwargs : {dict}: to hold the `progress_callback` from Worker
-        """
-        mask = self._model.row_ndx.filter_mask_committed
+        mask = self.accepted
 
-        for row_ndx, val in values.items():
-            
-            index = self._model.createIndex(row_ndx, self._column_index)
-            value = self._model.delegate.display_data(index, val)
+        for row_ndx, value in values.items():
 
-            
-            state = Qt.Checked if mask.iloc[row_ndx] else Qt.Unchecked
+            state = Qt.Checked if mask.loc[row_ndx] else Qt.Unchecked
             
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
             self._list_filter_widget.list.addItem(item)
 
-    def _refill_list(self):
+    def show_all_filter_values(self):
         btn = self.sender()
-        worker = Worker(func=self.add_list_items, 
-            values=self.unique.iloc[INITIAL_FILTER_LIMIT :])
+        worker = Worker(func=self.refill_list)
         worker.signals.error.connect(self.parent().on_error)
         worker.signals.result.connect(lambda: btn.setVisible(False))
         worker.signals.about_to_start.connect(lambda: btn.setEnabled(False))
@@ -162,7 +167,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         # worker.run()
         self._pool.start(worker)
 
-    def get_filter_values(self) -> SER:
+    def get_unique_model_values(self) -> SER:
         # Generates filter items for given column index
         column: SER = self._model._df.iloc[:, self._column_index]
 
@@ -172,9 +177,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         column = column.iloc[: self._model.row_ndx.count_real]
 
         unique = column.drop_duplicates()
+                
         try:
             unique = unique.sort_values()
         except:
             pass
 
-        return unique        
+        return unique

@@ -63,6 +63,10 @@ class Ndx():
     def filter_mask(self) -> SER:
         return self._filter_mask
 
+    @filter_mask.setter
+    def filter_mask(self, value: SER):
+        self._filter_mask = value        
+
     @property
     def filter_mask_committed(self) -> SER:
         not_in_progress = ~self.in_progress_mask

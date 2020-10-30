@@ -34,6 +34,8 @@ def rnd_txt(num_letters): return "".join(
 #In[0]
 num_rows = 10
 df = pd.DataFrame(np.random.randn(num_rows,3))
+df
+#In[0]
 rand_lines = [rnd_txt(3) for i in range(num_rows)]
 df['B'] = rand_lines
 df['C'] = pd.Timestamp('20130101')
@@ -44,12 +46,18 @@ df['B'].nunique(), df['B'].size
 #In[0]
 df.to_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 #In[0]
+df.to_excel('.ignore/data/{}rows.xlsx'.format(num_rows))
+#In[0]
 df = pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 df = pd.DataFrame(df)
 df
 #In[0]
-df.loc[9] = np.nan
-df
+df.loc[4, 'B'] = df.loc[3, 'B']
+df.loc[8, 'B'] = df.loc[3, 'B']
+df.loc[4, '0'] = df.loc[3, '0']
+df.loc[8, '0'] = df.loc[3, '0']
+df.loc[4, '2'] = df.loc[3, '2']
+df.loc[8, '2'] = df.loc[3, '2']
 #In[0]
 in_progress_rows = df['2'] > 0
 in_progress_cols = df.columns == 'C'
@@ -58,3 +66,4 @@ in_progress_cols
 # In[1]
 df.loc[~in_progress_rows, ~in_progress_cols]
 # %%
+'.ignore/data/{}rows.pkl'.format(num_rows)

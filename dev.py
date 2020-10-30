@@ -106,8 +106,9 @@ def make_df():
     df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
     return df
 
-df = pd.DataFrame(pd.read_pickle('.ignore/data/10000rows.pkl'))
+df = pd.DataFrame(pd.read_pickle('.ignore/data/10rows.pkl'))
 df = df.sort_values(by='C').reset_index(drop=True)
+
 # print(df)
 pd.options.display.precision = 4
 
