@@ -78,15 +78,15 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
                 'str').str.lower().str.contains(text)
 
         self.set_accepted(mask)
-        self.invalidate()
+        self.invalidateFilter()
 
     def apply_list_filter(self):
-        print(self._display_values)
+        # print(self._display_values)
         checked_values = self._list_filter_widget.checked_values()
-        filter_values = self._display_values.loc[checked_values]
-        print(filter_values)
+        filter_values = self._display_values.loc[self._display_values.isin(checked_values)]
+        # print(filter_values)
 
-        mask = self.accepted
+        mask = pd.Series(data=False, index=self.accepted.index)
         mask.loc[filter_values.index] = True
         self.set_accepted(mask)
         self.invalidateFilter()
@@ -95,10 +95,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         # Nothing to reset
         if self.accepted.all():
             return
-            
+
         self.set_accepted(self._alltrues())
         self.invalidateFilter()
-        # self.invalidateFilter()
+        # self.invalidateFilterFilter()
 
     def _alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._model._df.index)

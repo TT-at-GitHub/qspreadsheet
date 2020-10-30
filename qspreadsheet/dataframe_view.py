@@ -344,7 +344,7 @@ class DataFrameView(QTableView):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, consecutive = _rows_from_index_list(indexes)
 
-        def insert_consecutive(rows: List[int]):
+        def _insert(rows: List[int]):
             row = 0
             if direction == 'below':
                 row = rows[-1] + 1
@@ -358,11 +358,11 @@ class DataFrameView(QTableView):
             self.model().insertRows(row, len(rows), QModelIndex())
 
         if consecutive:
-            insert_consecutive(rows)
+            _insert(rows)
         else:
             groups = _consecutive_groups(rows)
             for rows in reversed(groups):
-                insert_consecutive(rows)
+                _insert(rows)
 
     def remove_rows(self):
         if not self._model.row_ndx.is_mutable:
@@ -394,7 +394,7 @@ class DataFrameView(QTableView):
                 self.model().removeRows(row, 1, QModelIndex())
 
     def apply_and_close(self):
-        menu = cast(QMenu, self.sender().parent())
+        menu = self.sender().parent() # QMenu
 
         self.blockSignals(True)
         self._proxy.apply_list_filter()
