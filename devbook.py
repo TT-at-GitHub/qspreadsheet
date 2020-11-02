@@ -32,7 +32,7 @@ def rnd_txt(num_letters): return "".join(
     [random.choice(string.ascii_letters[:26]) for i in range(num_letters)])
 
 #In[0]
-num_rows = 10
+num_rows = 100_000
 df = pd.DataFrame(np.random.randn(num_rows,3))
 df
 #In[0]

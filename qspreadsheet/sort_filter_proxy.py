@@ -80,14 +80,23 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def string_filter(self, text: str):
         text = text.lower()
-        raise NotImplementedError('string_filter')
-        if not text:
-            mask = self.alltrues()
+        if text:
+            mask = self._filter_values.str.contains(text)
+            filter_values = self._filter_values.loc[mask]
         else:
-            mask = self._display_values.str.contains(text)
+            filter_values = self._filter_values
+            
+        self._list_filter_widget.list.clear()
+        item = QListWidgetItem('(Select All)')
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(Qt.Unchecked)
+        self._list_filter_widget.list.addItem(item)
 
-        self.set_filter_mask(mask)
-        self.invalidateFilter()
+        for _, value in filter_values.items():
+            item = QListWidgetItem(value)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked)
+            self._list_filter_widget.list.addItem(item)
 
     def apply_list_filter(self):
         checked_values, select_all = self._list_filter_widget.values()

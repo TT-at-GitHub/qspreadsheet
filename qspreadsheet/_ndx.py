@@ -48,14 +48,17 @@ class _Ndx():
 
     @property
     def in_progress_mask(self) -> SER:
+        """`pd.Series[bool]` with the rows/columns in progress"""
         return self._data['in_progress']
 
     @property
     def disabled_mask(self) -> SER:
+        """`pd.Series[bool]` with the disabled rows/columns"""
         return self._data['disabled']
 
     @property
     def non_nullable_mask(self) -> SER:
+        """`pd.Series[bool]` with the disabled rows/columns"""
         return self._data['non_nullable']
 
     def set_disabled_in_progress(self, index, count: int):
@@ -80,23 +83,17 @@ class _Ndx():
             self._data.loc[index, 'non_nullable_in_progress_count'] > 0)
 
     def insert(self, at_index: int, count: int):
+        """Inserts rows/columns into the index data"""
         # set new index as 'not in progress' by default
         index = range(at_index, at_index + count)
         new_rows = self._make_index_data_for(index)
         self._data = pandas_obj_insert_rows(
             obj=self._data, at_index=at_index, new_rows=new_rows)
 
-        # # set new index as 'not filtered' by default
-        # new_rows = pd.DataFrame(data=True, index=index,
-        #     columns=self.filter_cache.columns)
-        # self.filter_cache = pandas_obj_insert_rows(
-        #     obj=self.filter_cache, at_index=at_index, new_rows=new_rows)
-
     def remove(self, at_index: int, count: int):
+        """Removes rows/columns into the index data"""
         self._data = pandas_obj_remove_rows(
             self._data, at_index, count)
-        # self.filter_cache = pandas_obj_remove_rows(
-        #     self.filter_cache, at_index, count)
 
     @staticmethod
     def _make_index_data_for(index) -> DF:

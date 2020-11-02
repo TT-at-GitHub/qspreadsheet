@@ -254,7 +254,7 @@ class DataFrameView(QTableView):
 
         # Filter Menu Action
         str_filter = LineEditMenuAction(self, menu, 'Filter')
-        str_filter.returnPressed.connect(menu.close)
+        str_filter.returnPressed.connect(self.apply_and_close)
         str_filter.textChanged.connect(self._proxy.string_filter)
         menu.addAction(str_filter)
         
