@@ -411,6 +411,7 @@ class DataFrameView(QTableView):
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.update_filter_values()
         self._proxy.string_filter(cell_val)
+        self.update_filter_icon()
 
     @property
     def is_dirty(self) -> bool:

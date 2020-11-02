@@ -1,4 +1,5 @@
 import logging
+from logging import log
 import os
 import traceback
 from qspreadsheet.worker import Worker
