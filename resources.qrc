@@ -1,5 +1,6 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
 <file alias="down-arrow-thin">images/down-arrow-thin.png</file>
+<file alias="down-arrow-orange">images/down-arrow-orange.png</file>
 </qresource>
 </RCC>
