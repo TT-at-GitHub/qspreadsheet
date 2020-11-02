@@ -20,7 +20,7 @@ from qspreadsheet.custom_widgets import ActionButtonBox
 from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
                                     automap_delegates)
-from qspreadsheet.header_view import HeaderView
+from qspreadsheet.header_view import HeaderView, HeaderWidget
 from qspreadsheet.menus import LineEditMenuAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
@@ -192,7 +192,8 @@ class DataFrameView(QTableView):
 
     def filter_clicked(self, name: str):
         btn: QPushButton = self.sender().mapping(name)
-        header_widget = btn.parent()
+        header_widget: HeaderWidget = btn.parent()
+        
         col_ndx = self.header_model.headers.index(header_widget)
         self._proxy.set_filter_key_column(col_ndx)
 
@@ -207,19 +208,14 @@ class DataFrameView(QTableView):
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
         menu = QMenu(self)
-        cell_val = self._df.iat[row_ndx, col_ndx]
-
+        
         # By Value Filter
-        def _quick_filter(cell_val):
-            self._proxy.set_filter_key_column(col_ndx)
-            self._proxy.string_filter(str(cell_val))
-
         menu.addAction(standard_icon('CommandLink'),
-                       "Filter By Value", partial(_quick_filter, cell_val))
+                       "Filter By Value", partial(self.filter_by_value, row_ndx, col_ndx))
 
         # GreaterThan/LessThan filter
-        def _cmp_filter(s_col, op):
-            return op(s_col, cell_val)
+        # def _cmp_filter(s_col, op):
+        #     return op(s_col, cell_val)
         # menu.addAction("Filter Greater Than",
         #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.ge)))
@@ -228,7 +224,7 @@ class DataFrameView(QTableView):
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self._proxy.clear_filter)
+                       self.clear_filter)
         menu.addSeparator()
 
         if self._model.row_ndx.is_mutable and not self._proxy.is_filtered:
@@ -244,7 +240,6 @@ class DataFrameView(QTableView):
 
         # Open in Excel
         menu.addAction("Open in Excel...", self.async_to_excel)
-
         return menu
 
     def make_header_menu(self, col_ndx: int) -> QMenu:
@@ -255,7 +250,7 @@ class DataFrameView(QTableView):
         # Filter Menu Action
         str_filter = LineEditMenuAction(self, menu, 'Filter')
         str_filter.returnPressed.connect(self.apply_and_close)
-        str_filter.textChanged.connect(self._proxy.string_filter)
+        str_filter.textChanged.connect(self._proxy.filter_list_widget)
         menu.addAction(str_filter)
         
         list_filter = self._proxy.list_filter_widget()
@@ -267,7 +262,7 @@ class DataFrameView(QTableView):
         menu.addAction(list_filter)
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self._proxy.clear_filter)
+                       self.clear_filter)
 
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),
@@ -305,7 +300,6 @@ class DataFrameView(QTableView):
         action_btn_box.accepted.connect(self.apply_and_close)
         action_btn_box.rejected.connect(menu.close)
         menu.addAction(action_btn_box)
-
         return menu
 
     def async_to_excel(self):
@@ -392,7 +386,7 @@ class DataFrameView(QTableView):
         else:
             for row in reversed(rows):
                 self.model().removeRows(row, 1, QModelIndex())
-
+    
     def apply_and_close(self):
         menu = self.sender().parent() # QMenu
 
@@ -400,6 +394,23 @@ class DataFrameView(QTableView):
         self._proxy.apply_list_filter()
         self.blockSignals(False)
         menu.close()
+        self.update_filter_icon()
+
+    def clear_filter(self):
+        self._proxy.clear_filter()
+        self.update_filter_icon()
+        
+    def update_filter_icon(self):
+        col_ndx = self._proxy.filter_key_column
+        filtered = col_ndx in self._proxy.filter_cache.keys()
+        header_widget = self.header_model.headers[col_ndx]
+        header_widget.set_button_icon(filtered=filtered)
+
+    def filter_by_value(self, row_ndx: int, col_ndx: int):
+        cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
+        self._proxy.set_filter_key_column(col_ndx)
+        self._proxy.update_filter_values()
+        self._proxy.string_filter(cell_val)
 
     @property
     def is_dirty(self) -> bool:

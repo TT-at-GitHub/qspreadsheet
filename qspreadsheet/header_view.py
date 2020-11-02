@@ -47,9 +47,7 @@ class HeaderWidget(QWidget):
     def _setup_button(self):
         self.button.setObjectName(self._text)
         self.button.setFixedSize(QSize(25, 20))
-        icon = QIcon(":/down-arrow-thin")
-        self.button.setIcon(icon)
-        self.button.setIconSize(QSize(12, 12))
+        self.set_button_icon(filtered=False)
 
     def sizeHint(self) -> QSize:
         fm = QFontMetrics(self.label.font())
@@ -61,6 +59,15 @@ class HeaderWidget(QWidget):
         elided_text = fm.elidedText(
             self._text, Qt.ElideRight, self.label.width())
         self.label.setText(elided_text)
+
+    def set_button_icon(self, filtered: bool):
+        icon = None
+        if filtered:
+            icon = QIcon(":/down-arrow-orange")
+        else:
+            icon = QIcon(":/down-arrow-thin")
+        self.button.setIcon(icon)
+        self.button.setIconSize(QSize(12, 12))
 
 
 class HeaderView(QHeaderView):

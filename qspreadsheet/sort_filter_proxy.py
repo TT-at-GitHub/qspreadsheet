@@ -85,6 +85,20 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             filter_values = self._filter_values.loc[mask]
         else:
             filter_values = self._filter_values
+        self._apply_string_filter(filter_values)
+
+    def _apply_string_filter(self, filter_values):
+        mask = self._display_values.isin(filter_values)
+        self.add_filter_mask(mask)
+        self.invalidateFilter()
+
+    def filter_list_widget(self, text: str):
+        text = text.lower()
+        if text:
+            mask = self._filter_values.str.contains(text)
+            filter_values = self._filter_values.loc[mask]
+        else:
+            filter_values = self._filter_values
             
         self._list_filter_widget.list.clear()
         item = QListWidgetItem('(Select All)')
@@ -96,7 +110,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Checked)
-            self._list_filter_widget.list.addItem(item)
+            self._list_filter_widget.list.addItem(item)        
 
     def apply_list_filter(self):
         checked_values, select_all = self._list_filter_widget.values()
@@ -112,7 +126,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             return
         self.filter_cache.clear()
         self.filter_cache = {-1 : self.alltrues()}
-        self.accepted = self.alltrues()        
+        self.accepted = self.alltrues()
         self.invalidateFilter()
 
     def refill_list(self, *args, **kwargs):
@@ -152,6 +166,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._list_filter_widget.list.addItem(item)
         self._list_filter_widget._action_select_all = item
         self.add_list_items(self._filter_values)
+
+    def update_filter_values(self):
+        unique, _ = self.get_unique_model_values()
+        self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+            for ndx, value in unique.items()})
+        self._filter_values = self._display_values.drop_duplicates()
 
     def add_list_items(self, values: SER):
         """values : {pd.Series}: values to add to the list
