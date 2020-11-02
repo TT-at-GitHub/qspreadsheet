@@ -91,12 +91,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def apply_list_filter(self):
         checked_values, select_all = self._list_filter_widget.values()
-        mask = self._display_values.isin(checked_values)
-        # filter_values = self._display_values.loc[mask]
-
         if select_all:
             self.remove_filter_mask(self._column_index)
         else:
+            mask = self._display_values.isin(checked_values)
             self.add_filter_mask(mask)
         self.invalidateFilter()
 
@@ -186,8 +184,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     @property
     def filter_mask(self) -> SER:
-        mask = self.filter_cache[self.last_filter_index]
-        return mask
+        return self.filter_cache[self.last_filter_index]
 
     @property
     def last_filter_index(self) -> int:
