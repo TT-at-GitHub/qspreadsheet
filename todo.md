@@ -9,6 +9,8 @@ v   > Remove the last 'empty' data row from the filters
 
 - allow updating table's mutable state at runtime
 
+- update filter button's icon when filtering
+
 - Address all FIXME lines
 
 - Implement Undo/Redo
