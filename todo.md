@@ -3,29 +3,29 @@
 v - Recognize completion of rows in progress
 
 - Redesign filters - especially FilterListWidget
-v   > Improve performance for large tables
-v   > Use delegate or model's data method to populate the filter list widget
-v   > Remove the last 'empty' data row from the filters
+  v   - Improve performance for large tables
+  v   - Use delegate or model's data method to populate the filter list widget
+  v   - Remove the last 'empty' data row from the filters
+  v   - update filter button's icon when filtering
+  - Add `Clear filter From ... (column name)` to remove the filter from
+      current column, not the entire filter
+  - `Clear filter` to update filter icon for all columns
 
 - allow updating table's mutable state at runtime
 
-- update filter button's icon when filtering
-
-- Address all FIXME lines
-
 - Implement Undo/Redo
 
-- Add 'Clear filter From <column name>' to remove the filter from current column, not the entire filter
-
-- Implement on_rows_inserted/removed in the SortFilterProxyModel and allow remove/add
-  rows when the data is filtered
-
-- Implement editing multiple cells at the same time
-
-- Implement statusbar or maybe some snackbar messaging system
+- Implement on_rows_inserted/removed in the SortFilterProxyModel and
+  allow remove/add rows when the data is filtered
 
 - Memorize selections, so that insert row works on consecutive rows, 
   if they are selected individually.
+
+- Implement editing multiple cells at the same time
+
+- Address all FIXME lines
+
+- Implement statusbar or maybe some snackbar messaging system
 
 - Investigate using paint in delegates, instead of display_data
 
