@@ -7,6 +7,8 @@ v   > Improve performance for large tables
 v   > Use delegate or model's data method to populate the filter list widget
 v   > Remove the last 'empty' data row from the filters
 
+- allow updating table's mutable state at runtime
+
 - Address all FIXME lines
 
 - Implement Undo/Redo
