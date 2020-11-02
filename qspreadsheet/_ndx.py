@@ -1,6 +1,8 @@
 import logging
 import sys
 import os
+from typing import Dict
+from numpy.core.fromnumeric import alltrue
 import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -12,14 +14,11 @@ from qspreadsheet import resources_rc
 logger = logging.getLogger(__name__)
 
 
-class Ndx():
+class _Ndx():
 
     def __init__(self, index: pd.Index) -> None:
-        self._index = index
         i_index = range(index.size)
         self._data = self._make_index_data_for(i_index)
-        # TODO: add the filter mask to the index data
-        self._filter_mask: SER = pd.Series(data=True, index=i_index)
         self.is_mutable = True
 
     @property
@@ -59,21 +58,6 @@ class Ndx():
     def non_nullable_mask(self) -> SER:
         return self._data['non_nullable']
 
-    @property
-    def filter_mask(self) -> SER:
-        return self._filter_mask
-
-    @filter_mask.setter
-    def filter_mask(self, value: SER):
-        self._filter_mask = value        
-
-    @property
-    def filter_mask_committed(self) -> SER:
-        not_in_progress = ~self.in_progress_mask
-        mask = self._filter_mask.loc[not_in_progress]        
-        mask = mask.iloc[ : self.count_real] # dropping any virtual rows
-        return mask
-
     def set_disabled_in_progress(self, index, count: int):
         self._data.loc[index, 'disabled_in_progress_count'] = count
         self._update_in_progress(index)
@@ -102,17 +86,17 @@ class Ndx():
         self._data = pandas_obj_insert_rows(
             obj=self._data, at_index=at_index, new_rows=new_rows)
 
-        # set new index as 'not filtered' by default
-        new_rows = pd.Series(data=True, index=range(
-            at_index, at_index + count))
-        self._filter_mask = pandas_obj_insert_rows(
-            obj=self._filter_mask, at_index=at_index, new_rows=new_rows)
+        # # set new index as 'not filtered' by default
+        # new_rows = pd.DataFrame(data=True, index=index,
+        #     columns=self.filter_cache.columns)
+        # self.filter_cache = pandas_obj_insert_rows(
+        #     obj=self.filter_cache, at_index=at_index, new_rows=new_rows)
 
     def remove(self, at_index: int, count: int):
         self._data = pandas_obj_remove_rows(
             self._data, at_index, count)
-        self._filter_mask = pandas_obj_remove_rows(
-            self._filter_mask, at_index, count)
+        # self.filter_cache = pandas_obj_remove_rows(
+        #     self.filter_cache, at_index, count)
 
     @staticmethod
     def _make_index_data_for(index) -> DF:

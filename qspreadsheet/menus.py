@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from typing import List
+from typing import List, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -106,12 +106,17 @@ class FilterListMenuWidget(QWidgetAction):
                     self._action_select_all.setCheckState(Qt.Checked)
         self.list.blockSignals(False)
 
-    def checked_values(self) -> List[str]:
+    def values(self) -> Tuple[List[str], bool]:
         checked = []
+        select_all = False
         for i in range(self.list.count()):
             itm = self.list.item(i)
             if itm is self._action_select_all:
-                continue
+                select_all = (itm.checkState() == Qt.Checked)
+                if select_all:
+                    break
+                else:
+                    continue
             if itm.checkState() == Qt.Checked:
                 checked.append(itm.text())
-        return checked
+        return checked, select_all

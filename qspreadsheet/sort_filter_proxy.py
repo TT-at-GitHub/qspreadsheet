@@ -16,6 +16,7 @@ from PySide2.QtWidgets import *
 
 from qspreadsheet import resources_rc
 from qspreadsheet.common import DF, SER
+from qspreadsheet._ndx import _Ndx
 from qspreadsheet.menus import FilterListMenuWidget
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,12 @@ INITIAL_FILTER_LIMIT = 5000
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
-    def __init__(self, parent: Optional[QWidget]=None) -> None:
+    def __init__(self, model: DataFrameModel, parent: Optional[QWidget]=None) -> None:
         super(DataFrameSortFilterProxy, self).__init__(parent)
-        self._model: Optional[DataFrameModel] = None
+        self._model: DataFrameModel = model
+        self._model.rowsInserted.connect(self.on_rows_inserted)
+        self._model.rowsRemoved.connect(self.on_rows_removed)     
 
-        self._masks_cache = []
         self._column_index = 0
         self._list_filter_widget = None
         self._pool = QThreadPool(self)
@@ -39,69 +41,72 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._filter_values: Optional[SER] = None
         self._over_limit_values: Optional[SER] = None
 
+        self.filter_cache: Dict[int, SER] = {-1 : self.alltrues()}
+        self.accepted = self.alltrues()
+
     def list_filter_widget(self):
         self._list_filter_widget = FilterListMenuWidget(self)
         self._list_filter_widget.show_all_btn.clicked.connect(
             self.show_all_filter_values)
         return self._list_filter_widget
 
-    def setSourceModel(self, model: DataFrameModel):
-        self._model = model
-        super().setSourceModel(model)
-
     @property
     def filter_key_column(self) -> int:
-        # filterKeyColumn
         return self._column_index
 
     def set_filter_key_column(self, value: int):
         self._column_index = value
 
-    @property
-    def accepted(self) -> SER:
-        return self._model.row_ndx.filter_mask
+    def add_filter_mask(self, mask: SER):
+        if self._column_index in self.filter_cache:
+            self.filter_cache.pop(self._column_index)
+        self.filter_cache[self._column_index] = mask
+        # update accepted
+        self._update_accepted(mask)
 
-    def set_accepted(self, accepted):
-        self._model.row_ndx.filter_mask = accepted
+    def remove_filter_mask(self, column_index):
+        if column_index in self.filter_cache:
+            self.filter_cache.pop(column_index)
+        self._update_accepted(self.filter_mask)
+    
+    def _update_accepted(self, mask: SER):
+        self.accepted.loc[:] = False
+        self.accepted.loc[mask.index] = mask
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if source_row < self._model.row_ndx.filter_mask.size:
-            return self._model.row_ndx.filter_mask.iloc[source_row]
+        if source_row < self.accepted.size:
+            return self.accepted.iloc[source_row]
         return True
 
     def string_filter(self, text: str):
         text = text.lower()
+        raise NotImplementedError('string_filter')
         if not text:
-            mask = self._alltrues()
+            mask = self.alltrues()
         else:
-            mask = self._model._df.iloc[: , self.filter_key_column].astype(
-                'str').str.lower().str.contains(text)
+            mask = self._display_values.str.contains(text)
 
-        self.set_accepted(mask)
+        self.set_filter_mask(mask)
         self.invalidateFilter()
 
     def apply_list_filter(self):
-        # print(self._display_values)
-        checked_values = self._list_filter_widget.checked_values()
-        filter_values = self._display_values.loc[self._display_values.isin(checked_values)]
-        # print(filter_values)
+        checked_values, select_all = self._list_filter_widget.values()
+        mask = self._display_values.isin(checked_values)
+        # filter_values = self._display_values.loc[mask]
 
-        mask = pd.Series(data=False, index=self.accepted.index)
-        mask.loc[filter_values.index] = True
-        self.set_accepted(mask)
+        if select_all:
+            self.remove_filter_mask(self._column_index)
+        else:
+            self.add_filter_mask(mask)
         self.invalidateFilter()
 
-    def reset_filter(self):
-        # Nothing to reset
-        if self.accepted.all():
+    def clear_filter(self):
+        if not self.is_filtered:
             return
-
-        self.set_accepted(self._alltrues())
+        self.filter_cache.clear()
+        self.filter_cache = {-1 : self.alltrues()}
+        self.accepted = self.alltrues()        
         self.invalidateFilter()
-        # self.invalidateFilterFilter()
-
-    def _alltrues(self) -> pd.Series:
-        return pd.Series(data=True, index=self._model._df.index)
 
     def refill_list(self, *args, **kwargs):
         """ Adds to the filter list all remaining values, 
@@ -118,7 +123,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def populate_list(self):
         self._list_filter_widget.list.clear()
 
-        unique = self.get_unique_model_values()
+        unique, mask = self.get_unique_model_values()
         if unique.size > INITIAL_FILTER_LIMIT:
             unique = unique.iloc[ : INITIAL_FILTER_LIMIT]
             self._over_limit_values = unique.iloc[ INITIAL_FILTER_LIMIT :]
@@ -127,8 +132,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
             for ndx, value in unique.items()})
         self._filter_values = self._display_values.drop_duplicates()
-
-        mask = self._model.row_ndx.filter_mask_committed
 
         # Add a (Select All)
         if mask.all():
@@ -146,12 +149,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def add_list_items(self, values: SER):
         """values : {pd.Series}: values to add to the list
         """
-        mask = self.accepted
-
         for row_ndx, value in values.items():
-
-            state = Qt.Checked if mask.loc[row_ndx] else Qt.Unchecked
-            
+            state = Qt.Checked if self.accepted.loc[row_ndx] else Qt.Unchecked
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
@@ -167,20 +166,42 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         # worker.run()
         self._pool.start(worker)
 
-    def get_unique_model_values(self) -> SER:
+    def get_unique_model_values(self) -> Tuple[SER, SER]:
         # Generates filter items for given column index
-        column: SER = self._model._df.iloc[:, self._column_index]
-
-        # dropping the rows in progress from the column and the mask
-        not_inprogress_mask = ~self._model.row_ndx.in_progress_mask
-        column = column.loc[not_inprogress_mask]
-        column = column.iloc[: self._model.row_ndx.count_real]
-
+        column: SER = self._model.df.iloc[:, self._column_index]
+        
+        # if the column being filtered is not the last filtered column
+        filter_mask = self.filter_mask
+        if self._column_index != self.last_filter_index:
+            filter_mask = filter_mask.loc[filter_mask]
+        column = column.loc[filter_mask.index]
         unique = column.drop_duplicates()
-                
+
         try:
             unique = unique.sort_values()
         except:
             pass
 
-        return unique
+        return unique, filter_mask
+
+    @property
+    def filter_mask(self) -> SER:
+        mask = self.filter_cache[self.last_filter_index]
+        return mask
+
+    @property
+    def last_filter_index(self) -> int:
+        return list(self.filter_cache.keys())[-1]
+
+    @property
+    def is_filtered(self) -> bool:
+        return len(self.filter_cache) > 1
+
+    def alltrues(self) -> pd.Series:
+        return pd.Series(data=True, index=self._model.df.index)
+
+    def on_rows_inserted(self, parent: QModelIndex, first: int, last: int):
+        pass
+
+    def on_rows_removed(self, parent: QModelIndex, first: int, last: int):
+        pass

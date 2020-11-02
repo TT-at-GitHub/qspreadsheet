@@ -62,7 +62,7 @@ class DataFrameView(QTableView):
         self._model = DataFrameModel(df=df, header_model=self.header_model,
                                      delegate=self._main_delegate, parent=self)
 
-        self._proxy = DataFrameSortFilterProxy(self)
+        self._proxy = DataFrameSortFilterProxy(model=self._model, parent=self)
         self._proxy.setSourceModel(self._model)
         self._proxy.setDynamicSortFilter(False)
         self.setModel(self._proxy)
@@ -228,7 +228,7 @@ class DataFrameView(QTableView):
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self._proxy.reset_filter)
+                       self._proxy.clear_filter)
         menu.addSeparator()
 
         if self._model.row_ndx.is_mutable:    
@@ -267,7 +267,7 @@ class DataFrameView(QTableView):
         menu.addAction(list_filter)
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
-                       self._proxy.reset_filter)
+                       self._proxy.clear_filter)
 
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),

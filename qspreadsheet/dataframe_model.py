@@ -12,7 +12,7 @@ from PySide2.QtWidgets import *
 from qspreadsheet.common import DF, SER, pandas_obj_insert_rows, pandas_obj_remove_rows
 from qspreadsheet.delegates import MasterDelegate
 from qspreadsheet.header_view import HeaderView
-from qspreadsheet._ndx import Ndx
+from qspreadsheet._ndx import _Ndx
 from qspreadsheet import resources_rc
 
 logger = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ class DataFrameModel(QAbstractTableModel):
     def set_df(self, df: DF):
         # self.beginResetModel()
         self._df = df.copy()
-        self.row_ndx = Ndx(self._df.index)
-        self.col_ndx = Ndx(self._df.columns)
+        self.row_ndx = _Ndx(self._df.index)
+        self.col_ndx = _Ndx(self._df.columns)
         self.add_bottom_row()
         # self.endResetModel()
 
@@ -57,8 +57,7 @@ class DataFrameModel(QAbstractTableModel):
         # to make the row and column index datatype agnostic
         not_inprogress_columns = ~self.col_ndx.in_progress_mask.values
         df.loc[not_inprogress_rows, not_inprogress_columns]
-        if self.row_ndx.is_mutable:
-            df = df.drop(df.index[-1])
+        df = df.iloc[ : self.row_ndx.count_real]
         return df
 
     def columnCount(self, parent: QModelIndex) -> int:
