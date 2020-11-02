@@ -116,8 +116,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         """
         display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
             for ndx, value in self._over_limit_values.items()})
-        self._display_values = self._display_values.add(display_values)
-        self._filter_values = self._filter_values.add(display_values.drop_duplicates())
+        self._display_values = self._display_values.append(display_values)
+        self._filter_values = self._filter_values.append(display_values.drop_duplicates())
         self.add_list_items(self._filter_values)
 
     def populate_list(self):
@@ -125,8 +125,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
         unique, mask = self.get_unique_model_values()
         if unique.size > INITIAL_FILTER_LIMIT:
-            unique = unique.iloc[ : INITIAL_FILTER_LIMIT]
             self._over_limit_values = unique.iloc[ INITIAL_FILTER_LIMIT :]
+            unique = unique.iloc[ : INITIAL_FILTER_LIMIT]
             self._list_filter_widget.show_all_btn.setVisible(True)
 
         self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
