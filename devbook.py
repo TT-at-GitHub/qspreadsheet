@@ -67,3 +67,9 @@ in_progress_cols
 df.loc[~in_progress_rows, ~in_progress_cols]
 # %%
 '.ignore/data/{}rows.pkl'.format(num_rows)
+
+#In[0]
+name= 'some name very long name'
+name
+#In[0]
+name[:10]

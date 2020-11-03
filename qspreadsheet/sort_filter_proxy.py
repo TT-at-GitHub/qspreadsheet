@@ -122,8 +122,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self.add_filter_mask(mask)
         self.invalidateFilter()
 
-    def clear_filter(self):
-        if not self.is_filtered:
+    def clear_filter_cache(self):
+        if not len(self.filter_cache) > 1:
             return
         self.filter_cache.clear()
         self.filter_cache = {-1 : self.alltrues()}
@@ -220,9 +220,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def last_filter_index(self) -> int:
         return list(self.filter_cache.keys())[-1]
 
-    @property
-    def is_filtered(self) -> bool:
-        return len(self.filter_cache) > 1
+    def is_filtered(self, col_ndx: int) -> bool:
+        return col_ndx in self.filter_cache
 
     def alltrues(self) -> pd.Series:
         return pd.Series(data=True, index=self._model.df.index)

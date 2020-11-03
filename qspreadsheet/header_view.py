@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import textwrap
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from PySide2.QtCore import *
@@ -17,10 +18,11 @@ class HeaderWidget(QWidget):
     def __init__(self, labelText='', margins: Optional[QMargins] = None, parent=None):
         super(HeaderWidget, self).__init__(parent)
         self._text = str(labelText)
+        self.is_filtered = False
+
         self.label = QLabel()
         self.button = QPushButton('')
         self.margins = margins or QMargins(2, 2, 2, 2)
-
         self._setup_label()
         self._setup_button()
 
@@ -33,21 +35,25 @@ class HeaderWidget(QWidget):
 
     def text(self) -> str:
         return self._text
+    
+    def short_text(self) -> str:
+        fm = QFontMetrics(self.label.font())
+        return fm.elidedText(
+            self._text, Qt.ElideRight, self.label.width())
 
     def _setup_label(self):
         self.label.setStyleSheet('''
             color: white;
             font: bold 12px ; ''')  # 'Consolas'
         self.label.setWordWrap(True)
-        fm = QFontMetrics(self.label.font())
-        elided_text = fm.elidedText(
-            self._text, Qt.ElideRight, self.label.width())
+        elided_text = self.short_text()
         self.label.setText(elided_text)
 
     def _setup_button(self):
         self.button.setObjectName(self._text)
         self.button.setFixedSize(QSize(25, 20))
-        self.set_button_icon(filtered=False)
+        self.button.setIcon(QIcon(":/down-arrow-thin"))
+        self.button.setIconSize(QSize(12, 12))        
 
     def sizeHint(self) -> QSize:
         fm = QFontMetrics(self.label.font())
@@ -60,13 +66,12 @@ class HeaderWidget(QWidget):
             self._text, Qt.ElideRight, self.label.width())
         self.label.setText(elided_text)
 
-    def set_button_icon(self, filtered: bool):
-        icon = None
-        if filtered:
-            icon = QIcon(":/down-arrow-orange")
-        else:
-            icon = QIcon(":/down-arrow-thin")
-        self.button.setIcon(icon)
+    def set_filtered(self, filtered: bool):
+        if filtered == self.is_filtered:
+            return
+        self.is_filtered = filtered
+        icon_name = ":/down-arrow-orange" if filtered else ":/down-arrow-thin"
+        self.button.setIcon(QIcon(icon_name))
         self.button.setIconSize(QSize(12, 12))
 
 
@@ -75,7 +80,7 @@ class HeaderView(QHeaderView):
     def __init__(self, columns: Iterable[str], parent=None):
         super(HeaderView, self).__init__(Qt.Horizontal, parent)
 
-        self.headers: List[HeaderWidget] = []
+        self.header_widgets: List[HeaderWidget] = []
         self.filter_btn_mapper = QSignalMapper(self)
 
         for name in columns:
@@ -83,7 +88,7 @@ class HeaderView(QHeaderView):
             header_widget = HeaderWidget(labelText=name, parent=self)
             self.filter_btn_mapper.setMapping(header_widget.button, name)
             header_widget.button.clicked.connect(self.filter_btn_mapper.map)
-            self.headers.append(header_widget)
+            self.header_widgets.append(header_widget)
 
         self.sectionResized.connect(self.on_section_resized)
         self.sectionMoved.connect(self.on_section_moved)
@@ -101,7 +106,7 @@ class HeaderView(QHeaderView):
                 
 
     def showEvent(self, e: QShowEvent):
-        for i, header in enumerate(self.headers):
+        for i, header in enumerate(self.header_widgets):
             header.setParent(self)
             self._set_item_geometry(header, i)
             header.show()
@@ -113,9 +118,9 @@ class HeaderView(QHeaderView):
         return QSize(super_sz_h.width(), super_sz_h.height() + 10)
 
     def on_section_resized(self, i):
-        for ndx in range(i, len(self.headers)):
+        for ndx in range(i, len(self.header_widgets)):
             logical = self.logicalIndex(ndx)
-            self._set_item_geometry(self.headers[logical], logical)
+            self._set_item_geometry(self.header_widgets[logical], logical)
 
     def _set_item_geometry(self, item: HeaderWidget, logical: int):
         item.setGeometry(
@@ -128,11 +133,11 @@ class HeaderView(QHeaderView):
     def on_section_moved(self, logical, oldVisualIndex, newVisualIndex):
         for i in range(min(oldVisualIndex, newVisualIndex), self.count()):
             logical = self.logicalIndex(i)
-            self._set_item_geometry(self.headers[i], logical)
+            self._set_item_geometry(self.header_widgets[i], logical)
 
     def fix_item_positions(self):
-        for i, header in enumerate(self.headers):
+        for i, header in enumerate(self.header_widgets):
             self._set_item_geometry(header, i)
 
     def set_item_margin(self, index: int, margins: QMargins):
-        self.headers[index].margins = margins
+        self.header_widgets[index].margins = margins

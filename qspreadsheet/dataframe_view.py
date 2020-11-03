@@ -7,6 +7,7 @@ from itertools import count, groupby
 from types import TracebackType
 from typing import (Any, Iterable, List, Mapping, Optional, Tuple, Type, Union,
                     cast)
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -165,7 +166,7 @@ class DataFrameView(QTableView):
         header = self.horizontalHeader()
         for i in range(header.count()):
             header.resizeSection(
-                i, self.header_model.headers[i].sizeHint().width())
+                i, self.header_model.header_widgets[i].sizeHint().width())
 
     def enable_mutable_rows(self, enable: bool):
         if not isinstance(enable, bool):
@@ -195,12 +196,12 @@ class DataFrameView(QTableView):
         btn: QPushButton = self.sender().mapping(name)
         header_widget: HeaderWidget = btn.parent()
         
-        col_ndx = self.header_model.headers.index(header_widget)
+        col_ndx = self.header_model.header_widgets.index(header_widget)
         self._proxy.set_filter_key_column(col_ndx)
 
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(header_widget.pos())
-        menu = self.make_header_menu(col_ndx)
+        menu = self.make_header_menu(col_ndx, header_widget)
 
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
                         header_pos.y() + btn.height() + 15)
@@ -226,6 +227,13 @@ class DataFrameView(QTableView):
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.clear_filter)
+
+        if self._proxy.is_filtered(col_ndx):
+            header_widget = self.header_model.header_widgets[col_ndx]
+            menu.addAction(standard_icon('DialogResetButton'),
+                       f"Clear Filter from `{header_widget.short_text()}`",
+                       self.clear_current_column_filter)
+                                              
         menu.addSeparator()
 
         if self._model.row_ndx.is_mutable and not self._proxy.is_filtered:
@@ -243,7 +251,7 @@ class DataFrameView(QTableView):
         menu.addAction("Open in Excel...", self.async_to_excel)
         return menu
 
-    def make_header_menu(self, col_ndx: int) -> QMenu:
+    def make_header_menu(self, col_ndx: int, header_widget: HeaderWidget) -> QMenu:
         '''Create popup menu used for header'''
 
         menu = QMenu(self)
@@ -264,6 +272,11 @@ class DataFrameView(QTableView):
         menu.addAction(standard_icon('DialogResetButton'),
                        "Clear Filter",
                        self.clear_filter)
+
+        if header_widget.is_filtered:
+            menu.addAction(standard_icon('DialogResetButton'),
+                       f"Clear Filter from `{header_widget.text()}`",
+                       self.clear_current_column_filter)
 
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),
@@ -398,15 +411,21 @@ class DataFrameView(QTableView):
         self.update_filter_icon()
 
     def clear_filter(self):
-        self._proxy.clear_filter()
-        self.update_filter_icon()
+        self._proxy.clear_filter_cache()
+        for header_widget in self.header_model.header_widgets:
+            header_widget.set_filtered(filtered=False)
+
+    def clear_current_column_filter(self):
+        col_ndx = self._proxy.filter_key_column
+        header_widget = self.header_model.header_widgets[col_ndx]
+        header_widget.set_filtered(filtered=False)
         
     def update_filter_icon(self):
         col_ndx = self._proxy.filter_key_column
-        filtered = col_ndx in self._proxy.filter_cache.keys()
-        header_widget = self.header_model.headers[col_ndx]
-        header_widget.set_button_icon(filtered=filtered)
-
+        filtered = self._proxy.is_filtered(col_ndx)
+        header_widget = self.header_model.header_widgets[col_ndx]
+        header_widget.set_filtered(filtered=filtered)
+    
     def filter_by_value(self, row_ndx: int, col_ndx: int):
         cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
         self._proxy.set_filter_key_column(col_ndx)

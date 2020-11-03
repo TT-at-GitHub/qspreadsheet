@@ -86,7 +86,9 @@ class MainWindow(QMainWindow):
 
     def on_do_something(self):
         current = self.table.mutable_rows
-        self.table.enable_mutable_rows(not current)
+        new_state = (not current)
+        self.table.enable_mutable_rows(new_state)
+        logger.info(f'self.table.enable_mutable_rows({new_state})')
 
     def on_data_changed(self, first: QModelIndex, last: QModelIndex):
         if self.table.is_dirty:
@@ -108,6 +110,7 @@ def make_df():
 
 df = pd.DataFrame(pd.read_pickle('.ignore/data/10rows.pkl'))
 df = df.sort_values(by='C').reset_index(drop=True)
+df['very very long column name'] = df['C']
 
 # print(df)
 pd.options.display.precision = 4

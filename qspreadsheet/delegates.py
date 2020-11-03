@@ -500,7 +500,6 @@ class RichTextDelegate(ColumnDelegate):
         return self._default
 # endregion Type delegates
 
-
 def automap_delegates(df: DF,
                       nullable: Union[bool, Mapping[Any, bool]] = True
                       ) -> Dict[Any, ColumnDelegate]:

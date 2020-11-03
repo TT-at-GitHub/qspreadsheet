@@ -7,10 +7,10 @@ v - Recognize completion of rows in progress
   v   -- Use delegate or model's data method to populate the filter list widget
   v   -- Remove the last 'empty' data row from the filters
   v   -- update filter button's icon when filtering
-  -- Add `Clear filter From ... (column name)` to remove the filter from
-      current column, not the entire filter
-  -- `Clear filter` to update filter icon for all columns
-  - `Clear filter` to update filter icon for all columns
+  v   -- Add `Clear filter From ... (column name)` to remove the filter from current column, not the entire filter
+  v   -- `Clear filter` to update filter icon for all columns
+  
+
 - Deal with empty tables. For example:
   -- typing into the virtual bottom row in an empty table adds row, but
      won't let you delete it
@@ -50,4 +50,4 @@ v - Recognize completion of rows in progress
 - clicking filter button when filter menu is visible, should close the menu, now it's
   showing new menu
 
-- for large filter lists, marking a checkbox, scrolls the list to the top
+- for large filter lists, marking a checkbox, scrolls the list to near the top

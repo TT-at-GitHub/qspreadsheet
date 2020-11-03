@@ -149,7 +149,7 @@ class DataFrameModel(QAbstractTableModel):
             return None
         if orientation == Qt.Horizontal:
             if role == Qt.DisplayRole:
-                return self.header_model.headers[section]
+                return self.header_model.header_widgets[section]
             return None
         return None
 
