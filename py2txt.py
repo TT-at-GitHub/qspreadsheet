@@ -1,7 +1,18 @@
 import os
 import sys 
 import shutil
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--version', help='Version / Tag', required=False, default='')
+args, _ = parser.parse_known_args()
+
+if args.version:
+    args.version = '_{}'.format(args.version)
+
+dst = './.ignore/qspreadsheet.txt{}/'.format(args.version)
+if os.path.isdir(dst):
+    shutil.rmtree(dst)
 
 def copytree(src, dst, symlinks=False, ignore=None):
 
@@ -15,10 +26,6 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
-
-dst = './.ignore/qspreadsheet.txt/'
-if os.path.isdir(dst):
-    shutil.rmtree(dst)
     
 os.mkdir(dst)
 copytree('qspreadsheet/', dst)
