@@ -504,22 +504,14 @@ class RichTextDelegate(ColumnDelegate):
 def automap_delegates(df: DF,
                       nullable: Union[bool, Mapping[Any, bool]] = True
                       ) -> Dict[Any, ColumnDelegate]:
-    type2delegate = tuple((
-        ('object', StringDelegate),
-        ('int', IntDelegate),
-        ('float', FloatDelegate),
-        ('datetime', DateDelegate),
-        ('bool', BoolDelegate),
-    ))
-
+    
     dtypes = df.dtypes.astype(str)
 
     delegates = {}
     for columnname, dtype in dtypes.items():
-        for key, delegate_class in type2delegate:
+        for key, delegate_class in default_delegates.items():
             if key in dtype:
                 delegate = delegate_class()
-                delegate.setObjectName(str(columnname))
                 break
         else:
             delegate = StringDelegate()
@@ -557,3 +549,11 @@ def as_qdate(datelike: DateLike, format: Optional[str] = None) -> QDate:
     if isinstance(datelike, str):
         datelike = datetime.strptime(datelike, format)
     return datelike if isinstance(datelike, QDate) else QDate(datelike.year, datelike.month, datelike.day)
+
+default_delegates = dict((
+        ('object', StringDelegate),
+        ('int', IntDelegate),
+        ('float', FloatDelegate),
+        ('datetime', DateDelegate),
+        ('bool', BoolDelegate),
+    ))

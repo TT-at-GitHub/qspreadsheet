@@ -144,6 +144,7 @@ class DataFrameView(QTableView):
             current.deleteLater()
 
         for column, column_delegate in delegates.items():
+            column_delegate.setObjectName(str(column))
             icolumn = df.columns.get_loc(column)
             self._main_delegate.add_column_delegate(icolumn, column_delegate)
 
