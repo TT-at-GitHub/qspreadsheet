@@ -3,13 +3,17 @@
 v - Recognize completion of rows in progress
 
 - Redesign filters - especially FilterListWidget
-  v   - Improve performance for large tables
-  v   - Use delegate or model's data method to populate the filter list widget
-  v   - Remove the last 'empty' data row from the filters
-  v   - update filter button's icon when filtering
-  - Add `Clear filter From ... (column name)` to remove the filter from
+  v   -- Improve performance for large tables
+  v   -- Use delegate or model's data method to populate the filter list widget
+  v   -- Remove the last 'empty' data row from the filters
+  v   -- update filter button's icon when filtering
+  -- Add `Clear filter From ... (column name)` to remove the filter from
       current column, not the entire filter
+  -- `Clear filter` to update filter icon for all columns
   - `Clear filter` to update filter icon for all columns
+- Deal with empty tables. For example:
+  -- typing into the virtual bottom row in an empty table adds row, but
+     won't let you delete it
 
 - allow updating table's mutable state at runtime
 
