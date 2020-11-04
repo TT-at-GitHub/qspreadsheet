@@ -225,18 +225,18 @@ class DataFrameView(QTableView):
         #                 partial(self._data_model.filterFunction, col_ndx=col_ndx,
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(standard_icon('DialogResetButton'),
-                       "Clear Filter",
-                       self.clear_filter)
+                    "Clear Filter",
+                    self.clear_filter).setEnabled(self._proxy.is_data_filtered)
 
-        if self._proxy.is_filtered(col_ndx):
-            header_widget = self.header_model.header_widgets[col_ndx]
-            menu.addAction(standard_icon('DialogResetButton'),
-                       f"Clear Filter from `{header_widget.short_text()}`",
-                       self.clear_current_column_filter)
+        header_widget = self.header_model.header_widgets[col_ndx]
+        menu.addAction(standard_icon('DialogResetButton'),
+                    f"Clear Filter from `{header_widget.short_text}`",
+                    self.clear_current_column_filter
+                    ).setEnabled(self._proxy.is_column_filtered(col_ndx))
                                               
         menu.addSeparator()
 
-        if self._model.row_ndx.is_mutable and not self._proxy.is_filtered:
+        if self._model.row_ndx.is_mutable and not self._proxy.is_column_filtered:
             menu.addAction("Insert Rows Above",
                         partial(self.insert_rows, 'above'))
             menu.addAction("Insert Rows Below",
@@ -257,9 +257,9 @@ class DataFrameView(QTableView):
         menu = QMenu(self)
 
         # Filter Menu Action
-        str_filter = LineEditMenuAction(self, menu, 'Filter')
+        str_filter = LineEditWidgetAction(self, menu, 'Filter')
         str_filter.returnPressed.connect(self.apply_and_close)
-        str_filter.textChanged.connect(self._proxy.filter_list_widget)
+        str_filter.textChanged.connect(self._proxy.filter_list_widget_by_text)
         menu.addAction(str_filter)
         
         list_filter = self._proxy.create_list_filter_widget()
@@ -268,15 +268,15 @@ class DataFrameView(QTableView):
         self._proxy.async_populate_list()
 
         menu.addAction(list_filter)
+
         menu.addAction(standard_icon('DialogResetButton'),
-                       "Clear Filter",
-                       self.clear_filter)
-
-        if header_widget.is_filtered:
-            menu.addAction(standard_icon('DialogResetButton'),
-                       f"Clear Filter from `{header_widget.text()}`",
-                       self.clear_current_column_filter)
-
+                    "Clear Filter",
+                    self.clear_filter).setEnabled(self._proxy.is_data_filtered)
+        menu.addAction(standard_icon('DialogResetButton'),
+                       f"Clear Filter from `{header_widget.short_text}`",
+                       self.clear_current_column_filter
+                       ).setEnabled(self._proxy.is_column_filtered(col_ndx))
+        
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
