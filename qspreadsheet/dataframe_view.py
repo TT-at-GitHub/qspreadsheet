@@ -22,7 +22,7 @@ from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
                                     automap_delegates)
 from qspreadsheet.header_view import HeaderView, HeaderWidget
-from qspreadsheet.menus import LineEditMenuAction
+from qspreadsheet.menus import LineEditWidgetAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
 
@@ -422,7 +422,7 @@ class DataFrameView(QTableView):
         
     def update_filter_icon(self):
         col_ndx = self._proxy.filter_key_column
-        filtered = self._proxy.is_filtered(col_ndx)
+        filtered = self._proxy.is_column_filtered(col_ndx)
         header_widget = self.header_model.header_widgets[col_ndx]
         header_widget.set_filtered(filtered=filtered)
     

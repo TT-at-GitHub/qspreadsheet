@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -16,11 +16,11 @@ from qspreadsheet.worker import Worker
 logger = logging.getLogger(__name__)
 
  
-class LineEditMenuAction(QWidgetAction):
+class LineEditWidgetAction(QWidgetAction):
     """Labeled Textbox in menu"""
 
     def __init__(self, parent, menu, label_text='', position=LEFT):
-        super(LineEditMenuAction, self).__init__(parent)
+        super(LineEditWidgetAction, self).__init__(parent)
 
         widget = LabeledLineEdit(label_text, position, parent=menu)
         self.returnPressed = widget.lineEdit.returnPressed
@@ -28,7 +28,7 @@ class LineEditMenuAction(QWidgetAction):
         self.setDefaultWidget(widget)
 
 
-class FilterListMenuWidget(QWidgetAction):
+class FilterListWidgetAction(QWidgetAction):
     """Checkboxed list filter menu"""
 
     def __init__(self, parent=None) -> None:
@@ -43,7 +43,7 @@ class FilterListMenuWidget(QWidgetAction):
             menu: (QMenu)
                 Menu object this list is located on
         """
-        super(FilterListMenuWidget, self).__init__(parent)
+        super(FilterListWidgetAction, self).__init__(parent)
 
         # Build Widgets
         widget = QWidget()
@@ -68,6 +68,7 @@ class FilterListMenuWidget(QWidgetAction):
         btn.setVisible(False)
         layout.addWidget(btn)
         self.show_all_btn = btn
+        self.select_all_item: Optional[QListWidgetItem] = None
 
         widget.setLayout(layout)
         self.setDefaultWidget(widget)
@@ -78,45 +79,40 @@ class FilterListMenuWidget(QWidgetAction):
     def on_listitem_changed(self, item: QListWidgetItem):
 
         self.list.blockSignals(True)
-        if item is self._action_select_all:
+        if item is self.select_all_item:
             # Handle "select all" item click
             state = item.checkState()
 
             # Select/deselect all items
             for i in range(self.list.count()):
-                if i is self._action_select_all:
+                if i is self.select_all_item:
                     continue
                 itm = self.list.item(i)
                 itm.setCheckState(state)
         else:
             # Non "select all" item; figure out what "select all" should be
             if item.checkState() == Qt.Unchecked:
-                self._action_select_all.setCheckState(Qt.Unchecked)
+                self.select_all_item.setCheckState(Qt.Unchecked)
             else:
                 # "select all" only checked if all other items are checked
                 for i in range(self.list.count()):
                     itm = self.list.item(i)
-                    if itm is self._action_select_all:
+                    if itm is self.select_all_item:
                         continue
                     if itm.checkState() == Qt.Unchecked:
-                        self._action_select_all.setCheckState(Qt.Unchecked)
+                        self.select_all_item.setCheckState(Qt.Unchecked)
                         break
                 else:
-                    self._action_select_all.setCheckState(Qt.Checked)
+                    self.select_all_item.setCheckState(Qt.Checked)
         self.list.scrollToItem(item)
         self.list.blockSignals(False)
 
     def values(self) -> Tuple[List[str], bool]:
         checked = []
-        select_all = False
         for i in range(self.list.count()):
             itm = self.list.item(i)
-            if itm is self._action_select_all:
-                select_all = (itm.checkState() == Qt.Checked)
-                if select_all:
-                    break
-                else:
-                    continue
+            if itm is self.select_all_item:
+                continue
             if itm.checkState() == Qt.Checked:
                 checked.append(itm.text())
-        return checked, select_all
+        return checked

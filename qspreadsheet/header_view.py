@@ -20,7 +20,7 @@ class HeaderWidget(QWidget):
         self._text = str(labelText)
         self.is_filtered = False
 
-        self.label = QLabel()
+        self.label = QLabel('')
         self.button = QPushButton('')
         self.margins = margins or QMargins(2, 2, 2, 2)
         self._setup_label()
@@ -36,6 +36,7 @@ class HeaderWidget(QWidget):
     def text(self) -> str:
         return self._text
     
+    @property
     def short_text(self) -> str:
         fm = QFontMetrics(self.label.font())
         return fm.elidedText(
@@ -46,8 +47,7 @@ class HeaderWidget(QWidget):
             color: white;
             font: bold 12px ; ''')  # 'Consolas'
         self.label.setWordWrap(True)
-        elided_text = self.short_text()
-        self.label.setText(elided_text)
+        self.label.setText(self.short_text)
 
     def _setup_button(self):
         self.button.setObjectName(self._text)

@@ -18,7 +18,7 @@ from PySide2.QtWidgets import *
 from qspreadsheet import resources_rc
 from qspreadsheet.common import DF, SER
 from qspreadsheet._ndx import _Ndx
-from qspreadsheet.menus import FilterListMenuWidget
+from qspreadsheet.menus import FilterListWidgetAction
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._model.rowsRemoved.connect(self.on_rows_removed)     
 
         self._column_index = 0
-        self._list_filter_widget = None
+        self._list_widget = None
         self._pool = QThreadPool(self)
         
         #FIXME: re-design these in to the masks cache...!
@@ -46,10 +46,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted = self.alltrues()
 
     def create_list_filter_widget(self):
-        self._list_filter_widget = FilterListMenuWidget(self)
-        self._list_filter_widget.show_all_btn.clicked.connect(
+        self._list_widget = FilterListWidgetAction(self)
+        self._list_widget.show_all_btn.clicked.connect(
             self.show_all_filter_values)
-        return self._list_filter_widget
+        return self._list_widget
 
     @property
     def filter_key_column(self) -> int:
@@ -93,7 +93,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.add_filter_mask(mask)
         self.invalidateFilter()
 
-    def filter_list_widget(self, text: str):
+    def filter_list_widget_by_text(self, text: str):
         text = text.lower()
         if text:
             mask = self._filter_values.str.contains(text)
@@ -101,29 +101,30 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         else:
             filter_values = self._filter_values
             
-        self._list_filter_widget.list.clear()
+        self._list_widget.list.clear()
         item = QListWidgetItem('(Select All)')
         item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
         item.setCheckState(Qt.Unchecked)
-        self._list_filter_widget.list.addItem(item)
+        self._list_widget.list.addItem(item)
 
         for _, value in filter_values.items():
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Checked)
-            self._list_filter_widget.list.addItem(item)        
+            self._list_widget.list.addItem(item)        
 
     def apply_list_filter(self):
-        checked_values, select_all = self._list_filter_widget.values()
+        select_all = (self._list_widget.select_all_item.checkState() == Qt.Checked)
         if select_all:
             self.remove_filter_mask(self._column_index)
         else:
+            checked_values = self._list_widget.values()
             mask = self._display_values.isin(checked_values)
             self.add_filter_mask(mask)
         self.invalidateFilter()
 
     def clear_filter_cache(self):
-        if not len(self.filter_cache) > 1:
+        if not self.is_data_filtered:
             return
         self.filter_cache.clear()
         self.filter_cache = {-1 : self.alltrues()}
@@ -162,6 +163,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self._list_filter_widget.show_all_btn.setVisible(True)
 
         self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+            self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+        self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
             for ndx, value in unique.items()})
         self._filter_values = self._display_values.drop_duplicates()
 
@@ -174,8 +177,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         item = QListWidgetItem('(Select All)')
         item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
         item.setCheckState(select_all_state)
-        self._list_filter_widget.list.addItem(item)
-        self._list_filter_widget._action_select_all = item
+        self._list_widget.list.addItem(item)
+        self._list_widget.select_all_item = item
         self.add_list_items(self._filter_values)
 
     def update_filter_values(self):
@@ -192,7 +195,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             item = QListWidgetItem(value)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
-            self._list_filter_widget.list.addItem(item)
+            self._list_widget.list.addItem(item)
 
     def show_all_filter_values(self):
         btn = self.sender()
@@ -215,12 +218,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         column = column.loc[filter_mask.index]
         unique = column.drop_duplicates()
 
-        try:
-            unique = unique.sort_values()
-        except:
-            pass
-
         return unique, filter_mask
+
+    @property
+    def is_data_filtered(self) -> bool:
+        return len(self.filter_cache) > 1
 
     @property
     def filter_mask(self) -> SER:
@@ -230,7 +232,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def last_filter_index(self) -> int:
         return list(self.filter_cache.keys())[-1]
 
-    def is_filtered(self, col_ndx: int) -> bool:
+    def is_column_filtered(self, col_ndx: int) -> bool:
         return col_ndx in self.filter_cache
 
     def alltrues(self) -> pd.Series:
