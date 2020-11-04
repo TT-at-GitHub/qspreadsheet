@@ -416,6 +416,7 @@ class DataFrameView(QTableView):
 
     def clear_current_column_filter(self):
         col_ndx = self._proxy.filter_key_column
+        self._proxy.clear_filter_column(col_ndx)
         header_widget = self.header_model.header_widgets[col_ndx]
         header_widget.set_filtered(filtered=False)
         

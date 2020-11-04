@@ -130,6 +130,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted = self.alltrues()
         self.invalidateFilter()
 
+    def clear_filter_column(self, column_index: int):
+        self.remove_filter_mask(column_index)
+        self.invalidateFilter()
+
     def refill_list(self, *args, **kwargs):
         """ Adds to the filter list all remaining values, 
             over the initial filter limit
