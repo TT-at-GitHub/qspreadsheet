@@ -34,18 +34,18 @@ def rnd_txt(num_letters): return "".join(
 #In[0]
 num_rows = 10
 df = pd.DataFrame(np.random.randn(num_rows,3))
-df
-#In[0]
 rand_lines = [rnd_txt(3) for i in range(num_rows)]
 df['B'] = rand_lines
 df['C'] = pd.Timestamp('20130101')
 df['C'] = df['C'].apply(lambda x: x + timedelta(days=randint(-30000, 30000)))
 df.columns = df.columns.astype(str)
-#In[0]
-df.B[::2] = df.B[::2].apply(str.upper)
+half_sz = int(df.index.size / 2)
 df
 #In[0]
-df.B[::2] = df.B[1::2]
+df.B[1:half_sz:2] = df.B[:half_sz -1 : 2].apply(str.upper)
+df
+#In[0]
+df.B[half_sz :-1:2] = df.B[half_sz + 1::2].apply(str.upper)
 df
 #In[0]
 df.C[:] = df.C.sort_values()
@@ -59,9 +59,17 @@ df = pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 df = pd.DataFrame(df)
 df
 #In[0]
-df.loc[4, 'B'] = df.loc[3, 'B']
-df.loc[8, 'B'] = df.loc[3, 'B']
-df.loc[4, '0'] = df.loc[3, '0']
-df.loc[8, '0'] = df.loc[3, '0']
-df.loc[4, '2'] = df.loc[3, '2']
-df.loc[8, '2'] = df.loc[3, '2']
+unique = df.B.drop_duplicates()
+INITIAL_FILTER_LIMIT = 4
+STEP = 3
+#In[0]
+display_values_gen = ((ndx, value) for ndx, value in unique.items())
+display_values_gen
+#In[0]
+unique.size > INITIAL_FILTER_LIMIT
+next_n_values = INITIAL_FILTER_LIMIT
+#In[0]
+display_values = pd.Series(dict(next(display_values_gen) 
+                 for _ in range(next_n_values + 1)))
+display_values
+# %%
