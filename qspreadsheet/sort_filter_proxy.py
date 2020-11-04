@@ -142,7 +142,13 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._filter_values = self._filter_values.append(display_values.drop_duplicates())
         self.add_list_items(self._filter_values)
 
-    def populate_list(self):
+    def async_populate_list(self):
+        worker = Worker(func=self.populate_list)
+        worker.signals.error.connect(self.parent().on_error)
+        # worker.run()
+        self._pool.start(worker)
+
+    def populate_list(self, *args, **kwargs):
         self._list_filter_widget.list.clear()
 
         unique, mask = self.get_unique_model_values()

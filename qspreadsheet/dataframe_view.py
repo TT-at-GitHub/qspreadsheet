@@ -195,7 +195,7 @@ class DataFrameView(QTableView):
     def filter_clicked(self, name: str):
         btn: QPushButton = self.sender().mapping(name)
         header_widget: HeaderWidget = btn.parent()
-        
+
         col_ndx = self.header_model.header_widgets.index(header_widget)
         self._proxy.set_filter_key_column(col_ndx)
 
@@ -264,9 +264,8 @@ class DataFrameView(QTableView):
         
         list_filter = self._proxy.list_filter_widget()
         list_filter.setParent(self)
-
         self._proxy.set_filter_key_column(col_ndx)
-        self._proxy.populate_list()
+        self._proxy.async_populate_list()
 
         menu.addAction(list_filter)
         menu.addAction(standard_icon('DialogResetButton'),

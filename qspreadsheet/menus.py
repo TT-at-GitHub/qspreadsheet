@@ -104,6 +104,7 @@ class FilterListMenuWidget(QWidgetAction):
                         break
                 else:
                     self._action_select_all.setCheckState(Qt.Checked)
+        self.list.scrollToItem(item)
         self.list.blockSignals(False)
 
     def values(self) -> Tuple[List[str], bool]:

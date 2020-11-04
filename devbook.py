@@ -32,7 +32,7 @@ def rnd_txt(num_letters): return "".join(
     [random.choice(string.ascii_letters[:26]) for i in range(num_letters)])
 
 #In[0]
-num_rows = 100_000
+num_rows = 10
 df = pd.DataFrame(np.random.randn(num_rows,3))
 df
 #In[0]
@@ -42,7 +42,14 @@ df['C'] = pd.Timestamp('20130101')
 df['C'] = df['C'].apply(lambda x: x + timedelta(days=randint(-30000, 30000)))
 df.columns = df.columns.astype(str)
 #In[0]
-df['B'].nunique(), df['B'].size
+df.B[::2] = df.B[::2].apply(str.upper)
+df
+#In[0]
+df.B[::2] = df.B[1::2]
+df
+#In[0]
+df.C[:] = df.C.sort_values()
+df
 #In[0]
 df.to_pickle('.ignore/data/{}rows.pkl'.format(num_rows))
 #In[0]
@@ -58,18 +65,3 @@ df.loc[4, '0'] = df.loc[3, '0']
 df.loc[8, '0'] = df.loc[3, '0']
 df.loc[4, '2'] = df.loc[3, '2']
 df.loc[8, '2'] = df.loc[3, '2']
-#In[0]
-in_progress_rows = df['2'] > 0
-in_progress_cols = df.columns == 'C'
-in_progress_rows
-in_progress_cols
-# In[1]
-df.loc[~in_progress_rows, ~in_progress_cols]
-# %%
-'.ignore/data/{}rows.pkl'.format(num_rows)
-
-#In[0]
-name= 'some name very long name'
-name
-#In[0]
-name[:10]

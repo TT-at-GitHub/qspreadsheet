@@ -108,10 +108,7 @@ def make_df():
     df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
     return df
 
-df = pd.DataFrame(pd.read_pickle('.ignore/data/10rows.pkl'))
-df = df.sort_values(by='C').reset_index(drop=True)
-df['very very long column name'] = df['C']
-
+df = pd.DataFrame(pd.read_pickle('.ignore/data/100000rows.pkl'))
 # print(df)
 pd.options.display.precision = 4
 
