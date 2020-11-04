@@ -45,7 +45,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.filter_cache: Dict[int, SER] = {-1 : self.alltrues()}
         self.accepted = self.alltrues()
 
-    def list_filter_widget(self):
+    def create_list_filter_widget(self):
         self._list_filter_widget = FilterListMenuWidget(self)
         self._list_filter_widget.show_all_btn.clicked.connect(
             self.show_all_filter_values)

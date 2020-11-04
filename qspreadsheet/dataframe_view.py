@@ -262,7 +262,7 @@ class DataFrameView(QTableView):
         str_filter.textChanged.connect(self._proxy.filter_list_widget)
         menu.addAction(str_filter)
         
-        list_filter = self._proxy.list_filter_widget()
+        list_filter = self._proxy.create_list_filter_widget()
         list_filter.setParent(self)
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.async_populate_list()

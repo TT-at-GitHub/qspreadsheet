@@ -55,8 +55,7 @@ class FilterListMenuWidget(QWidgetAction):
                 background: rgb(195, 225, 250);
                 color: rgb(0, 0, 0);
             } """)
-        self.list.setFixedHeight(150)
-        self.list.setLayoutMode(QListView.LayoutMode.Batched)
+        self.list.setMinimumHeight(150)
         self.list.setUniformItemSizes(True)
 
         layout.addWidget(self.list)
