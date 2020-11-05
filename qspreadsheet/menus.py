@@ -46,9 +46,9 @@ class FilterListWidgetAction(QWidgetAction):
         super(FilterListWidgetAction, self).__init__(parent)
 
         # Build Widgets
-        widget = QWidget()
+        widget = QWidget(self)
         layout = QVBoxLayout()
-        self.list = QListWidget()
+        self.list = QListWidget(self)
         
         self.list.setStyleSheet("""
             QListView::item:selected {
@@ -74,7 +74,7 @@ class FilterListWidgetAction(QWidgetAction):
         self.setDefaultWidget(widget)
 
         # Signals/slots
-        self.list.itemChanged.connect(self.on_listitem_changed)
+        # self.list.itemChanged.connect(self.on_listitem_changed)
 
     def on_listitem_changed(self, item: QListWidgetItem):
 

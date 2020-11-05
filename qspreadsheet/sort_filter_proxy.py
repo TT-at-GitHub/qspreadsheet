@@ -78,10 +78,10 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted.loc[:] = False
         self.accepted.loc[mask.index] = mask
 
-    # def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-    #     if source_row < self.accepted.size:
-    #         return self.accepted.iloc[source_row]
-    #     return True
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        if source_row < self.accepted.size:
+            return self.accepted.iloc[source_row]
+        return True
 
     def string_filter(self, text: str):
 

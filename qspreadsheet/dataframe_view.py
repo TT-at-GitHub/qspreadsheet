@@ -226,7 +226,7 @@ class DataFrameView(QTableView):
         #                         function=partial(_cmp_filter, op=operator.le)))
         menu.addAction(standard_icon('DialogResetButton'),
                     "Clear Filter",
-                    self.clear_filter).setEnabled(self._proxy.is_data_filtered)
+                    self.clear_all_filters).setEnabled(self._proxy.is_data_filtered)
 
         header_widget = self.header_model.header_widgets[col_ndx]
         menu.addAction(standard_icon('DialogResetButton'),
@@ -255,15 +255,18 @@ class DataFrameView(QTableView):
         '''Create popup menu used for header'''
 
         menu = QMenu(self)
+        list_filter = self._proxy.create_list_filter_widget()
+        list_filter.setParent(self)     
+        self.list_filter_proxy = QSortFilterProxyModel(self)
+        self.list_filter_proxy.setSourceModel(list_filter.list)
+        self.list_filter_proxy.setDynamicSortFilter(False)
 
         # Filter Menu Action
         str_filter = LineEditWidgetAction(self, menu, 'Filter')
-        str_filter.returnPressed.connect(self.apply_and_close)
-        str_filter.textChanged.connect(self._proxy.filter_list_widget_by_text)
+        str_filter.returnPressed.connect(self.apply_and_close_header_menu)
+        str_filter.textChanged.connect(self.filter_list_widget_by_text)
         menu.addAction(str_filter)
-        
-        list_filter = self._proxy.create_list_filter_widget()
-        list_filter.setParent(self)
+
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.async_populate_list()
 
@@ -271,7 +274,7 @@ class DataFrameView(QTableView):
 
         menu.addAction(standard_icon('DialogResetButton'),
                     "Clear Filter",
-                    self.clear_filter).setEnabled(self._proxy.is_data_filtered)
+                    self.clear_all_filters).setEnabled(self._proxy.is_data_filtered)
         menu.addAction(standard_icon('DialogResetButton'),
                        f"Clear Filter from `{header_widget.short_text}`",
                        self.clear_current_column_filter
@@ -310,7 +313,7 @@ class DataFrameView(QTableView):
 
         # Filter Button box
         action_btn_box = ActionButtonBox(menu)
-        action_btn_box.accepted.connect(self.apply_and_close)
+        action_btn_box.accepted.connect(self.apply_and_close_header_menu)
         action_btn_box.rejected.connect(menu.close)
         menu.addAction(action_btn_box)
         return menu
@@ -400,7 +403,7 @@ class DataFrameView(QTableView):
             for row in reversed(rows):
                 self.model().removeRows(row, 1, QModelIndex())
     
-    def apply_and_close(self):
+    def apply_and_close_header_menu(self):
         menu = self.sender().parent() # QMenu
 
         self.blockSignals(True)
@@ -409,7 +412,7 @@ class DataFrameView(QTableView):
         menu.close()
         self.update_filter_icon()
 
-    def clear_filter(self):
+    def clear_all_filters(self):
         self._proxy.clear_filter_cache()
         for header_widget in self.header_model.header_widgets:
             header_widget.set_filtered(filtered=False)
@@ -430,7 +433,7 @@ class DataFrameView(QTableView):
         cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
         self._proxy.setFilterRegExp(QRegExp(cell_val, Qt.CaseInsensitive,
                                             QRegExp.FixedString))
-        self._proxy.setFilterKeyColumn(col_ndx);
+        self._proxy.setFilterKeyColumn(col_ndx)
         
         # self._proxy.set_filter_key_column(col_ndx)
         # self._proxy.string_filter(cell_val)
@@ -453,6 +456,16 @@ class DataFrameView(QTableView):
     @property
     def mutable_rows(self) -> bool:
         return self.dataframe_model.row_ndx.is_mutable
+
+    def filter_list_widget_by_text(self, text):
+        if not text:
+            return
+
+        col_ndx = self._proxy.filter_key_column
+        self.list_filter_proxy.setFilterRegExp(QRegExp(text, Qt.CaseInsensitive,
+                                            QRegExp.FixedString))
+        self.list_filter_proxy.setFilterKeyColumn(col_ndx)        
+        
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))
