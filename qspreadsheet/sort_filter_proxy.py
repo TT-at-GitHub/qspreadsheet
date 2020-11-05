@@ -6,7 +6,7 @@ import traceback
 from numpy.lib.function_base import disp
 from qspreadsheet.worker import Worker
 
-from numpy.core.fromnumeric import alltrue
+from numpy.core.fromnumeric import alltrue, size
 from qspreadsheet.dataframe_model import DataFrameModel
 import sys
 from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Tuple, Union
@@ -24,8 +24,8 @@ from qspreadsheet.menus import FilterListWidgetAction
 
 logger = logging.getLogger(__name__)
 
-INITIAL_FILTER_LIMIT = 5
-
+INITIAL_FILTER_LIMIT = 5000
+FILTER_VALUES_STEP = 1000
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
@@ -42,7 +42,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         #FIXME: re-design these in to the masks cache...!
         self._display_values: Optional[SER] = None
         self._filter_values: Optional[SER] = None
-        self.display_values_gen: Generator[Tuple[int, str]] = None
+        self._display_values_gen: Generator[Tuple[int, str]] = None
         self._over_limit_values: Optional[SER] = None
 
         self.filter_cache: Dict[int, SER] = {-1 : self.alltrues()}
@@ -162,36 +162,40 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         import fx
 
         unique, mask = self.get_unique_model_values()
-        next_n_values = INITIAL_FILTER_LIMIT
-        STEP = 3
-
-        self.display_values_gen = ((ndx , self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) )
-            for ndx, value in unique.items())
-    
-        # if unique.size > INITIAL_FILTER_LIMIT:
-        #     {ndx, value for ndx, value}
         
-        # self._over_limit_values = unique.iloc[ INITIAL_FILTER_LIMIT :]
-        # self._list_filter_widget.show_all_btn.setVisible(True)
+        # Generator for display filter values
+        self._display_values_gen = (
+            (ndx ,self._model.delegate.display_data(self._model.index(ndx, self._column_index), value))
+            for ndx, value in unique.items())
 
-        # with fx.timethis('Full list of display values: '):
-        #     self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
-        #         for ndx, value in unique.items()})
-        #     filter_index = self._display_values.str.lower().drop_duplicates().index
-
-        with fx.timethis('Limited list of display values:'):
+        if unique.size <= INITIAL_FILTER_LIMIT:
+            self._display_values = list(self._display_values_gen)
+            unique_index = self._display_values.str.lower().drop_duplicates().index
+            self._filter_values = self._display_values.loc[unique_index] 
+        else:
+            self._display_values = pd.Series(name=unique.name)
+            self._filter_values = pd.Series(name=unique.name)
             
-            counter = 0
-            display_values = {}
-            filter_values = {}
-            for ndx, value in unique.items():
-                display_value = self._model.delegate.display_data(
-                    self._model.index(ndx, self._column_index), value).lower()
-                if not display_value in display_values:
-                    display_values[display_value] = 0
-                    filter_values
+            next_step = INITIAL_FILTER_LIMIT
+            remaining = unique.size
 
-        # self._filter_values = self._display_values.loc[filter_index]
+            while next_step and self._filter_values.size < INITIAL_FILTER_LIMIT:
+                print('next_step {}, remaining {}'.format(next_step, remaining))
+                values = pd.Series(dict(next(self._display_values_gen) 
+                                for _ in range(next_step)))
+                self._display_values = self._display_values.append(values)
+                unique_index = values.str.lower().drop_duplicates().index
+                self._filter_values = self._filter_values.append(values.loc[unique_index])
+                remaining -= next_step
+                remaining = max(remaining, 0)
+                next_step = min(FILTER_VALUES_STEP, remaining)
+
+            if remaining:
+                pass
+            print('display_values.size', self._display_values.size)
+            print('self._filter_values.size', self._filter_values.size)
+            print( 'remaining', remaining)
+ 
         try:
             self._filter_values = self._filter_values.sort_values()
         except:
