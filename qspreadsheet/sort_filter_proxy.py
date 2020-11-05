@@ -24,8 +24,8 @@ from qspreadsheet.menus import FilterListWidgetAction
 
 logger = logging.getLogger(__name__)
 
-INITIAL_FILTER_LIMIT = 5000
-FILTER_VALUES_STEP = 1000
+INITIAL_FILTER_LIMIT = 4 # 5000
+FILTER_VALUES_STEP = 3 # 1000
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
@@ -42,13 +42,13 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         #FIXME: re-design these in to the masks cache...!
         self._display_values: Optional[SER] = None
         self._filter_values: Optional[SER] = None
-        self._display_values_gen: Generator[Tuple[int, str]] = None
-        self._over_limit_values: Optional[SER] = None
-
+        self._display_values_gen = None
         self.filter_cache: Dict[int, SER] = {-1 : self.alltrues()}
         self.accepted = self.alltrues()
 
-    def create_list_filter_widget(self):
+    def create_list_filter_widget(self) -> FilterListWidgetAction:
+        if self._list_widget:
+            self._list_widget.deleteLater()
         self._list_widget = FilterListWidgetAction(self)
         self._list_widget.show_all_btn.clicked.connect(
             self.show_all_filter_values)
@@ -83,23 +83,26 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         return True
 
     def string_filter(self, text: str):
-        text = text.lower()
+
+        unique, _ = self.get_unique_model_values()
+        self._display_values = pd.Series({
+            ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
+            for ndx, value in unique.items()})
+        self._filter_values = self._display_values.drop_duplicates()
+
         if text:
-            mask = self._filter_values.str.contains(text)
+            mask = self._filter_values.str.lower().str.contains(text.lower())
             filter_values = self._filter_values.loc[mask]
         else:
             filter_values = self._filter_values
-        self._apply_string_filter(filter_values)
 
-    def _apply_string_filter(self, filter_values):
         mask = self._display_values.isin(filter_values)
         self.add_filter_mask(mask)
         self.invalidateFilter()
 
     def filter_list_widget_by_text(self, text: str):
-        text = text.lower()
         if text:
-            mask = self._filter_values.str.contains(text)
+            mask = self._filter_values.str.lower().str.contains(text.lower())
             filter_values = self._filter_values.loc[mask]
         else:
             filter_values = self._filter_values
@@ -108,6 +111,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         item = QListWidgetItem('(Select All)')
         item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
         item.setCheckState(Qt.Unchecked)
+        self._list_widget.select_all_item = item
         self._list_widget.list.addItem(item)
 
         for _, value in filter_values.items():
@@ -117,8 +121,9 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self._list_widget.list.addItem(item)        
 
     def apply_list_filter(self):
-        select_all = (self._list_widget.select_all_item.checkState() == Qt.Checked)
-        if select_all:
+        select_all = self._list_widget.select_all_item
+        
+        if (select_all.checkState() == Qt.Checked):
             self.remove_filter_mask(self._column_index)
         else:
             checked_values = self._list_widget.values()
@@ -144,11 +149,18 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
             NOTE: *args, **kwargs signature is required by Worker
         """
-        display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
-            for ndx, value in self._over_limit_values.items()})
+        display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
+        filter_index = display_values.str.lower().drop_duplicates().index
+        filter_values = display_values.loc[filter_index]
         self._display_values = self._display_values.append(display_values)
-        self._filter_values = self._filter_values.append(display_values.drop_duplicates())
-        self.add_list_items(self._filter_values)
+        
+        try:
+            filter_values = filter_values.sort_values()
+        except:
+            pass
+
+        self._filter_values = self._filter_values.append(filter_values)
+        self.add_list_items(filter_values)
 
     def async_populate_list(self):
         worker = Worker(func=self.populate_list)
@@ -169,7 +181,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             for ndx, value in unique.items())
 
         if unique.size <= INITIAL_FILTER_LIMIT:
-            self._display_values = list(self._display_values_gen)
+            self._display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
             unique_index = self._display_values.str.lower().drop_duplicates().index
             self._filter_values = self._display_values.loc[unique_index] 
         else:
@@ -180,7 +192,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             remaining = unique.size
 
             while next_step and self._filter_values.size < INITIAL_FILTER_LIMIT:
-                print('next_step {}, remaining {}'.format(next_step, remaining))
+                # print('next_step {}, remaining {}'.format(next_step, remaining))
                 values = pd.Series(dict(next(self._display_values_gen) 
                                 for _ in range(next_step)))
                 self._display_values = self._display_values.append(values)
@@ -191,10 +203,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
                 next_step = min(FILTER_VALUES_STEP, remaining)
 
             if remaining:
-                pass
-            print('display_values.size', self._display_values.size)
-            print('self._filter_values.size', self._filter_values.size)
-            print( 'remaining', remaining)
+                self._list_widget.show_all_btn.setVisible(True)
+
+            # print('display_values.size', self._display_values.size)
+            # print('self._filter_values.size', self._filter_values.size)
+            # print( 'remaining', remaining)
  
         try:
             self._filter_values = self._filter_values.sort_values()
@@ -213,12 +226,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._list_widget.list.addItem(item)
         self._list_widget.select_all_item = item
         self.add_list_items(self._filter_values)
-
-    def update_filter_values(self):
-        unique, _ = self.get_unique_model_values()
-        self._display_values = pd.Series({ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
-            for ndx, value in unique.items()})
-        self._filter_values = self._display_values.drop_duplicates()
 
     def add_list_items(self, values: SER):
         """values : {pd.Series}: values to add to the list

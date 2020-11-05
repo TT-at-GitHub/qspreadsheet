@@ -429,7 +429,6 @@ class DataFrameView(QTableView):
     def filter_by_value(self, row_ndx: int, col_ndx: int):
         cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
         self._proxy.set_filter_key_column(col_ndx)
-        self._proxy.update_filter_values()
         self._proxy.string_filter(cell_val)
         self.update_filter_icon()
 
@@ -449,7 +448,7 @@ class DataFrameView(QTableView):
 
     @property
     def mutable_rows(self) -> bool:
-        self.dataframe_model.row_ndx.is_mutable
+        return self.dataframe_model.row_ndx.is_mutable
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))

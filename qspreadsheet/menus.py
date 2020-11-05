@@ -85,9 +85,9 @@ class FilterListWidgetAction(QWidgetAction):
 
             # Select/deselect all items
             for i in range(self.list.count()):
-                if i is self.select_all_item:
-                    continue
                 itm = self.list.item(i)
+                if itm is self.select_all_item:
+                    continue
                 itm.setCheckState(state)
         else:
             # Non "select all" item; figure out what "select all" should be
