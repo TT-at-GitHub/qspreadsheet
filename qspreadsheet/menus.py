@@ -107,7 +107,7 @@ class FilterListWidgetAction(QWidgetAction):
         self.list.scrollToItem(item)
         self.list.blockSignals(False)
 
-    def values(self) -> Tuple[List[str], bool]:
+    def values(self) -> List[str]:
         checked = []
         for i in range(self.list.count()):
             itm = self.list.item(i)
