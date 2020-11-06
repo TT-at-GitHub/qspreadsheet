@@ -65,7 +65,7 @@ class DataFrameView(QTableView):
 
         self._proxy = DataFrameSortFilterProxy(model=self._model, parent=self)
         self._proxy.setSourceModel(self._model)
-        self._proxy.setDynamicSortFilter(False)
+        # self._proxy.setDynamicSortFilter(False)
         self.setModel(self._proxy)
 
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
@@ -428,12 +428,8 @@ class DataFrameView(QTableView):
     
     def filter_by_value(self, row_ndx: int, col_ndx: int):
         cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
-        self._proxy.setFilterRegExp(QRegExp(cell_val, Qt.CaseInsensitive,
-                                            QRegExp.FixedString))
-        self._proxy.setFilterKeyColumn(col_ndx)
-        
-        # self._proxy.set_filter_key_column(col_ndx)
-        # self._proxy.string_filter(cell_val)
+        self._proxy.set_filter_key_column(col_ndx)
+        self._proxy.string_filter(cell_val)
         self.update_filter_icon()
 
     @property

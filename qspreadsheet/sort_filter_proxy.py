@@ -90,15 +90,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value) 
             for ndx, value in unique.items()})
         self._showing_all_display_values = True
-        self._filter_values = self._display_values.drop_duplicates()
 
         if text:
-            mask = self._filter_values.str.lower().str.contains(text.lower())
-            filter_values = self._filter_values.loc[mask]
+            mask = self._display_values.str.lower().str.contains(text.lower())
         else:
-            filter_values = self._filter_values
+            mask = pd.Series(data=True, index=self._display_values.index)
 
-        mask = self._display_values.isin(filter_values)
         self.add_filter_mask(mask)
         self.invalidateFilter()
 
@@ -129,10 +126,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self.remove_filter_mask(self._column_index)
         else:
             checked_values = [s.lower() for s in self._list_widget.values()]
+
             if not self._showing_all_display_values:
                 display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
                 self._display_values = self._display_values.append(display_values)
-                self._showing_all_display_values = True                
+                self._showing_all_display_values = True
+                            
             mask = self._display_values.str.lower().isin(checked_values)
             self.add_filter_mask(mask)
         self.invalidateFilter()
