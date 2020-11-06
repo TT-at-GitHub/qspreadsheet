@@ -257,9 +257,6 @@ class DataFrameView(QTableView):
         menu = QMenu(self)
         list_filter = self._proxy.create_list_filter_widget()
         list_filter.setParent(self)     
-        self.list_filter_proxy = QSortFilterProxyModel(self)
-        self.list_filter_proxy.setSourceModel(list_filter.list)
-        self.list_filter_proxy.setDynamicSortFilter(False)
 
         # Filter Menu Action
         str_filter = LineEditWidgetAction(self, menu, 'Filter')

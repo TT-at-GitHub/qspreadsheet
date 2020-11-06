@@ -50,7 +50,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def create_list_filter_widget(self) -> FilterListWidgetAction:
         if self._list_widget:
             self._list_widget.deleteLater()
-        self._list_widget = FilterListWidgetAction(self)
+        self._list_widget = FilterListWidgetAction()
         self._list_widget.show_all_btn.clicked.connect(
             self.async_refill_list)
         return self._list_widget
@@ -250,11 +250,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             filter_mask = filter_mask.loc[filter_mask]
             column = column.loc[filter_mask.index]
         unique = column.drop_duplicates()
-
-        try:
-            unique = unique.sort_values()
-        except:
-            pass
         return unique, filter_mask
 
     @property

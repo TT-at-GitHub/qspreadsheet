@@ -46,9 +46,9 @@ class FilterListWidgetAction(QWidgetAction):
         super(FilterListWidgetAction, self).__init__(parent)
 
         # Build Widgets
-        widget = QWidget(self)
+        widget = QWidget()
         layout = QVBoxLayout()
-        self.list = QListWidget(self)
+        self.list = QListWidget(widget)
         
         self.list.setStyleSheet("""
             QListView::item:selected {
