@@ -229,6 +229,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
             self._list_widget.list.addItem(item)
+        self._list_widget.list.sortItems()
 
     def async_refill_list(self):
         btn = self.sender()
