@@ -2,45 +2,52 @@
 
 v - Recognize completion of rows in progress
 
-- Redesign filters - especially FilterListWidget
-  v   -- Improve performance for large tables
-  v   -- Use delegate or model's data method to populate the filter list widget
-  v   -- Remove the last 'empty' data row from the filters
-  v   -- update filter button's icon when filtering
-  v   -- Add `Clear filter From ... (column name)` to remove the filter from current column, not the entire filter
-  v   -- `Clear filter` to update filter icon for all columns
-  
+# FILTERS: 
+    
+    v   -- Improve performance for large tables
+    v   -- Use delegate or model's data method to populate the filter list widget
+    v   -- Remove the last 'empty' data row from the filters
+    v   -- update filter button's icon when filtering
+    v   -- Add `Clear filter From ... (column name)` to remove the filter from current column, not the entire filter
+    v   -- `Clear filter` to update filter icon for all columns
 
-- Deal with empty tables. For example:
-  -- typing into the virtual bottom row in an empty table adds row, but
-     won't let you delete it
+    -- The line edit in the list filter action widget to take focus, when the menu is shown  
+    -- Implement on_rows_inserted/removed in the SortFilterProxyModel and
+        allow remove/add rows when the data is filtered
+    -- Redesign filters - especially FilterListWidget
 
-- allow updating table's mutable state at runtime
+# SORTING: 
+   -- Create custom sorting on the model to not sort the virtual bottom row
 
-- Implement Undo/Redo
+# TABLE
+  -- Deal with empty tables. For example:
+      typing into the virtual bottom row in an empty table adds row, but
+      won't let you delete it
 
-- Implement on_rows_inserted/removed in the SortFilterProxyModel and
-  allow remove/add rows when the data is filtered
+  - allow updating table's mutable state at runtime
 
-- Memorize selections, so that insert row works on consecutive rows, 
-  if they are selected individually.
+  - Implement Undo/Redo
 
-- Implement editing multiple cells at the same time
+  - Memorize selections, so that insert row works on consecutive rows, 
+    if they are selected individually.
 
-- Address all FIXME lines
+  - Implement editing multiple cells at the same time
 
-- Implement statusbar or maybe some snackbar messaging system
+# OTHER
+  - Address all FIXME lines
 
-- Investigate using paint in delegates, instead of display_data
+  - Implement statusbar or maybe some snackbar messaging system
 
-- Investigate making all delegate editors a line edits with validators
+  - Investigate using paint in delegates, instead of display_data
 
-- When double clicking cell in nullable column, editor must take focus 
-  (and perhaps a selecting current data should be the default)
+  - Investigate making all delegate editors a line edits with validators
 
-- Investigate entering edit mode, when user starts typing over cell
+  - When double clicking cell in nullable column, editor must take focus 
+    (and perhaps a selecting current data should be the default)
 
-- Experiment with 'formula bar' to make multi-cell editing easier
+  - Investigate entering edit mode, when user starts typing over cell
+
+  - Experiment with 'formula bar' to make multi-cell editing easier
 
 # Known BUGS:
 
