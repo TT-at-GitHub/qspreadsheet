@@ -210,6 +210,7 @@ class DataFrameView(QTableView):
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
         menu = QMenu(self)
+        self._proxy.set_filter_key_column(col_ndx)
         
         # By Value Filter
         menu.addAction(standard_icon('CommandLink'),
@@ -231,7 +232,7 @@ class DataFrameView(QTableView):
         header_widget = self.header_model.header_widgets[col_ndx]
         menu.addAction(standard_icon('DialogResetButton'),
                     f"Clear Filter from `{header_widget.short_text}`",
-                    self.clear_current_column_filter
+                    partial(self.clear_column_filter, col_ndx)
                     ).setEnabled(self._proxy.is_column_filtered(col_ndx))
                                               
         menu.addSeparator()
@@ -256,7 +257,8 @@ class DataFrameView(QTableView):
 
         menu = QMenu(self)
         list_filter = self._proxy.create_list_filter_widget()
-        list_filter.setParent(self)     
+        self._proxy.set_filter_key_column(col_ndx)
+        list_filter.setParent(self)
 
         # Filter Menu Action
         str_filter = LineEditWidgetAction(self, menu, 'Filter')
@@ -274,7 +276,7 @@ class DataFrameView(QTableView):
                     self.clear_all_filters).setEnabled(self._proxy.is_data_filtered)
         menu.addAction(standard_icon('DialogResetButton'),
                        f"Clear Filter from `{header_widget.short_text}`",
-                       self.clear_current_column_filter
+                       partial(self.clear_column_filter, col_ndx)
                        ).setEnabled(self._proxy.is_column_filtered(col_ndx))
         
         # Sort Ascending/Decending Menu Action
@@ -310,38 +312,12 @@ class DataFrameView(QTableView):
 
         # Filter Button box
         action_btn_box = ActionButtonBox(menu)
-        action_btn_box.accepted.connect(self.apply_and_close_header_menu)
-        action_btn_box.rejected.connect(menu.close)
+        action_btn_box.btn_ok.clicked.connect(self.apply_and_close_header_menu)
+        action_btn_box.btn_cancel.clicked.connect(menu.close)
+        
+        self._proxy._list_widget.select_all_changed.connect(action_btn_box.enableOkayButton)
         menu.addAction(action_btn_box)
         return menu
-
-    def async_to_excel(self):
-        worker = Worker(self.to_excel)
-        worker.signals.error.connect(self.on_error)
-        self.threadpool.start(worker)
-
-    def to_excel(self, *args, **kwargs):
-        logger.info('Exporting to Excel Started...')
-        from subprocess import Popen
-        rows = self._proxy.accepted
-        columns = self._get_visible_column_names()
-        fname = 'temp.xlsx'
-        logger.info('Writing to Excel file...')
-        self._df.loc[rows, columns].to_excel(fname, 'Output')
-        logger.info('Opening Excel...')
-        Popen(fname, shell=True)
-        logger.info('Exporting to Excel Finished')
-
-    def on_error(self, exc_info: Tuple[Type[BaseException], BaseException, TracebackType]) -> None:
-        logger.error(msg='ERROR.', exc_info=exc_info)
-        formatted = ' '.join(traceback.format_exception(*exc_info, limit=4))
-        QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
-
-    def _get_visible_column_names(self) -> list:
-        return [self._df.columns[ndx] for ndx in range(self._df.shape[1]) if not self.isColumnHidden(ndx)]
-
-    def _get_hidden_column_indices(self) -> list:
-        return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
 
     def insert_rows(self, direction: str):
         if not self._model.row_ndx.is_mutable:
@@ -414,8 +390,7 @@ class DataFrameView(QTableView):
         for header_widget in self.header_model.header_widgets:
             header_widget.set_filtered(filtered=False)
 
-    def clear_current_column_filter(self):
-        col_ndx = self._proxy.filter_key_column
+    def clear_column_filter(self, col_ndx):
         self._proxy.clear_filter_column(col_ndx)
         header_widget = self.header_model.header_widgets[col_ndx]
         header_widget.set_filtered(filtered=False)
@@ -451,14 +426,36 @@ class DataFrameView(QTableView):
         return self.dataframe_model.row_ndx.is_mutable
 
     def filter_list_widget_by_text(self, text):
-        if not text:
-            return
+        self._proxy.filter_list_widget_by_text(text=text)    
 
-        col_ndx = self._proxy.filter_key_column
-        self.list_filter_proxy.setFilterRegExp(QRegExp(text, Qt.CaseInsensitive,
-                                            QRegExp.FixedString))
-        self.list_filter_proxy.setFilterKeyColumn(col_ndx)        
-        
+    def async_to_excel(self):
+        worker = Worker(self.to_excel)
+        worker.signals.error.connect(self.on_error)
+        self.threadpool.start(worker)
+
+    def to_excel(self, *args, **kwargs):
+        logger.info('Exporting to Excel Started...')
+        from subprocess import Popen
+        rows = self._proxy.accepted
+        columns = self._get_visible_column_names()
+        fname = 'temp.xlsx'
+        logger.info('Writing to Excel file...')
+        self._df.loc[rows, columns].to_excel(fname, 'Output')
+        logger.info('Opening Excel...')
+        Popen(fname, shell=True)
+        logger.info('Exporting to Excel Finished')
+
+    def on_error(self, exc_info: Tuple[Type[BaseException], BaseException, TracebackType]) -> None:
+        logger.error(msg='ERROR.', exc_info=exc_info)
+        formatted = ' '.join(traceback.format_exception(*exc_info, limit=4))
+        QMessageBox.critical(self, 'ERROR.', formatted, QMessageBox.Ok)
+
+    def _get_visible_column_names(self) -> list:
+        return [self._df.columns[ndx] for ndx in range(self._df.shape[1]) if not self.isColumnHidden(ndx)]
+
+    def _get_hidden_column_indices(self) -> list:
+        return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
+
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))

@@ -260,9 +260,16 @@ class ActionButtonBox(QWidgetAction):
     def __init__(self, parent):
         super(ActionButtonBox, self).__init__(parent)
 
-        btn_box = QDialogButtonBox(parent)
-        btn_box.setStandardButtons(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.accepted = btn_box.accepted
-        self.rejected = btn_box.rejected
+        btn_box = QWidget(parent)
+        self.btn_ok = QPushButton('OK')
+        self.btn_ok.setDefault(True)
+        self.btn_cancel = QPushButton('Cancel')
+        layout = QHBoxLayout(btn_box)
+        layout.addWidget(self.btn_ok)
+        layout.addWidget(self.btn_cancel)
+        btn_box.setLayout(layout)
         self.setDefaultWidget(btn_box)
+
+    def enableOkayButton(self, enable: bool):
+        self.btn_ok.setEnabled(enable)
+        self.btn_ok.setDefault(enable)
