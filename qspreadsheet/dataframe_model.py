@@ -1,4 +1,5 @@
 import logging
+from os import truncate
 import sys
 import os
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -8,6 +9,7 @@ import pandas as pd
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from pandas.core.series import Series
 
 from qspreadsheet.common import DF, SER, pandas_obj_insert_rows, pandas_obj_remove_rows
 from qspreadsheet.delegates import MasterDelegate
@@ -254,3 +256,17 @@ class DataFrameModel(QAbstractTableModel):
     def on_rowsRemoved(self, parent: QModelIndex, first: int, last: int):
         self.is_dirty = True
         self.row_ndx.remove(at_index=first, count=last - first + 1)
+
+    def sort(self, column_index: int, order: Qt.SortOrder) -> None:
+        """Sort table by given column number.
+        """
+        self.layoutAboutToBeChanged.emit()
+        
+        ascending = True if order == Qt.AscendingOrder else False
+        column_name = self._df.columns[column_index]
+        real_rows = self._df.iloc[:self.row_ndx.count_real]
+        virtual_rows = self._df.iloc[self.row_ndx.count_real:]
+        real_rows = real_rows.sort_values(by=column_name, ascending=ascending, ignore_index=truncate)
+        self._df = real_rows.append(virtual_rows)
+
+        self.layoutChanged.emit()

@@ -205,7 +205,8 @@ class DataFrameView(QTableView):
 
         menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
                         header_pos.y() + btn.height() + 15)
-
+        # menu.move(menu_pos.x(), menu_pos.y())    
+        # menu.show()
         menu.exec_(menu_pos)
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
@@ -282,10 +283,10 @@ class DataFrameView(QTableView):
         # Sort Ascending/Decending Menu Action
         menu.addAction(standard_icon('TitleBarShadeButton'),
                        "Sort Ascending",
-                       partial(self._proxy.sort, self._proxy.filter_key_column, Qt.AscendingOrder))
+                       partial(self.model().sort, col_ndx, Qt.AscendingOrder))
         menu.addAction(standard_icon('TitleBarUnshadeButton'),
                        "Sort Descending",
-                       partial(self._proxy.sort, self._proxy.filter_key_column, Qt.DescendingOrder))
+                       partial(self.model().sort, col_ndx, Qt.DescendingOrder))
 
         menu.addSeparator()
 
@@ -455,6 +456,7 @@ class DataFrameView(QTableView):
 
     def _get_hidden_column_indices(self) -> list:
         return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
+
 
 
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:

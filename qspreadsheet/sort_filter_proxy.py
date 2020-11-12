@@ -24,8 +24,8 @@ from qspreadsheet.menus import FilterListWidgetAction
 
 logger = logging.getLogger(__name__)
 
-INITIAL_FILTER_LIMIT = 4 # 5000
-FILTER_VALUES_STEP = 3 # 1000
+INITIAL_FILTER_LIMIT = 5000
+FILTER_VALUES_STEP = 5000
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
@@ -227,7 +227,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(state)
             self._list_widget.addItem(item)
-        self._list_widget.list.sortItems()
+        # self._list_widget.list.sortItems()
 
     def async_refill_list(self):
         btn = self.sender()
@@ -241,7 +241,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def get_unique_model_values(self) -> Tuple[SER, SER]:
         # Generates filter items for given column index
-        column: SER = self._model.df.iloc[:, self._column_index]
+        column: SER = self._model.df.iloc[:, self._column_index].sort_values()
         filter_mask = self.filter_mask
                
         # if the column being filtered is not the last filtered column
@@ -281,3 +281,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def on_rows_removed(self, parent: QModelIndex, first: int, last: int):
         pass
+
+    def sort(self, column: int, order: Qt.SortOrder):
+        self.sourceModel().sort(column, order)
