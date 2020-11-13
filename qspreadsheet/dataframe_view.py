@@ -439,11 +439,11 @@ class DataFrameView(QTableView):
     def to_excel(self, *args, **kwargs):
         logger.info('Exporting to Excel Started...')
         from subprocess import Popen
-        rows = self._proxy.accepted
+        rows = self._proxy.accepted.loc[self.df.index]
         columns = self._get_visible_column_names()
         fname = 'temp.xlsx'
         logger.info('Writing to Excel file...')
-        self._df.loc[rows, columns].to_excel(fname, 'Output')
+        self.df.loc[rows, columns].to_excel(fname, 'Output')
         logger.info('Opening Excel...')
         Popen(fname, shell=True)
         logger.info('Exporting to Excel Finished')
