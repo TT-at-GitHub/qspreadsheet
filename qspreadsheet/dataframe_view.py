@@ -316,7 +316,7 @@ class DataFrameView(QTableView):
         action_btn_box.btn_ok.clicked.connect(self.apply_and_close_header_menu)
         action_btn_box.btn_cancel.clicked.connect(menu.close)
         
-        self._proxy._list_widget.select_all_changed.connect(action_btn_box.enableOkayButton)
+        self._proxy._list_widget.all_deselected.connect(action_btn_box.disableOkayButton)
         menu.addAction(action_btn_box)
         return menu
 

@@ -270,6 +270,6 @@ class ActionButtonBox(QWidgetAction):
         btn_box.setLayout(layout)
         self.setDefaultWidget(btn_box)
 
-    def enableOkayButton(self, enable: bool):
-        self.btn_ok.setEnabled(enable)
-        self.btn_ok.setDefault(enable)
+    def disableOkayButton(self, disable: bool):
+        self.btn_ok.setDisabled(disable)
+        self.btn_ok.setDefault(not disable)

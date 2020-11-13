@@ -31,7 +31,7 @@ class LineEditWidgetAction(QWidgetAction):
 class FilterListWidgetAction(QWidgetAction):
     """Checkboxed list filter menu"""
 
-    select_all_changed = Signal(bool)
+    all_deselected = Signal(bool)
 
     def __init__(self, parent=None) -> None:
         """Checkbox list filter menu
@@ -81,10 +81,6 @@ class FilterListWidgetAction(QWidgetAction):
     def addItem(self, item: QListWidgetItem):
         if item.checkState() == Qt.Checked:
             self.num_checked += 1
-        else:
-            self.num_checked -= 1
-        assert(self.num_checked >= 0)
-
         self.list.addItem(item)
 
     def addSelectAllItem(self, item: QListWidgetItem):
@@ -94,7 +90,13 @@ class FilterListWidgetAction(QWidgetAction):
     def clear(self):
         self.list.clear()
         self.num_checked = 0
+        self.all_deselected.emit(True)
 
+    @property
+    def list_items_count(self) -> int:
+        """Number of list items, excluding the '(Select All)' item"""
+        return self.list.count() - 1
+        
     def on_listitem_changed(self, item: QListWidgetItem):
 
         self.list.blockSignals(True)
@@ -108,35 +110,27 @@ class FilterListWidgetAction(QWidgetAction):
                     continue
                 itm.setCheckState(state)
             
-            all_checked = (state == Qt.Checked)
+            all_unchecked = (state == Qt.Unchecked)
             # -1 is for the select_all_item
-            self.num_checked =  self.list.count() - 1 if all_checked else 0
-            self.select_all_changed.emit(all_checked)
+            self.num_checked = 0 if all_unchecked else self.list_items_count
         else:
-            # Non "select all" item; figure out what "select all" should be
+            # Non "select all" item 
             if item.checkState() == Qt.Unchecked:
                 self.num_checked -= 1
-            else:
+            elif item.checkState() == Qt.Checked:
                 self.num_checked += 1
             assert(self.num_checked >= 0)
             
-            self.on_item_updated()
+            # figure out what "select all" should be
+            state = Qt.Checked if self.num_checked == self.list_items_count else Qt.Unchecked
+            # if state changed
+            if state != self.select_all_item.checkState():
+                self.select_all_item.setCheckState(state)
 
-            state = Qt.Checked if self.num_checked > 0 else Qt.Unchecked
-            self.select_all_item.setCheckState(state)
-
-                # # "select all" only checked if all other items are checked
-                # for i in range(self.list.count()):
-                #     itm = self.list.item(i)
-                #     if itm is self.select_all_item:
-                #         continue
-                #     if itm.checkState() == Qt.Unchecked:
-                #         self.select_all_item.setCheckState(Qt.Unchecked)
-                #         # self.select_all_changed.emit(False)
-                #         break
-                # else:
-                #     self.select_all_item.setCheckState(Qt.Checked)
-                #     self.select_all_changed.emit(True)
+        if self.num_checked == 0:
+            self.all_deselected.emit(True)
+        else:
+            self.all_deselected.emit(False)
 
         self.list.scrollToItem(item)
         self.list.blockSignals(False)
@@ -150,9 +144,3 @@ class FilterListWidgetAction(QWidgetAction):
             if itm.checkState() == Qt.Checked:
                 checked.append(itm.text())
         return checked
-
-    def on_item_updated(self):
-        if self.num_checked == 0:
-            self.select_all_changed.emit(False)
-        elif self.num_checked == 1:
-            self.select_all_changed.emit(True)
