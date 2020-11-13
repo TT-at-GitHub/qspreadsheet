@@ -378,7 +378,9 @@ class DataFrameView(QTableView):
                 self.model().removeRows(row, 1, QModelIndex())
     
     def apply_and_close_header_menu(self):
-        menu = self.sender().parent() # QMenu
+        menu = self.sender().parent().parent() # QMenu
+        if menu is None or not isinstance(menu, QMenu):
+            raise TypeError('Sender is not a QMenu instance.')
 
         self.blockSignals(True)
         self._proxy.apply_list_filter()
