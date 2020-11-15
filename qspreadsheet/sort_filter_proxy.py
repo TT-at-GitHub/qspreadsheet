@@ -116,12 +116,12 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._list_widget.all_deselected.emit(False)
 
     def apply_list_filter(self):
-        #FIXME: find another way to check if something is filtered
         if self._list_widget.list.count() == 0:
             return
 
         select_all = self._list_widget.select_all_item
 
+        # START HERE 
         if (select_all.checkState() == Qt.Checked):
             self.remove_filter_mask(self._column_index)
         else:
