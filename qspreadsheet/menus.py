@@ -83,9 +83,15 @@ class FilterListWidgetAction(QWidgetAction):
             self.num_checked += 1
         self.list.addItem(item)
 
-    def addSelectAllItem(self, item: QListWidgetItem):
+    def addSelectAllItem(self, state: Qt.CheckState) -> QListWidgetItem:
+        """Adding '(Select All)' item at the beginning of the QListWidget"""
+        item = QListWidgetItem('(Select All)')
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(state)
         self.select_all_item = item
-        self.list.addItem(item)
+        self.list.insertItem(0, item)
+
+        return item
 
     def clear(self):
         self.list.clear()

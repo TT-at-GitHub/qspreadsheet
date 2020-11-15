@@ -108,8 +108,8 @@ def make_df():
     df = pd.DataFrame({'states':states, 'area':area, 'pop':pop}, index=range(len(states)))
     return df
 
-# num_rows = 100_000
 num_rows = 10
+# num_rows = 100_000
 df = pd.DataFrame(pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows)))
 # print(df)
 pd.options.display.precision = 4
