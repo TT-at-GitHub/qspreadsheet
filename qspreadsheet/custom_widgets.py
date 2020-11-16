@@ -27,6 +27,9 @@ class LabeledLineEdit(QWidget):
         layout.addWidget(self.lineEdit)
         self.setLayout(layout)
 
+        self.returnPressed = self.lineEdit.returnPressed
+        self.textChanged = self.lineEdit.textChanged
+
 
 class LabeledTextEdit(QWidget):
 

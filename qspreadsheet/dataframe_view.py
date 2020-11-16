@@ -5,10 +5,7 @@ import traceback
 from functools import partial
 from itertools import count, groupby
 from types import TracebackType
-from typing import (Any, Iterable, List, Mapping, Optional, Tuple, Type, Union,
-                    cast)
-import textwrap
-
+from typing import (Any, Iterable, List, Mapping, Optional, Tuple, Type, Union)
 import numpy as np
 import pandas as pd
 from PySide2.QtCore import *
@@ -22,7 +19,6 @@ from qspreadsheet.dataframe_model import DataFrameModel
 from qspreadsheet.delegates import (ColumnDelegate, MasterDelegate,
                                     automap_delegates)
 from qspreadsheet.header_view import HeaderView, HeaderWidget
-from qspreadsheet.menus import LineEditWidgetAction
 from qspreadsheet.sort_filter_proxy import DataFrameSortFilterProxy
 from qspreadsheet.worker import Worker
 
@@ -201,13 +197,13 @@ class DataFrameView(QTableView):
 
         # TODO: look for other ways to position the menu
         header_pos = self.mapToGlobal(header_widget.pos())
-        menu = self.make_header_menu(col_ndx, header_widget)
+        self.header_menu = self.make_header_menu(col_ndx, header_widget)
 
-        menu_pos = QPoint(header_pos.x() + menu.width() - btn.width() + 5,
+        menu_pos = QPoint(header_pos.x() + self.header_menu.width() - btn.width() + 5,
                         header_pos.y() + btn.height() + 15)
         # menu.move(menu_pos.x(), menu_pos.y())    
         # menu.show()
-        menu.exec_(menu_pos)
+        self.header_menu.exec_(menu_pos)
 
     def make_cell_context_menu(self, row_ndx: int, col_ndx: int) -> QMenu:
         menu = QMenu(self)
@@ -257,20 +253,18 @@ class DataFrameView(QTableView):
         '''Create popup menu used for header'''
 
         menu = QMenu(self)
-        list_filter = self._proxy.create_list_filter_widget()
+        filter_widget = self._proxy.create_filter_widget()
         self._proxy.set_filter_key_column(col_ndx)
-        list_filter.setParent(self)
+        filter_widget.setParent(self)
 
         # Filter Menu Action
-        str_filter = LineEditWidgetAction(self, menu, 'Filter')
-        str_filter.returnPressed.connect(self.apply_and_close_header_menu)
-        str_filter.textChanged.connect(self.filter_list_widget_by_text)
-        menu.addAction(str_filter)
+        filter_widget.str_filter.returnPressed.connect(self.apply_and_close_header_menu)
+        filter_widget.str_filter.textChanged.connect(self.filter_list_widget_by_text)
 
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.async_populate_list()
 
-        menu.addAction(list_filter)
+        menu.addAction(filter_widget)
 
         menu.addAction(standard_icon('DialogResetButton'),
                     "Clear Filter",
@@ -316,7 +310,7 @@ class DataFrameView(QTableView):
         action_btn_box.btn_ok.clicked.connect(self.apply_and_close_header_menu)
         action_btn_box.btn_cancel.clicked.connect(menu.close)
         
-        self._proxy._list_widget.all_deselected.connect(action_btn_box.disableOkayButton)
+        self._proxy._filter_widget.all_deselected.connect(action_btn_box.disableOkayButton)
         menu.addAction(action_btn_box)
         return menu
 
@@ -378,14 +372,10 @@ class DataFrameView(QTableView):
                 self.model().removeRows(row, 1, QModelIndex())
     
     def apply_and_close_header_menu(self):
-        menu = self.sender().parent().parent() # QMenu
-        if menu is None or not isinstance(menu, QMenu):
-            raise TypeError('Sender is not a QMenu instance.')
-
         self.blockSignals(True)
-        self._proxy.apply_list_filter()
+        self._proxy.apply_list_filter(self.header_menu)
         self.blockSignals(False)
-        menu.close()
+        self.header_menu.close()
         self.update_filter_icon()
 
     def clear_all_filters(self):
@@ -460,11 +450,11 @@ class DataFrameView(QTableView):
         return [ndx for ndx in range(self._df.shape[1]) if self.isColumnHidden(ndx)]
 
 
-
 def _rows_from_index_list(indexes: List[QModelIndex]) -> Tuple[List[int], bool]:
     rows = sorted(set([index.row() for index in indexes]))
     consecutive = rows[0] + len(rows) - 1 == rows[-1]
     return rows, consecutive
+
 
 def _consecutive_groups(data: List[int]) -> List[List[int]]:
     groups = []

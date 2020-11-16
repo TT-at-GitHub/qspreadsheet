@@ -15,20 +15,8 @@ from qspreadsheet.worker import Worker
 
 logger = logging.getLogger(__name__)
 
- 
-class LineEditWidgetAction(QWidgetAction):
-    """Labeled Textbox in menu"""
 
-    def __init__(self, parent, menu, label_text='', position=LEFT):
-        super(LineEditWidgetAction, self).__init__(parent)
-
-        widget = LabeledLineEdit(label_text, position, parent=menu)
-        self.returnPressed = widget.lineEdit.returnPressed
-        self.textChanged = widget.lineEdit.textChanged
-        self.setDefaultWidget(widget)
-
-
-class FilterListWidgetAction(QWidgetAction):
+class FilterWidgetAction(QWidgetAction):
     """Checkboxed list filter menu"""
 
     all_deselected = Signal(bool)
@@ -45,11 +33,15 @@ class FilterListWidgetAction(QWidgetAction):
             menu: (QMenu)
                 Menu object this list is located on
         """
-        super(FilterListWidgetAction, self).__init__(parent)
+        super(FilterWidgetAction, self).__init__(parent)
 
         # Build Widgets
         widget = QWidget()
         layout = QVBoxLayout()
+
+        self.str_filter = LabeledLineEdit('Filter', parent=parent)
+        layout.addWidget(self.str_filter)
+
         self.list = QListWidget(widget)
         self.list.setStyleSheet("""
             QListView::item:selected {
