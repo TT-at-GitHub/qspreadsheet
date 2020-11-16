@@ -61,8 +61,11 @@ class DataFrameView(QTableView):
 
         self._proxy = DataFrameSortFilterProxy(model=self._model, parent=self)
         self._proxy.setSourceModel(self._model)
-        # self._proxy.setDynamicSortFilter(False)
         self.setModel(self._proxy)
+        self._proxy.column_filtered.connect(lambda col_ndx: 
+            self.header_model.header_widgets[col_ndx].set_filtered(True))
+        self._proxy.column_unfiltered.connect(lambda col_ndx: 
+            self.header_model.header_widgets[col_ndx].set_filtered(False))
 
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
         self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
@@ -376,29 +379,19 @@ class DataFrameView(QTableView):
         self._proxy.apply_list_filter(self.header_menu)
         self.blockSignals(False)
         self.header_menu.close()
-        self.update_filter_icon()
 
     def clear_all_filters(self):
         self._proxy.clear_filter_cache()
-        for header_widget in self.header_model.header_widgets:
-            header_widget.set_filtered(filtered=False)
 
     def clear_column_filter(self, col_ndx):
         self._proxy.clear_filter_column(col_ndx)
         header_widget = self.header_model.header_widgets[col_ndx]
         header_widget.set_filtered(filtered=False)
-        
-    def update_filter_icon(self):
-        col_ndx = self._proxy.filter_key_column
-        filtered = self._proxy.is_column_filtered(col_ndx)
-        header_widget = self.header_model.header_widgets[col_ndx]
-        header_widget.set_filtered(filtered=filtered)
-    
+            
     def filter_by_value(self, row_ndx: int, col_ndx: int):
         cell_val = self.model().data(self.model().index(row_ndx, col_ndx), Qt.DisplayRole)
         self._proxy.set_filter_key_column(col_ndx)
         self._proxy.string_filter(cell_val)
-        self.update_filter_icon()
 
     @property
     def is_dirty(self) -> bool:

@@ -26,8 +26,12 @@ logger = logging.getLogger(__name__)
 
 INITIAL_FILTER_LIMIT = 5000
 FILTER_VALUES_STEP = 5000
+DEFAULT_FILTER_INDEX = -1
 
 class DataFrameSortFilterProxy(QSortFilterProxyModel):
+
+    column_filtered = Signal(int)
+    column_unfiltered = Signal(int)
 
     def __init__(self, model: DataFrameModel, parent: Optional[QWidget]=None) -> None:
         super(DataFrameSortFilterProxy, self).__init__(parent)
@@ -44,7 +48,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._filter_values: Optional[SER] = None
         self._display_values_gen = None
         self._showing_all_display_values = False
-        self.filter_cache: Dict[int, SER] = {-1 : self.alltrues()}
+        self.filter_cache: Dict[int, SER] = {
+            DEFAULT_FILTER_INDEX : self.alltrues() }
         self.accepted = self.alltrues()
 
     def create_filter_widget(self) -> FilterWidgetAction:
@@ -61,11 +66,13 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.filter_cache[self._column_index] = mask
         # update accepted
         self._update_accepted(mask)
+        self.column_filtered.emit(self._column_index)
 
     def remove_filter_mask(self, column_index):
         if column_index in self.filter_cache:
             self.filter_cache.pop(column_index)
         self._update_accepted(self.filter_mask)
+        self.column_unfiltered.emit(self._column_index)
 
     def _update_accepted(self, mask: SER):
         self.accepted.loc[:] = False
@@ -120,13 +127,13 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             return
 
         text = self._filter_widget.str_filter.lineEdit.text()
-        select_all = self._filter_widget.select_all_item
-
+        checked = self._filter_widget.select_all_item.checkState() == Qt.Checked
+        is_filtered = self.is_column_filtered(self._column_index)
         # START HERE 
-        if (select_all.checkState() == Qt.Checked) \
-                and self.is_column_filtered(self._column_index) \
-                and not text:
+        if checked and is_filtered and not text:
             self.remove_filter_mask(self._column_index)
+        elif checked and not is_filtered and not text:
+            return
         else:
             checked_values = [s.lower() for s in self._filter_widget.values()]
             if not self._showing_all_display_values:
@@ -141,11 +148,16 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def clear_filter_cache(self):
         if not self.is_data_filtered:
             return
+        indices = [index for index in self.filter_cache if index != DEFAULT_FILTER_INDEX]
+        
         self.filter_cache.clear()
-        self.filter_cache = {-1 : self.alltrues()}
+        self.filter_cache = { DEFAULT_FILTER_INDEX : self.alltrues() }
         self.accepted = self.alltrues()
         self._column_index = self.last_filter_index
         self.invalidateFilter()
+
+        for index in indices:
+            self.column_unfiltered.emit(index)
 
     def clear_filter_column(self, column_index: int):
         self.remove_filter_mask(column_index)
