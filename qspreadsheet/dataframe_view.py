@@ -237,7 +237,7 @@ class DataFrameView(QTableView):
                                               
         menu.addSeparator()
 
-        if self._model.row_ndx.is_mutable and not self._proxy.is_column_filtered:
+        if self._model.row_ndx.is_mutable:
             menu.addAction("Insert Rows Above",
                         partial(self.insert_rows, 'above'))
             menu.addAction("Insert Rows Below",

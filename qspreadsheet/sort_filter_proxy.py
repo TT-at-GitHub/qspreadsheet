@@ -18,7 +18,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from qspreadsheet import resources_rc
-from qspreadsheet.common import DF, SER
+from qspreadsheet.common import DF, SER, pandas_obj_insert_rows, pandas_obj_remove_rows
 from qspreadsheet._ndx import _Ndx
 from qspreadsheet.menus import FilterWidgetAction
 
@@ -50,7 +50,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._showing_all_display_values = False
         self.filter_cache: Dict[int, SER] = {
             DEFAULT_FILTER_INDEX : self.alltrues() }
-        self.accepted = self.alltrues()
+        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX]
 
     def create_filter_widget(self) -> FilterWidgetAction:
         if self._filter_widget:
@@ -152,7 +152,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         
         self.filter_cache.clear()
         self.filter_cache = { DEFAULT_FILTER_INDEX : self.alltrues() }
-        self.accepted = self.alltrues()
+        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX]
         self._column_index = self.last_filter_index
         self.invalidateFilter()
 
@@ -292,15 +292,18 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         return pd.Series(data=True, index=self._model.df.index)
 
     def on_rows_inserted(self, parent: QModelIndex, first: int, last: int):
-        for name, mask in self.filter_cache.items():
-            print(name)
-            print(mask)
-            print('=======')
-
-        pass
+        new_rows = pd.Series(data=True, index=range(first, last + 1))
+        for index, mask in self.filter_cache.items():
+            mask = pandas_obj_insert_rows(mask, first, new_rows)
+            self.filter_cache[index] = mask
+        self.accepted = pandas_obj_insert_rows(self.accepted, first, new_rows)
 
     def on_rows_removed(self, parent: QModelIndex, first: int, last: int):
-        pass
+        count = last - first + 1
+        for index, mask in self.filter_cache.items():
+            mask = pandas_obj_remove_rows(mask, first, count)
+            self.filter_cache[index] = mask
+        self.accepted = pandas_obj_remove_rows(self.accepted, first, count)
 
     def sort(self, column: int, order: Qt.SortOrder):
         self.sourceModel().sort(column, order)
