@@ -240,7 +240,7 @@ class MasterDelegate(ColumnDelegate):
 
     def to_nullable(self) -> 'NullableDelegate':
         return self
-# endregion MasterDelegate speciffic
+# endregion MasterDelegate specific
 
 
 # region Type delegates

@@ -85,6 +85,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def string_filter(self, text: str):
         unique, _ = self.get_unique_model_values()
+
         self._display_values = pd.Series({
             ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value)
             for ndx, value in unique.items()})
@@ -264,6 +265,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             filter_mask = filter_mask.loc[filter_mask]
             column = column.loc[filter_mask.index]
         unique = column.drop_duplicates()
+        unique = unique.sort_values()
         return unique, filter_mask
 
     @property
