@@ -50,7 +50,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._showing_all_display_values = False
         self.filter_cache: Dict[int, SER] = {
             DEFAULT_FILTER_INDEX : self.alltrues() }
-        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX]
+        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX].copy()
 
     def create_filter_widget(self) -> FilterWidgetAction:
         if self._filter_widget:
@@ -77,11 +77,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
     def _update_accepted(self, mask: SER):
         self.accepted.loc[:] = False
         self.accepted.loc[mask.index] = mask
-
-    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if source_row < self.accepted.size:
-            return self.accepted.iloc[source_row]
-        return True
 
     def string_filter(self, text: str):
         unique, _ = self.get_model_values()
@@ -153,7 +148,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         
         self.filter_cache.clear()
         self.filter_cache = { DEFAULT_FILTER_INDEX : self.alltrues() }
-        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX]
+        self.accepted = self.filter_cache[DEFAULT_FILTER_INDEX].copy()
         self._column_index = self.last_filter_index
         self.invalidateFilter()
 
@@ -306,5 +301,14 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
             self.filter_cache[index] = mask
         self.accepted = pandas_obj_remove_rows(self.accepted, first, count)
 
+# region Overloads
+
     def sort(self, column: int, order: Qt.SortOrder):
         self.sourceModel().sort(column, order)
+        
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        if source_row < self.accepted.size:
+            return self.accepted.iloc[source_row]
+        return True
+
+# endregion Overloads
