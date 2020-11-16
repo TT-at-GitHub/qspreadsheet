@@ -384,7 +384,7 @@ class DataFrameView(QTableView):
         self._proxy.clear_filter_cache()
 
     def clear_column_filter(self, col_ndx):
-        self._proxy.clear_filter_column(col_ndx)
+        self._proxy.clear_filter_from_column(col_ndx)
         header_widget = self.header_model.header_widgets[col_ndx]
         header_widget.set_filtered(filtered=False)
             

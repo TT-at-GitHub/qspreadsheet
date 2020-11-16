@@ -84,7 +84,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         return True
 
     def string_filter(self, text: str):
-        unique, _ = self.get_unique_model_values()
+        unique, _ = self.get_model_values()
 
         self._display_values = pd.Series({
             ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value)
@@ -160,7 +160,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         for index in indices:
             self.column_unfiltered.emit(index)
 
-    def clear_filter_column(self, column_index: int):
+    def clear_filter_from_column(self, column_index: int):
         self.remove_filter_mask(column_index)
         if self._column_index == column_index:
             self._column_index = self.last_filter_index
@@ -188,32 +188,32 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
     def populate_list(self, *args, **kwargs):
         self._filter_widget.clear()
-        unique, mask = self.get_unique_model_values()
+        model_values, mask = self.get_model_values()
 
         # Generator for display filter values
         self._display_values_gen = (
             (ndx ,self._model.delegate.display_data(self._model.index(ndx, self._column_index), value))
-            for ndx, value in unique.items())
+            for ndx, value in model_values.items())
 
-        if unique.size <= INITIAL_FILTER_LIMIT:
+        if model_values.size <= INITIAL_FILTER_LIMIT:
             self._display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
             self._showing_all_display_values = True
-            unique_index = self._display_values.str.lower().drop_duplicates().index
-            self._filter_values = self._display_values.loc[unique_index]
+            values = self._display_values.str.lower().drop_duplicates()
+            self._filter_values = values
         else:
-            self._display_values = pd.Series(name=unique.name)
-            self._filter_values = pd.Series(name=unique.name)
+            self._display_values = pd.Series(name=model_values.name)
+            self._filter_values = pd.Series(name=model_values.name)
 
             next_step = INITIAL_FILTER_LIMIT
-            remaining = unique.size
+            remaining = model_values.size
 
             while next_step and self._filter_values.size < INITIAL_FILTER_LIMIT:
                 # print('next_step {}, remaining {}'.format(next_step, remaining))
                 values = pd.Series(dict(next(self._display_values_gen)
                                 for _ in range(next_step)))
                 self._display_values = self._display_values.append(values)
-                unique_index = values.str.lower().drop_duplicates().index
-                self._filter_values = self._filter_values.append(values.loc[unique_index])
+                values = values.str.lower().drop_duplicates()
+                self._filter_values = self._filter_values.append(values)
                 remaining -= next_step
                 remaining = max(remaining, 0)
                 next_step = min(FILTER_VALUES_STEP, remaining)
@@ -255,18 +255,17 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         # worker.run()
         self._pool.start(worker)
 
-    def get_unique_model_values(self) -> Tuple[SER, SER]:
+    def get_model_values(self) -> Tuple[SER, SER]:
         # Generates filter items for given column index
-        column: SER = self._model.df.iloc[:, self._column_index].sort_values()
+        column: SER = self._model.df.iloc[:, self._column_index]
         filter_mask = self.filter_mask
 
         # if the column being filtered is not the last filtered column
         if self._column_index != self.last_filter_index:
             filter_mask = filter_mask.loc[filter_mask]
             column = column.loc[filter_mask.index]
-        unique = column.drop_duplicates()
-        unique = unique.sort_values()
-        return unique, filter_mask
+        column = column.sort_values()
+        return column, filter_mask
 
     @property
     def filter_key_column(self) -> int:

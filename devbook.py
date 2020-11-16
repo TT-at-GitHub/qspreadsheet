@@ -44,6 +44,10 @@ df.columns = df.columns.astype(str)
 half_sz = int(df.index.size / 2)
 df
 #In[0]
+df.loc[1::2, '1'] = np.nan
+df.loc[:, '1'] = df['1'].ffill()
+df
+#In[0]
 df.B[1:half_sz:2] = df.B[:half_sz -1 : 2].apply(str.upper)
 df
 #In[0]
@@ -64,3 +68,5 @@ df
 df.C.iloc[-1] = df.C.iloc[0]
 df.C.iloc[2] = df.C.iloc[0]
 df
+#In[0]
+df['1'].drop_duplicates()

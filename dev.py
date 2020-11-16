@@ -13,7 +13,7 @@ from qspreadsheet import resources_rc
 
 import logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format='%(asctime)s, %(levelname)-8s [%(name)s:%(lineno)d] %(message)s')
 logger = logging.getLogger(__name__)
 
