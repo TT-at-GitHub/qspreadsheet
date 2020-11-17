@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         self.close()
 
     def on_do_something(self):
-        current = self.table.mutable_rows
+        current = self.table.has_mutable_rows
         new_state = (not current)
         self.table.enable_mutable_rows(new_state)
         logger.info(f'self.table.enable_mutable_rows({new_state})')

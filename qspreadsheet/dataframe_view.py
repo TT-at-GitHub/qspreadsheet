@@ -185,11 +185,6 @@ class DataFrameView(QTableView):
         """
         return self._model._df
 
-    def set_df(self, df: pd.DataFrame):
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError('Invalid type for `df`. Expected DataFrame')
-        self._model.set_df(df)
-
     def filter_clicked(self, name: str):
         btn: QPushButton = self.sender().mapping(name)
         header_widget: HeaderWidget = btn.parent()
@@ -407,7 +402,7 @@ class DataFrameView(QTableView):
         return self._model
 
     @property
-    def mutable_rows(self) -> bool:
+    def has_mutable_rows(self) -> bool:
         return self.dataframe_model.row_ndx.is_mutable
 
     def filter_list_widget_by_text(self, text):

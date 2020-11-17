@@ -26,7 +26,7 @@ class DataFrameModel(QAbstractTableModel):
                  delegate: MasterDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.delegate = delegate
-        self.set_df(df)
+        self._set_df(df)
 
         non_nullables = list(self.delegate.non_nullable_delegates.keys())
         self.col_ndx.non_nullable_mask.iloc[non_nullables] = True
@@ -38,13 +38,11 @@ class DataFrameModel(QAbstractTableModel):
         self.rowsInserted.connect(self.on_rowsInserted)
         self.rowsRemoved.connect(self.on_rowsRemoved)
 
-    def set_df(self, df: DF):
-        # self.beginResetModel()
+    def _set_df(self, df: DF):
         self._df = df.copy()
         self.row_ndx = _Ndx(self._df.index)
         self.col_ndx = _Ndx(self._df.columns)
         self.add_virtual_row()
-        # self.endResetModel()
 
     @property
     def df(self):
