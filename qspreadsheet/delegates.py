@@ -61,7 +61,7 @@ class NullableDelegate(ColumnDelegate):
     def __init__(self, column_delegate: ColumnDelegate):
         super(NullableDelegate, self).__init__(column_delegate.parent())
         self._delegate = column_delegate
-        self.isnull = False
+        self.checkbox: Optional[QCheckBox] = None
 
     def __repr__(self) -> str:
         managed_name = self._delegate.__class__.__name__
@@ -73,10 +73,9 @@ class NullableDelegate(ColumnDelegate):
         nullable_editor = QWidget(parent)
         nullable_editor.setAutoFillBackground(True)
 
-        checkbox = QCheckBox('')
-        checkbox.stateChanged.connect(self.on_checkboxStateChanged)
-        self.checkbox = checkbox
-
+        self.checkbox = QCheckBox('')
+        self.checkbox.stateChanged.connect(self.on_checkboxStateChanged)
+        
         editor = self._delegate.createEditor(parent, option, index)
         editor.setParent(nullable_editor)
         editor.setSizePolicy(QSizePolicy.MinimumExpanding,
@@ -93,30 +92,25 @@ class NullableDelegate(ColumnDelegate):
         return nullable_editor
 
     def on_checkboxStateChanged(self, state: int):
-        # logger.debug('on_checkboxStateChanged(state={})'.format(state))
-        self.isnull = (state == 0)
-        self._editor.setEnabled(not self.isnull)
+        isnull = (state == Qt.Unchecked)
+        self._editor.setEnabled(isnull)
 
     def setEditorData(self, editor: QWidget, index: QModelIndex):
         # logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
-        self.isnull = pd.isnull(model_value)
-        self.checkbox.setChecked(not self.isnull)
+        isnull = pd.isnull(model_value)
 
-        if self.isnull:
-            self.set_default(self._editor)
-        else:
-            self._delegate.setEditorData(self._editor, index)
+        self.checkbox.setChecked(not isnull)
+        self._delegate.setEditorData(self._editor, index)
 
         # force update checkbox state
         self.on_checkboxStateChanged(self.checkbox.checkState())
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
-        # logger.debug('setModelData')
-        if self.isnull:
-            model.setData(index, self._delegate.null_value())
-        else:
+        if self.checkbox.checkState() == Qt.Checkded:
             self._delegate.setModelData(self._editor, model, index)
+        elif self.checkbox.checkState() == Qt.Unchecked:
+            model.setData(index, self._delegate.null_value())
 
     def display_data(self, index: QModelIndex, value: Any) -> Any:
         return self._delegate.display_data(index, value)
@@ -260,7 +254,9 @@ class IntDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QSpinBox, index: QModelIndex):
-        value = index.model().data(index, Qt.EditRole)
+        model_value = index.model().data(index, Qt.EditRole)
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                          else int(model_value)    
         editor.setValue(value)
 
     def setModelData(self, editor: QSpinBox, model: QAbstractItemModel, index: QModelIndex):
@@ -304,8 +300,9 @@ class FloatDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QDoubleSpinBox, index: QModelIndex):
-        logger.debug('setEditorData()')
-        value = index.model().data(index, Qt.EditRole)
+        model_value = index.model().data(index, Qt.EditRole)
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                          else float(model_value)
         editor.setValue(value)
 
     def setModelData(self, editor: QDoubleSpinBox, model: QAbstractItemModel, index: QModelIndex):
@@ -347,10 +344,10 @@ class BoolDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QComboBox, index: QModelIndex):
-        value = index.model().data(index, Qt.EditRole)
-        if pd.isnull(value):
-            value = self._default
-        editor.setCurrentIndex(self.choices.index(value))
+        model_value = index.model().data(index, Qt.EditRole)
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                          else self.choices.index(model_value)
+        editor.setCurrentIndex(value)
 
     def setModelData(self, editor: QComboBox, model: QAbstractItemModel, index: QModelIndex):
         value = self.choices[editor.currentIndex()]
@@ -393,13 +390,12 @@ class DateDelegate(ColumnDelegate):
         return editor
 
     def setEditorData(self, editor: QDateEdit, index: QModelIndex):
-        # logger.debug('setEditorData')
         model_value = index.model().data(index, Qt.EditRole)
-        value = as_qdate(model_value)
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                          else as_qdate(model_value)
         editor.setDate(value)
 
     def setModelData(self, editor: QDateEdit, model: QAbstractItemModel, index: QModelIndex):
-        # logger.debug('setModelData')
         model.setData(index, pd.to_datetime(editor.date().toPython()))
 
     def display_data(self, index: QModelIndex, value: pd.Timestamp) -> Any:
@@ -433,7 +429,9 @@ class StringDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: QLineEdit, index: QModelIndex):
         model_value = index.model().data(index, Qt.EditRole)
-        editor.setText(str(model_value))
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                            else str(model_value)
+        editor.setText(value)
 
     def setModelData(self, editor: QLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.text())
@@ -485,7 +483,9 @@ class RichTextDelegate(ColumnDelegate):
 
     def setEditorData(self, editor: RichTextLineEdit, index: QModelIndex):
         model_value = index.model().data(index, Qt.EditRole)
-        editor.setHtml(model_value)
+        value = self.default_value(index) if pd.isnull(model_value) \
+                                            else model_value
+        editor.setHtml(value)
 
     def setModelData(self, editor: RichTextLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.toSimpleHtml())

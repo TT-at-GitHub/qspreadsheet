@@ -110,12 +110,15 @@ def make_df():
 
 num_rows = 10
 # num_rows = 100_000
-df = pd.DataFrame(pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows)))
+# df = pd.DataFrame(pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows)))
+df = make_df()
 # print(df)
 pd.options.display.precision = 4
 
-delegates = automap_delegates(df, nullable=True)
-delegates['C'] = delegates['C'].to_non_nullable()
+delegates = automap_delegates(df, nullable=False)
+
+last_column = df.columns[-1]
+delegates[last_column] = delegates[last_column].to_nullable()
 # bools = delegates['bools'].to_non_nullable()
 # delegates['bools'] = bools
 

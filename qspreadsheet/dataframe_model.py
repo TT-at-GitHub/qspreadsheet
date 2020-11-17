@@ -121,7 +121,7 @@ class DataFrameModel(QAbstractTableModel):
 
         # If user has typed in the last row
         if self.row_ndx.is_virtual(index.row()):
-            self.insertRow(self.row_ndx.count, QModelIndex())
+            self.insertRow(index.row(), QModelIndex())
 
         # if self.col_ndx.is_virtual(index.column()):
         #     self.insertColumn(self.col_ndx.count, QModelIndex())
