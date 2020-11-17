@@ -20,8 +20,8 @@ class _Ndx():
     def __init__(self, index: pd.Index) -> None:
         i_index = range(index.size)
         self._data = self._make_index_data_for(i_index)
-        self.is_mutable = True
-        self.count_virtual = 1
+        self.is_mutable = False
+        self.count_virtual = 0
 
     @property
     def count_committed(self) -> int:

@@ -47,8 +47,8 @@ class DataFrameModel(QAbstractTableModel):
         self.row_ndx = _Ndx(self._df.index)
         self.col_ndx = _Ndx(self._df.columns)
         # freeze columns
-        self.col_ndx.is_mutable == False
-        self.col_ndx.count_virtual = 0
+        self.row_ndx.is_mutable == True
+        self.row_ndx.count_virtual = _Ndx.VIRTUAL_COUNT
 
     @property
     def df(self):
