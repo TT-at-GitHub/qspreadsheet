@@ -169,6 +169,7 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
         self._display_values = self._display_values.append(display_values)
         self._showing_all_display_values = True
+        # Updating filter_values
         filter_index = display_values.str.lower().drop_duplicates().index
         filter_values = display_values.loc[filter_index]
         self._filter_values = self._filter_values.append(filter_values)
@@ -192,8 +193,8 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         if model_values.size <= INITIAL_FILTER_LIMIT:
             self._display_values = pd.Series({ndx : value for ndx, value in self._display_values_gen})
             self._showing_all_display_values = True
-            values = self._display_values.str.lower().drop_duplicates()
-            self._filter_values = values
+            filter_index = self._display_values.str.lower().drop_duplicates().index
+            self._filter_values = self._display_values.loc[filter_index]
         else:
             self._display_values = pd.Series(name=model_values.name)
             self._filter_values = pd.Series(name=model_values.name)
@@ -203,11 +204,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
 
             while next_step and self._filter_values.size < INITIAL_FILTER_LIMIT:
                 # print('next_step {}, remaining {}'.format(next_step, remaining))
-                values = pd.Series(dict(next(self._display_values_gen)
+                to_display = pd.Series(dict(next(self._display_values_gen)
                                 for _ in range(next_step)))
-                self._display_values = self._display_values.append(values)
-                values = values.str.lower().drop_duplicates()
-                self._filter_values = self._filter_values.append(values)
+                self._display_values = self._display_values.append(to_display)
+                filter_index = to_display.str.lower().drop_duplicates().index
+                self._filter_values = self._filter_values.append(to_display.loc[filter_index])
                 remaining -= next_step
                 remaining = max(remaining, 0)
                 next_step = min(FILTER_VALUES_STEP, remaining)
