@@ -79,11 +79,11 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self.accepted.loc[mask.index] = mask
 
     def string_filter(self, text: str):
-        unique, _ = self.get_model_values()
+        values, _ = self.get_model_values()
 
         self._display_values = pd.Series({
             ndx : self._model.delegate.display_data(self._model.index(ndx, self._column_index), value)
-            for ndx, value in unique.items()})
+            for ndx, value in values.items()})
         self._showing_all_display_values = True
 
         if text:

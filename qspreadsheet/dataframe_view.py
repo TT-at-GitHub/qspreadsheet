@@ -68,7 +68,6 @@ class DataFrameView(QTableView):
             self.header_model.header_widgets[col_ndx].set_filtered(False))
 
         self.horizontalScrollBar().valueChanged.connect(self._model.on_horizontal_scroll)
-        self.verticalScrollBar().valueChanged.connect(self._model.on_vertical_scroll)
         self.set_column_widths()
 
     def sizeHint(self) -> QSize:

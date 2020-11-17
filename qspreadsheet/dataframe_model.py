@@ -32,9 +32,6 @@ class DataFrameModel(QAbstractTableModel):
         self.col_ndx.non_nullable_mask.iloc[non_nullables] = True
 
         self.header_model = header_model
-        self.header_model.filter_btn_mapper.mapped[str].connect(
-            self.filter_clicked)
-
         self.is_dirty = False
 
         self.dataChanged.connect(self.on_dataChanged)
@@ -46,7 +43,7 @@ class DataFrameModel(QAbstractTableModel):
         self._df = df.copy()
         self.row_ndx = _Ndx(self._df.index)
         self.col_ndx = _Ndx(self._df.columns)
-        self.add_bottom_row()
+        self.add_virtual_row()
         # self.endResetModel()
 
     @property
@@ -202,12 +199,6 @@ class DataFrameModel(QAbstractTableModel):
     def on_horizontal_scroll(self, dx: int):
         self.header_model.fix_item_positions()
 
-    def on_vertical_scroll(self, dy: int):
-        pass
-
-    def filter_clicked(self, name):
-        pass
-
     def enable_mutable_rows(self, enable: bool):
         if self.row_ndx.is_mutable == enable:
             return
@@ -219,7 +210,7 @@ class DataFrameModel(QAbstractTableModel):
             self.removeRow(self.row_ndx.count_real, QModelIndex())
             self.row_ndx.is_mutable = enable
 
-    def add_bottom_row(self):
+    def add_virtual_row(self):
         at_index = self._df.index.size
         bottom_row = self.null_rows(start_index=at_index, count=1)
         self._df = self._df.append(bottom_row)
