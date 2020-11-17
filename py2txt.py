@@ -4,7 +4,7 @@ import shutil
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-v', '--version', help='Version / Tag', required=False, default='')
+parser.add_argument('-v', '--version', '-t', '--tag', help='Version / Tag', required=False, default='')
 args, _ = parser.parse_known_args()
 
 if args.version:
