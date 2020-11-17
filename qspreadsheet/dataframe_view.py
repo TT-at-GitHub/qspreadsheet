@@ -121,7 +121,7 @@ class DataFrameView(QTableView):
                 plural, '`, `'.join(missing)))
 
         column_indices  = self._model._df.columns.get_indexer(columns)
-        self._model.col_ndx.disabled_mask.iloc[column_indices] = (not edit_state)
+        self._model.col_ndx.set_disabled_mask(column_indices, (not edit_state))
 
     def set_column_delegate_for(self, column: Any, delegate: ColumnDelegate):
         '''Sets the column delegate for single column
@@ -170,6 +170,12 @@ class DataFrameView(QTableView):
         if not isinstance(enable, bool):
             raise TypeError('Argument `muttable` not a boolean.')
         self._model.enable_mutable_rows(enable=enable)
+
+    def enable_virtual_row(self, enable: bool):
+        self._model.enable_virtual_row(enable)
+    
+    def set_read_only(self, readonly):
+        self._model.set_read_only(readonly)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -329,7 +335,7 @@ class DataFrameView(QTableView):
                 raise ValueError('Unknown direction: {}'.format(str(direction)))
 
             # bound row number to table row size
-            row = min(row, self._model.row_ndx.count_real)
+            row = min(row, self._model.row_ndx.count)
             self.model().insertRows(row, len(rows), QModelIndex())
 
         if consecutive:
@@ -347,7 +353,7 @@ class DataFrameView(QTableView):
         indexes: List[QModelIndex] = self.selectionModel().selectedIndexes()
         rows, sequential = _rows_from_index_list(indexes)
         # this should filter out any 'virtual rows' at the bottom, if user selected them too
-        rows = [row for row in rows if row < self._model.row_ndx.count_real]
+        rows = [row for row in rows if row < self._model.row_ndx.count]
         if not rows:
             return False
 
@@ -404,6 +410,10 @@ class DataFrameView(QTableView):
     @property
     def has_mutable_rows(self) -> bool:
         return self.dataframe_model.row_ndx.is_mutable
+        
+    @property
+    def has_virtual_row(self) -> bool:
+        return self.dataframe_model.row_ndx.count_virtual > 0
 
     def filter_list_widget_by_text(self, text):
         self._proxy.filter_list_widget_by_text(text=text)    

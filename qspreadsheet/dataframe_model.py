@@ -22,15 +22,19 @@ logger = logging.getLogger(__name__)
 
 class DataFrameModel(QAbstractTableModel):
 
+    mutable_rows_enabled = Signal(bool)
+    virtual_rows_enabled = Signal(bool)
+
     def __init__(self, df: DF, header_model: HeaderView,
                  delegate: MasterDelegate, parent: Optional[QWidget] = None) -> None:
         QAbstractTableModel.__init__(self, parent=parent)
         self.delegate = delegate
-        self._set_df(df)
+        self._init_data(df)
 
         non_nullables = list(self.delegate.non_nullable_delegates.keys())
-        self.col_ndx.non_nullable_mask.iloc[non_nullables] = True
-
+        if non_nullables:
+            self.col_ndx.set_non_nullable(non_nullables, True)
+            
         self.header_model = header_model
         self.is_dirty = False
 
@@ -38,47 +42,46 @@ class DataFrameModel(QAbstractTableModel):
         self.rowsInserted.connect(self.on_rowsInserted)
         self.rowsRemoved.connect(self.on_rowsRemoved)
 
-    def _set_df(self, df: DF):
+    def _init_data(self, df: DF):
         self._df = df.copy()
         self.row_ndx = _Ndx(self._df.index)
         self.col_ndx = _Ndx(self._df.columns)
-        self.add_virtual_row()
+        # freeze columns
+        self.col_ndx.is_mutable == False
+        self.col_ndx.count_virtual = 0
 
     @property
     def df(self):
-        df = self._df
-        not_inprogress_rows = ~self.row_ndx.in_progress_mask
         # TODO: FIXME: self.col_ndx.in_progress_mask.values
         # NOTE: converting to 'values' array is needed because
         # the column index is not numeric, so it maybe be better
         # to make the row and column index datatype agnostic
+        not_inprogress_rows = ~self.row_ndx.in_progress_mask
         not_inprogress_columns = ~self.col_ndx.in_progress_mask.values
-        df.loc[not_inprogress_rows, not_inprogress_columns]
-        df = df.iloc[ : self.row_ndx.count_real]
-        return df
+        return self._df.loc[not_inprogress_rows, not_inprogress_columns].copy()
 
     def columnCount(self, parent: QModelIndex) -> int:
-        return self.col_ndx.size
+        return self.col_ndx.count
 
     def rowCount(self, parent: QModelIndex) -> int:
-        return self.row_ndx.size
+        return self.row_ndx.count
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> Any:
         # logger.debug('data({}, {}), role: {}'.format( index.row(), index.column(), role))
         if index.row() < 0:
             logger.error('index.row() < 0')
             return None
-
-        value = self._df.iloc[index.row(), index.column()]
-
+        
         if role == Qt.DisplayRole:
-            if index.row() == self.row_ndx.count_real:
+            if self.row_ndx.is_virtual(index.row()):
                 return ''
+            value = self._df.iloc[index.row(), index.column()]
             return self.delegate.display_data(index, value)
 
         if role == Qt.EditRole:
-            if index.row() == self.row_ndx.count_real:
+            if self.row_ndx.is_virtual(index.row()):
                 return self.delegate.default_value(index)
+            value = self._df.iloc[index.row(), index.column()]
             return value
 
         if role == Qt.TextAlignmentRole:
@@ -90,11 +93,18 @@ class DataFrameModel(QAbstractTableModel):
             return QApplication.palette().alternateBase()
 
         if role == Qt.ForegroundRole:
+            if self.row_ndx.is_virtual(index.row()) \
+                    or self.col_ndx.is_virtual(index.column()):
+                return self.delegate.foreground_brush(index)
+
             if self.row_ndx.in_progress_mask.iloc[index.row()] \
                     and self.col_ndx.disabled_mask.iloc[index.column()]:
                 return QColor(255, 0, 0)
+
             if self.row_ndx.in_progress_mask.iloc[index.row()] \
                     and self.col_ndx.non_nullable_mask.iloc[index.column()]:
+                    
+                value = self._df.iloc[index.row(), index.column()]
                 if pd.isnull(value):
                     return QColor(255, 0, 0)
 
@@ -110,8 +120,11 @@ class DataFrameModel(QAbstractTableModel):
             return False
 
         # If user has typed in the last row
-        if index.row() == self.row_ndx.count_real:
-            self.insertRow(self.row_ndx.count_real, QModelIndex())
+        if self.row_ndx.is_virtual(index.row()):
+            self.insertRow(self.row_ndx.count, QModelIndex())
+
+        # if self.col_ndx.is_virtual(index.column()):
+        #     self.insertColumn(self.col_ndx.count, QModelIndex())
 
         self._df.iloc[index.row(), index.column()] = value
 
@@ -135,17 +148,24 @@ class DataFrameModel(QAbstractTableModel):
             return None
 
         if orientation == Qt.Vertical:
+            is_virtual = self.row_ndx.is_virtual(section)
             if role == Qt.DisplayRole:
-                if section == self.row_ndx.count_real:
+                if is_virtual:
                     return '*'
                 return str(self._df.index[section])
             if role == Qt.ForegroundRole:
+                if is_virtual:
+                    return None
                 if self.row_ndx.in_progress_mask.iloc[section]:
                     return QColor(255, 0, 0)
                 return None
             return None
+
         if orientation == Qt.Horizontal:
+            is_virtual = self.col_ndx.is_virtual(section)
             if role == Qt.DisplayRole:
+                if is_virtual:
+                    return '*'
                 return self.header_model.header_widgets[section]
             return None
         return None
@@ -162,7 +182,7 @@ class DataFrameModel(QAbstractTableModel):
 
         self.endInsertRows()
         self.dataChanged.emit(self.index(row, 0), self.index(
-            row + count, self.col_ndx.size))
+            row + count, self.col_ndx._size))
         return True
 
     def removeRows(self, row: int, count: int, parent: QModelIndex) -> bool:
@@ -176,7 +196,7 @@ class DataFrameModel(QAbstractTableModel):
         self._df = pandas_obj_remove_rows(self._df, row, count)
         self.endRemoveRows()
         self.dataChanged.emit(self.index(
-            row, 0), self.index(row, self.col_ndx.size))
+            row, 0), self.index(row, self.col_ndx._size))
         return True
 
     def flags(self, index):
@@ -184,14 +204,15 @@ class DataFrameModel(QAbstractTableModel):
             return Qt.ItemIsEnabled
         flag = QAbstractTableModel.flags(self, index)
 
-        if self.row_ndx.is_mutable:
-            if index.row() == self.row_ndx.count_real:
-                flag |= Qt.ItemIsEditable
-            elif self.row_ndx.in_progress_mask.iloc[index.row()]:
-                flag |= Qt.ItemIsEditable
+        if self.row_ndx.is_virtual(index.row()):
+            return flag | Qt.ItemIsEditable
+
+        if self.row_ndx.is_mutable and self.row_ndx.in_progress_mask.iloc[index.row()]:
+            return flag | Qt.ItemIsEditable
 
         if not self.col_ndx.disabled_mask.iloc[index.column()]:
-            flag |= Qt.ItemIsEditable
+            return flag | Qt.ItemIsEditable
+
         return flag
 
     def on_horizontal_scroll(self, dx: int):
@@ -200,15 +221,31 @@ class DataFrameModel(QAbstractTableModel):
     def enable_mutable_rows(self, enable: bool):
         if self.row_ndx.is_mutable == enable:
             return
+        self.row_ndx.is_mutable == enable
+        self.mutable_rows_enabled.emit(enable)
+
+    def enable_virtual_row(self, enable: bool):
+        if self.row_ndx.virtual_enabled == enable:
+            return
         self.beginResetModel()
-        self.row_ndx.is_mutable = enable
+        self.row_ndx.count_virtual = (_Ndx.VIRTUAL_COUNT if enable else 0)
         self.endResetModel()
+        self.virtual_rows_enabled.emit(enable)
+    
+    def set_read_only(self, readonly):
+        self.enable_mutable_rows(readonly)
+        self.enable_virtual_row(readonly)
 
     def add_virtual_row(self):
         at_index = self._df.index.size
         bottom_row = self.null_rows(start_index=at_index, count=1)
         self._df = self._df.append(bottom_row)
         self.row_ndx.insert(at_index, 1)
+
+    def add_virtual_column(self):
+        at_index = self._df.columns.size
+        self._df['__virtual_column__'] = None
+        self.col_ndx.insert(at_index, 1)        
 
     def null_rows(self, start_index: int, count: int) -> DF:
         nulls_row: Dict[int, Any] = self.delegate.null_value()
@@ -249,8 +286,8 @@ class DataFrameModel(QAbstractTableModel):
         
         ascending = True if order == Qt.AscendingOrder else False
         column_name = self._df.columns[column_index]
-        real_rows = self._df.iloc[:self.row_ndx.count_real]
-        virtual_rows = self._df.iloc[self.row_ndx.count_real:]
+        real_rows = self._df.iloc[ : self.row_ndx.count]
+        virtual_rows = self._df.iloc[self.row_ndx.count : ]
         real_rows = real_rows.sort_values(by=column_name, ascending=ascending, ignore_index=truncate)
         self._df = real_rows.append(virtual_rows)
 

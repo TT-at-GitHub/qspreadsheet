@@ -15,16 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class _Ndx():
+    VIRTUAL_COUNT = 1
 
     def __init__(self, index: pd.Index) -> None:
         i_index = range(index.size)
         self._data = self._make_index_data_for(i_index)
         self.is_mutable = True
-
-    @property
-    def count_virtual(self) -> int:
-        """Row count of the `virtual` rows at the bottom"""
-        return 1 if self.is_mutable else 0
+        self.count_virtual = 1
 
     @property
     def count_committed(self) -> int:
@@ -32,12 +29,12 @@ class _Ndx():
         return self._data.index.size - self.count_in_progress - self.count_virtual
 
     @property
-    def count_real(self) -> int:
-        """Row count of `committed` + `in_progress` rows, excluding `virtual` rows, if any"""
-        return self._data.index.size - self.count_virtual
+    def count(self) -> int:
+        """Row count, excluding `virtual` rows, if any"""
+        return self._data.index.size + self.count_virtual
 
     @property
-    def size(self) -> int:
+    def _size(self) -> int:
         """Row count of `committed` + `in_progress` + `virtual` rows"""
         return self._data.index.size
 
@@ -56,10 +53,16 @@ class _Ndx():
         """`pd.Series[bool]` with the disabled rows/columns"""
         return self._data['disabled']
 
+    def set_disabled_mask(self, index, value: bool):
+        self._data.loc[index, 'disabled'] = value
+
     @property
     def non_nullable_mask(self) -> SER:
         """`pd.Series[bool]` with the disabled rows/columns"""
         return self._data['non_nullable']
+
+    def set_non_nullable(self, index, value: bool):
+        self._data.loc[index, 'non_nullable'] = value
 
     def set_disabled_in_progress(self, index, count: int):
         self._data.loc[index, 'disabled_in_progress_count'] = count
@@ -94,6 +97,14 @@ class _Ndx():
         """Removes rows/columns into the index data"""
         self._data = pandas_obj_remove_rows(
             self._data, at_index, count)
+    
+    def is_virtual(self, index: int) -> bool:
+        return self.count_virtual \
+            and index >= self._data.index.size
+
+    @property
+    def virtual_enabled(self) -> bool:
+        self.count_virtual == self.VIRTUAL_COUNT
 
     @staticmethod
     def _make_index_data_for(index) -> DF:

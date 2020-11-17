@@ -85,9 +85,9 @@ class MainWindow(QMainWindow):
         self.close()
 
     def on_do_something(self):
-        current = self.table.has_mutable_rows
+        current = self.table.has_virtual_row
         new_state = (not current)
-        self.table.enable_mutable_rows(new_state)
+        self.table.enable_virtual_row(new_state)
         logger.info(f'self.table.enable_mutable_rows({new_state})')
 
     def on_data_changed(self, first: QModelIndex, last: QModelIndex):
@@ -115,7 +115,7 @@ df = pd.DataFrame(pd.read_pickle('.ignore/data/{}rows.pkl'.format(num_rows)))
 pd.options.display.precision = 4
 
 delegates = automap_delegates(df, nullable=True)
-# delegates['div'] = IntDelegate().to_nullable()
+delegates['C'] = delegates['C'].to_non_nullable()
 # bools = delegates['bools'].to_non_nullable()
 # delegates['bools'] = bools
 

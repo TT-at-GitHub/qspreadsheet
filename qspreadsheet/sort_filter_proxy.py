@@ -43,7 +43,6 @@ class DataFrameSortFilterProxy(QSortFilterProxyModel):
         self._filter_widget = None
         self._pool = QThreadPool(self)
 
-        #FIXME: re-design these in to the masks cache...!
         self._display_values: Optional[SER] = None
         self._filter_values: Optional[SER] = None
         self._display_values_gen = None
