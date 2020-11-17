@@ -39,10 +39,6 @@ class ColumnDelegate(QStyledItemDelegate):
     def font(self, index: QModelIndex) -> QFont:
         return None
 
-    def set_default(self, editor: QWidget) -> None:
-        raise NotImplementedError(
-            f'Class {self.__class__.__name__} is calling virtual function in ColumnDelegate')
-
     def null_value(self) -> Any:
         return None
 
@@ -62,6 +58,7 @@ class NullableDelegate(ColumnDelegate):
         super(NullableDelegate, self).__init__(column_delegate.parent())
         self._delegate = column_delegate
         self.checkbox: Optional[QCheckBox] = None
+        self._editor: Optional[QWidget] = None
 
     def __repr__(self) -> str:
         managed_name = self._delegate.__class__.__name__
@@ -69,11 +66,11 @@ class NullableDelegate(ColumnDelegate):
             self.__class__.__name__, managed_name, hex(id(self)))
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        # logger.debug('createEditor')
         nullable_editor = QWidget(parent)
         nullable_editor.setAutoFillBackground(True)
 
         self.checkbox = QCheckBox('')
+        self.checkbox.setChecked(True)
         self.checkbox.stateChanged.connect(self.on_checkboxStateChanged)
         
         editor = self._delegate.createEditor(parent, option, index)
@@ -93,21 +90,13 @@ class NullableDelegate(ColumnDelegate):
 
     def on_checkboxStateChanged(self, state: int):
         isnull = (state == Qt.Unchecked)
-        self._editor.setEnabled(isnull)
+        self._editor.setEnabled(not isnull)
 
     def setEditorData(self, editor: QWidget, index: QModelIndex):
-        # logger.debug('setEditorData')
-        model_value = index.model().data(index, Qt.EditRole)
-        isnull = pd.isnull(model_value)
-
-        self.checkbox.setChecked(not isnull)
         self._delegate.setEditorData(self._editor, index)
 
-        # force update checkbox state
-        self.on_checkboxStateChanged(self.checkbox.checkState())
-
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex):
-        if self.checkbox.checkState() == Qt.Checkded:
+        if self.checkbox.checkState() == Qt.Checked:
             self._delegate.setModelData(self._editor, model, index)
         elif self.checkbox.checkState() == Qt.Unchecked:
             model.setData(index, self._delegate.null_value())
@@ -120,9 +109,6 @@ class NullableDelegate(ColumnDelegate):
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._delegate.default_value(index)
-
-    def set_default(self, editor: QWidget) -> None:
-        self._delegate.set_default(editor)
 
     def null_value(self) -> Any:
         return self._delegate.null_value()
@@ -266,9 +252,6 @@ class IntDelegate(ColumnDelegate):
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
 
-    def set_default(self, editor: QSpinBox):
-        editor.setValue(self._default)
-
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
 
@@ -291,7 +274,6 @@ class FloatDelegate(ColumnDelegate):
         self._default = 0
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        logger.debug('createEditor()')
         editor = QDoubleSpinBox(parent)
         editor.setRange(self.minimum, self.maximum)
         editor.setDecimals(self.edit_precision)
@@ -317,9 +299,6 @@ class FloatDelegate(ColumnDelegate):
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
-
-    def set_default(self, editor: QDoubleSpinBox):
-        editor.setValue(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
@@ -356,9 +335,6 @@ class BoolDelegate(ColumnDelegate):
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignCenter
 
-    def set_default(self, editor: QComboBox):
-        editor.setCurrentIndex(self._default)
-
     def default_value(self, index: QModelIndex) -> Any:
         return self.choices.index(self._default)
 
@@ -381,7 +357,6 @@ class DateDelegate(ColumnDelegate):
         self._default = QDate.currentDate()
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex) -> QWidget:
-        # logger.debug('createEditor')
         editor = QDateEdit(parent)
         editor.setDateRange(self.minimum, self.maximum)
         editor.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -406,9 +381,6 @@ class DateDelegate(ColumnDelegate):
 
     def alignment(self, index: QModelIndex) -> Qt.Alignment:
         return Qt.AlignRight | Qt.AlignVCenter
-
-    def set_default(self, editor: QDateEdit):
-        editor.setDate(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
@@ -435,9 +407,6 @@ class StringDelegate(ColumnDelegate):
 
     def setModelData(self, editor: QLineEdit, model: QAbstractItemModel, index: QModelIndex):
         model.setData(index, editor.text())
-
-    def set_default(self, editor: QLineEdit):
-        editor.setText(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
@@ -492,9 +461,6 @@ class RichTextDelegate(ColumnDelegate):
 
     def to_nullable(self) -> 'NullableDelegate':
         return self
-
-    def set_default(self, editor: RichTextLineEdit):
-        editor.setHtml(self._default)
 
     def default_value(self, index: QModelIndex) -> Any:
         return self._default
