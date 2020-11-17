@@ -202,13 +202,9 @@ class DataFrameModel(QAbstractTableModel):
     def enable_mutable_rows(self, enable: bool):
         if self.row_ndx.is_mutable == enable:
             return
-        # FIXME: make this dynamic
-        if enable:
-            self.row_ndx.is_mutable = enable
-            self.insertRow(self.row_ndx.count_real + 1, self.index(0, 0).parent())
-        else:
-            self.removeRow(self.row_ndx.count_real, QModelIndex())
-            self.row_ndx.is_mutable = enable
+        self.beginResetModel()
+        self.row_ndx.is_mutable = enable
+        self.endResetModel()
 
     def add_virtual_row(self):
         at_index = self._df.index.size
