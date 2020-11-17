@@ -47,7 +47,7 @@ class DataFrameModel(QAbstractTableModel):
         self.row_ndx = _Ndx(self._df.index)
         self.col_ndx = _Ndx(self._df.columns)
         # freeze columns
-        self.row_ndx.is_mutable == True
+        self.row_ndx.is_mutable = True
         self.row_ndx.count_virtual = _Ndx.VIRTUAL_COUNT
 
     @property
@@ -221,7 +221,7 @@ class DataFrameModel(QAbstractTableModel):
     def enable_mutable_rows(self, enable: bool):
         if self.row_ndx.is_mutable == enable:
             return
-        self.row_ndx.is_mutable == enable
+        self.row_ndx.is_mutable = enable
         self.mutable_rows_enabled.emit(enable)
 
     def enable_virtual_row(self, enable: bool):
